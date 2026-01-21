@@ -422,6 +422,12 @@
     <label style="margin-top:8px;">Tamanho do Subgrupo (n)</label>
     <input type="number" id="inp-n" value="5" min="2" max="15">
 
+    <label style="margin-top:8px;">Estimativa de Sigma</label>
+    <select id="sel-method">
+      <option value="rbar">R-Bar (Amplitude)</option>
+      <option value="sbar">S-Bar (Desvio Padrão)</option>
+    </select>
+
     <label style="display:flex; align-items:center; gap:8px; margin-top:12px; cursor:pointer;">
       <input type="checkbox" id="chk-iqr"> 
       <span>Filtrar Outliers (IQR)</span>
@@ -700,13 +706,20 @@
   // --- SPC MATH ---
   const SPC = {
     consts: {
-      2: { A2:1.880, d2:1.128, D3:0, D4:3.267, B3:0, B4:3.267 }, 3: { A2:1.023, d2:1.693, D3:0, D4:2.574, B3:0, B4:2.568 },
-      4: { A2:0.729, d2:2.059, D3:0, D4:2.282, B3:0, B4:2.266 }, 5: { A2:0.577, d2:2.326, D3:0, D4:2.114, B3:0, B4:2.089 },
-      6: { A2:0.483, d2:2.534, D3:0, D4:2.004, B3:0.030, B4:1.970 }, 7: { A2:0.419, d2:2.704, D3:0.076, D4:1.924, B3:0.118, B4:1.882 },
-      8: { A2:0.373, d2:2.847, D3:0.136, D4:1.864, B3:0.185, B4:1.815 }, 9: { A2:0.337, d2:2.970, D3:0.184, D4:1.816, B3:0.239, B4:1.761 },
-      10:{ A2:0.308, d2:3.078, D3:0.223, D4:1.777, B3:0.284, B4:1.716 }, 11:{ A2:0.285, d2:3.173, D3:0.256, D4:1.744, B3:0.321, B4:1.679 },
-      12:{ A2:0.266, d2:3.258, D3:0.283, D4:1.717, B3:0.354, B4:1.646 }, 13:{ A2:0.249, d2:3.336, D3:0.307, D4:1.693, B3:0.382, B4:1.618 },
-      14:{ A2:0.235, d2:3.407, D3:0.328, D4:1.672, B3:0.406, B4:1.594 }, 15:{ A2:0.223, d2:3.472, D3:0.347, D4:1.653, B3:0.428, B4:1.572 }
+      2: { A2:1.880, d2:1.128, D3:0, D4:3.267, B3:0, B4:3.267, A3:2.659, c4:0.7979 },
+      3: { A2:1.023, d2:1.693, D3:0, D4:2.574, B3:0, B4:2.568, A3:1.954, c4:0.8862 },
+      4: { A2:0.729, d2:2.059, D3:0, D4:2.282, B3:0, B4:2.266, A3:1.628, c4:0.9213 },
+      5: { A2:0.577, d2:2.326, D3:0, D4:2.114, B3:0, B4:2.089, A3:1.427, c4:0.9400 },
+      6: { A2:0.483, d2:2.534, D3:0, D4:2.004, B3:0.030, B4:1.970, A3:1.287, c4:0.9515 },
+      7: { A2:0.419, d2:2.704, D3:0.076, D4:1.924, B3:0.118, B4:1.882, A3:1.182, c4:0.9594 },
+      8: { A2:0.373, d2:2.847, D3:0.136, D4:1.864, B3:0.185, B4:1.815, A3:1.099, c4:0.9650 },
+      9: { A2:0.337, d2:2.970, D3:0.184, D4:1.816, B3:0.239, B4:1.761, A3:1.032, c4:0.9693 },
+      10:{ A2:0.308, d2:3.078, D3:0.223, D4:1.777, B3:0.284, B4:1.716, A3:0.975, c4:0.9727 },
+      11:{ A2:0.285, d2:3.173, D3:0.256, D4:1.744, B3:0.321, B4:1.679, A3:0.927, c4:0.9754 },
+      12:{ A2:0.266, d2:3.258, D3:0.283, D4:1.717, B3:0.354, B4:1.646, A3:0.886, c4:0.9776 },
+      13:{ A2:0.249, d2:3.336, D3:0.307, D4:1.693, B3:0.382, B4:1.618, A3:0.850, c4:0.9794 },
+      14:{ A2:0.235, d2:3.407, D3:0.328, D4:1.672, B3:0.406, B4:1.594, A3:0.817, c4:0.9810 },
+      15:{ A2:0.223, d2:3.472, D3:0.347, D4:1.653, B3:0.428, B4:1.572, A3:0.789, c4:0.9823 }
     },
     getFactors(n) { return this.consts[n] || this.consts[15]; },
     mean: (arr) => arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length : 0,
@@ -885,7 +898,7 @@
       document.getElementById('col-strat').addEventListener('change', e => { this.state.stratCol = e.target.value; this.calc(); });
       
       ['inp-n', 'inp-lsl', 'inp-usl', 'rng-window'].forEach(id => document.getElementById(id).addEventListener('input', dbUpdate));
-      ['chk-iqr', 'sel-window', 'r1','r2','r3','r4','r5'].forEach(id => document.getElementById(id).addEventListener('change', () => this.calc()));
+      ['chk-iqr', 'sel-window', 'sel-method', 'r1','r2','r3','r4','r5'].forEach(id => document.getElementById(id).addEventListener('change', () => this.calc()));
 
       document.getElementById('toggle-sidebar').addEventListener('click', () => this.toggle('sidebar'));
       document.getElementById('toggle-panel').addEventListener('click', () => this.toggle('panel'));
@@ -1030,11 +1043,22 @@
         ind: { cl: meanGrand, ucl: meanGrand + 2.66*mrBar, lcl: meanGrand - 2.66*mrBar },
         mr:  { cl: mrBar, ucl: 3.267*mrBar, lcl: 0 },
         xbar:{ cl: meanGrand, ucl: meanGrand + f.A2*rBar, lcl: meanGrand - f.A2*rBar },
+        xbars:{ cl: meanGrand, ucl: meanGrand + f.A3*sBar, lcl: meanGrand - f.A3*sBar },
         r:   { cl: rBar, ucl: f.D4*rBar, lcl: f.D3*rBar },
         s:   { cl: sBar, ucl: f.B4*sBar, lcl: f.B3*sBar }
       };
 
-      const sWithin = rBar / f.d2;
+      const method = document.getElementById('sel-method').value;
+      let sWithin, activeXBarLimits;
+
+      if(method === 'sbar') {
+          sWithin = sBar / f.c4;
+          activeXBarLimits = this.state.limits.xbars;
+      } else {
+          sWithin = rBar / f.d2;
+          activeXBarLimits = this.state.limits.xbar;
+      }
+
       const sOverall = SPC.stdDev(data, meanGrand);
       
       const moments = SPC.moments(data, meanGrand, sOverall);
@@ -1050,7 +1074,7 @@
       this.worker.postMessage({
         raw: data, means,
         limitsInd: this.state.limits.ind,
-        limitsBar: this.state.limits.xbar,
+        limitsBar: activeXBarLimits,
         sigmaBar: sWithin, 
         rules: {
           r1: document.getElementById('r1').checked,
@@ -1108,7 +1132,7 @@
 
     renderCharts() {
       const { data } = this.state;
-      const { ind, mr, xbar, r, s } = this.state.limits;
+      const { ind, mr, xbar, xbars, r, s } = this.state.limits;
       if(!data.length) return;
 
       const idx = data.map((_,i)=>i+1);
@@ -1150,7 +1174,10 @@
       const layoutXBar = this.getChartLayout('', xbar.ucl, xbar.cl, xbar.lcl, 'Média');
       layoutXBar.xaxis.matches = 'x2'; layoutXBar.separators = ',.';
       Plotly.react('plt-xbar', [{ x: xIdx, y: means, type:'scatter', mode:'lines+markers', line:{color:'#2AA8CE', width:1.5}, marker: { color: '#118186', size: 6 } }], layoutXBar, this.plotlyConfig());
-      Plotly.react('plt-xbars', [{ x: xIdx, y: means, type:'scatter', mode:'lines+markers', line:{color:'#2AA8CE', width:1.5}, marker: { color: '#118186', size: 6 } }], layoutXBar, this.plotlyConfig());
+
+      const layoutXBarS = this.getChartLayout('', xbars.ucl, xbars.cl, xbars.lcl, 'Média');
+      layoutXBarS.xaxis.matches = 'x2'; layoutXBarS.separators = ',.';
+      Plotly.react('plt-xbars', [{ x: xIdx, y: means, type:'scatter', mode:'lines+markers', line:{color:'#2AA8CE', width:1.5}, marker: { color: '#118186', size: 6 } }], layoutXBarS, this.plotlyConfig());
 
       const layoutR = this.getChartLayout('', r.ucl, r.cl, r.lcl, 'Amplitude');
       layoutR.xaxis.matches = 'x2'; layoutR.separators = ',.';
