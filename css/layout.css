@@ -1,0 +1,49 @@
+body {
+  margin: 0;
+  height: 100vh;
+  display: grid;
+  grid-template-columns: 280px minmax(0,1fr) 320px;
+  grid-template-rows: 56px minmax(0,1fr);
+  overflow: hidden;
+  transition: grid-template-columns var(--trans-speed) ease;
+}
+
+body.hide-sidebar { grid-template-columns: 0px minmax(0,1fr) 320px; }
+body.hide-panel { grid-template-columns: 280px minmax(0,1fr) 0px; }
+body.hide-sidebar.hide-panel { grid-template-columns: 0px minmax(0,1fr) 0px; }
+
+/* Header structure */
+.header {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  z-index: 20;
+}
+
+.header-left, .header-right { display: flex; align-items: center; gap: 20px; }
+
+/* Sidebar structure */
+.sidebar {
+  grid-row: 2;
+  display: flex; flex-direction: column; gap: 32px; padding: 24px; overflow-y: auto;
+}
+
+/* Main Stage structure */
+.stage {
+  grid-row: 2; padding: 20px;
+  display: flex; flex-direction: column; gap: 20px; overflow: hidden; position: relative;
+}
+
+/* Right Panel structure */
+.panel {
+  grid-row: 2;
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.panel-section { padding: 20px; }
+
+.sixpack-grid {
+  display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr 1fr;
+  gap: 12px; height: 100%;
+}
