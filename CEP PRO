@@ -653,15 +653,31 @@
     return n.toLocaleString('pt-BR', { minimumFractionDigits: d, maximumFractionDigits: d });
   }
 
+  const NON_NUMERIC_REGEX = /[^\d.,-]/g;
+
   function parseLocaleNumber(stringVal) {
     if (typeof stringVal === 'number') return stringVal;
-    if (!stringVal) return NaN;
-    let str = stringVal.toString().trim().replace(/^[^\d\-\.,]+/, '');
-    if (str.indexOf(',') > -1 && str.indexOf('.') > -1) {
-        if (str.lastIndexOf(',') > str.lastIndexOf('.')) { str = str.replace(/\./g, '').replace(',', '.'); } 
-        else { str = str.replace(/,/g, ''); }
-    } else if (str.indexOf(',') > -1) { str = str.replace(',', '.'); }
-    return parseFloat(str);
+    if (typeof stringVal !== 'string') return NaN;
+
+    let str = stringVal.trim();
+    if (!str) return NaN;
+
+    // Check if the number is already in a valid format
+    if (!isNaN(str)) return parseFloat(str);
+
+    // Determines the decimal separator
+    const lastComma = str.lastIndexOf(',');
+    const lastDot = str.lastIndexOf('.');
+
+    if (lastComma > lastDot) {
+      // Comma is the decimal separator, remove dots
+      str = str.replace(/\./g, '').replace(',', '.');
+    } else {
+      // Dot is the decimal separator, remove commas
+      str = str.replace(/,/g, '');
+    }
+
+    return parseFloat(str.replace(NON_NUMERIC_REGEX, ''));
   }
 
   const UI = {
