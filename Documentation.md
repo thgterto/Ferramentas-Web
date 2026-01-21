@@ -1,73 +1,114 @@
-# Pesquisa Técnica e Plano de Melhorias
+# Documentação do CEP PRO
 
-Este documento consolida a análise técnica da aplicação `CEP PRO` e propõe padrões para a implementação de melhorias estruturais, visando a modularização, manutenção e escalabilidade da ferramenta.
+## 1. Visão Geral
+O CEP PRO (Controle Estatístico de Processo Profissional) é uma ferramenta avançada de análise estatística desenvolvida para rodar inteiramente no navegador. Ela permite que engenheiros de qualidade, analistas e gestores realizem análises complexas de estabilidade e capacidade de processos sem a necessidade de softwares estatísticos pesados ou instalação de programas.
 
-## 1. Identificação de Arquivos Afetados
+A ferramenta é distribuída como um arquivo único (.html), garantindo portabilidade e facilidade de uso em qualquer ambiente corporativo que disponha de um navegador moderno.
 
-Atualmente, a base de código consiste em um único arquivo monolítico. As melhorias técnicas afetarão a estrutura global do projeto, resultando na decomposição do arquivo `CEP PRO` em múltiplos componentes.
+**Versão Atual:** V1.3 UI REFRESH
 
-*   **Arquivo Original:** `CEP PRO` (HTML, CSS, JS e Web Worker inline).
-*   **Novos Arquivos Propostos (Refatoração):**
-    *   `index.html`: Estrutura semântica e importação de módulos.
-    *   `css/style.css`: Estilos globais e variáveis de tema.
-    *   `css/layout.css`: Estilos de grid e responsividade.
-    *   `js/main.js`: Ponto de entrada (Entry point) e inicialização.
-    *   `js/state.js`: Gerenciamento do estado global (`App.state`).
-    *   `js/ui.js`: Manipulação direta do DOM, Modais e Templates.
-    *   `js/charts.js`: Configurações e renderização do Plotly.
-    *   `js/utils.js`: Funções utilitárias (`fmt`, `debounce`, `downsamplePairs`).
-    *   `workers/worker.js`: **Todo** o cálculo estatístico e verificação de regras.
+## 2. Funcionalidades Principais
 
-## 2. Padrões de Implementação Existentes (Análise Profunda)
+### Importação de Dados
+*   Suporte para arquivos Excel (.xlsx) e CSV (.csv).
+*   Detecção automática de colunas numéricas.
+*   Capacidade de selecionar coluna de dados e coluna de estratificação (opcional).
 
-### 2.1. Arquitetura e Estado
-*   **Padrão Namespace Global:** A aplicação reside inteiramente no objeto `App`.
-*   **Estado Centralizado:** `App.state` armazena tudo: dados brutos (`raw`), processados (`means`, `stds`), limites de controle, estatísticas descritivas e configurações de UI (`window`, `logBatchSize`).
-*   **Anti-pattern Identificado:** O Web Worker atual é subutilizado. Ele realiza apenas a verificação de *regras de controle* (loops `for` para detectar violações). O cálculo pesado (médias de subgrupos, desvios padrão, Anderson-Darling, CUSUM, EWMA) ocorre na **Main Thread** (`App.calc`), o que pode bloquear a UI em grandes datasets.
+### Gráficos de Controle (Cartas de Controle)
+O CEP PRO oferece diversos tipos de cartas de controle para monitorar a estabilidade do processo:
 
-### 2.2. Interface e Gráficos
-*   **Plotly.react:** O código já utiliza `Plotly.react` ao invés de `newPlot` para atualizações eficientes, um padrão excelente que deve ser mantido.
-*   **Downsampling:** Existe uma função `downsamplePairs` (implementação manual de LTTB?) para otimizar a renderização de grandes séries temporais. Isso deve ser extraído para `utils.js` ou movido para o Worker.
-*   **UI Templates:** O objeto `UI` contém strings literais (Template Strings) para gerar HTML dinâmico (KPIs, Stats). Isso é um padrão leve de "View" que pode ser expandido.
+*   **I-MR (Individual - Amplitude Móvel):** Para dados individuais (tamanho de subgrupo n=1).
+*   **X-Bar R (Média e Amplitude):** Para subgrupos pequenos (n entre 2 e 9).
+*   **X-Bar S (Média e Desvio Padrão):** Para subgrupos maiores (n >= 10).
+*   **Run Chart:** Gráfico de corrida para análise de tendências simples.
+*   **Gráficos Avançados:**
+    *   **CUSUM (Soma Acumulada):** Detecta pequenas mudanças na média do processo.
+    *   **EWMA (Média Móvel Exponencialmente Ponderada):** Sensível a pequenas variações e tendências.
 
-### 2.3. Dependências
-*   **Plotly.js (v2.27.0):** Renderização gráfica.
-*   **SheetJS (v0.20.3):** Parsing de Excel/CSV.
-*   **jStat (latest):** Funções estatísticas (CDF, Distribuições).
+### Análise de Capacidade (Sixpack)
+Um painel consolidado ("Sixpack") que fornece uma visão completa da saúde do processo:
 
-## 3. Documentação de Tecnologias e Padrões Externos
+*   Histograma com curva normal ajustada.
+*   Gráficos de controle (Xbar e R/S).
+*   Plotagem de Probabilidade Normal.
+*   Gráfico de Capacidade (comparação entre histograma e limites de especificação).
+*   Índices de Capacidade: Cp, Cpk, Pp, Ppk.
 
-### 3.1. ES Modules (ESM)
-*   **Doc:** [MDN - JavaScript modules](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Modules)
-*   **Aplicação:** Usar `export const` e `import { ... }` para compartilhar funções e estado, eliminando o namespace global `App`.
+### Testes Estatísticos e Diagnósticos
+*   **Estatística Descritiva:** Média, Mediana, Quartis, Desvio Padrão (Global e Dentro), Skewness (Assimetria), Kurtosis (Curtose).
+*   **Teste de Normalidade:** Teste de Anderson-Darling para verificar se os dados seguem uma distribuição normal.
+*   **Diagnóstico Automático:** O sistema analisa os dados e gera "insights" textuais sobre a estabilidade (regras violadas) e capacidade (adequação do Cpk), sugerindo ações corretivas (ex: "Investigue causas comuns", "Realize um DOE").
 
-### 3.2. Web Workers API (Offloading Real)
-*   **Doc:** [MDN - Web Workers API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Using_web_workers)
-*   **Melhoria Proposta:** Mover **toda** a lógica do objeto `SPC` (cálculos matemáticos) para o Worker.
-*   **Fluxo Novo:**
-    1.  Main envia `raw data` + `config`.
-    2.  Worker calcula estatísticas, limites e violações.
-    3.  Worker retorna objeto completo `processed` + `viols`.
-    4.  Main apenas renderiza.
+### Regras de Controle (Western Electric)
+O sistema verifica automaticamente violações das seguintes regras para identificar causas especiais:
 
-### 3.3. Padrão de Projeto: State Management Simples (Store)
-Ao invés de um objeto solto, usar um padrão Pub/Sub simples para notificar a UI.
-*   **Exemplo:**
-    ```javascript
-    // state.js
-    const listeners = new Set();
-    let state = { ... };
-    export const subscribe = (fn) => listeners.add(fn);
-    export const update = (newState) => {
-        state = { ...state, ...newState };
-        listeners.forEach(fn => fn(state));
-    };
-    ```
+*   **Regra 1:** Qualquer ponto além de 3σ (limites de controle).
+*   **Regra 2:** 9 pontos consecutivos do mesmo lado da linha central.
+*   **Regra 3:** 2 de 3 pontos consecutivos além de 2σ (na mesma zona).
+*   **Regra 4:** 4 de 5 pontos consecutivos além de 1σ (na mesma zona).
+*   **Regra 5:** 6 pontos consecutivos em tendência (crescente ou decrescente).
 
-## 4. Estratégia de Migração Detalhada
+### Outros Recursos
+*   **Filtragem de Outliers:** Opção para remover outliers baseada no método IQR (Intervalo Interquartil).
+*   **Janelamento Dinâmico:** Zoom e seleção de janela de dados (ex: últimos 50 pontos).
+*   **Exportação:** Geração de relatórios em Excel e exportação de dados/logs em CSV.
 
-1.  **Isolamento do Worker:** Criar `workers/worker.js` e migrar as funções do objeto `SPC` para dentro dele. Remover a tag `<script id="worker-js">`.
-2.  **Extração de Utilidades:** Mover `debounce`, `fmt`, `parseLocaleNumber` e `downsamplePairs` para `js/utils.js`.
-3.  **Modularização do Plotly:** Criar `js/charts.js` que exporta funções como `renderControlChart(divId, data, limits)`.
-4.  **Refatoração do Main:** `js/main.js` deve apenas inicializar os listeners de eventos e instanciar o Worker.
-5.  **CSS Split:** Separar o bloco `<style>` gigante em arquivos CSS organizados.
+## 3. Guia de Uso
+
+### Passo 1: Carregar Dados
+1.  Abra o arquivo `CEP PRO.html` no seu navegador.
+2.  Clique no botão "Importar Arquivo" na barra lateral esquerda.
+3.  Selecione seu arquivo .xlsx ou .csv. O sistema processará o arquivo e habilitará os seletores de coluna.
+
+### Passo 2: Configurar Análise
+1.  **Variável de Controle:** Selecione a coluna que contém os dados numéricos a serem analisados.
+2.  **Fator de Estratificação (Opcional):** Selecione uma coluna para agrupar ou identificar os dados (ex: Lote, Operador).
+3.  **Tamanho do Subgrupo (n):** Defina o tamanho do subgrupo para os gráficos X-Bar (padrão é 5).
+4.  **Limites de Especificação:** Insira o LIE (Limite Inferior de Especificação) e o LSE (Limite Superior de Especificação) se desejar calcular os índices de capacidade (Cp/Cpk).
+
+### Passo 3: Analisar Resultados
+1.  Navegue pelas abas na parte superior (I-MR, X-Bar R, Sixpack, etc.) para visualizar os gráficos.
+2.  Observe o painel de Diagnóstico (ícone `space_dashboard` no canto superior direito) para ver estatísticas detalhadas e interpretação automática.
+3.  Verifique se há pontos vermelhos nos gráficos, indicando violações das regras de controle.
+
+## 4. Detalhes Técnicos
+
+### Arquitetura
+O CEP PRO é uma SPA (Single Page Application) contida em um único arquivo HTML. Não requer servidor backend; todo o processamento é feito localmente no navegador do usuário (Client-Side).
+
+### Bibliotecas Utilizadas
+A ferramenta utiliza bibliotecas JavaScript modernas via CDN:
+*   **Plotly.js:** Para renderização de gráficos interativos e responsivos.
+*   **SheetJS (xlsx):** Para leitura e parsing de arquivos Excel e CSV.
+*   **jStat:** Para funções de distribuição probabilística e cálculos estatísticos complexos.
+
+### Performance (Web Workers)
+Para garantir que a interface não congele durante o processamento de grandes conjuntos de dados, o CEP PRO utiliza Web Workers.
+*   Os cálculos das regras de controle (verificação de violações em milhares de pontos) são delegados a uma thread separada (`worker-js`).
+*   O worker retorna as violações encontradas, que são então plotadas nos gráficos principais.
+
+### Estrutura do Código
+*   **UTILS:** Funções auxiliares de formatação, debounce e manipulação de DOM.
+*   **SPC MATH:** Módulo central contendo toda a lógica matemática (cálculo de média, desvio padrão, constantes A2/d2/etc., CUSUM, EWMA, Anderson-Darling).
+*   **App:** Objeto principal que gerencia o estado da aplicação, eventos de UI e orquestração do fluxo de dados.
+
+## 5. Fundamentação Estatística
+
+### Constantes de Controle
+O sistema utiliza constantes padrão para o cálculo dos limites de controle, variando conforme o tamanho do subgrupo (n):
+*   **A2:** Para limites do gráfico X-Bar.
+*   **d2:** Para estimativa de sigma baseada na amplitude média.
+*   **D3/D4:** Para limites do gráfico R.
+*   **B3/B4:** Para limites do gráfico S.
+
+### Índices de Capacidade
+*   **Cp:** (LSE - LIE) / 6σ (Mede o potencial do processo, ignorando a centralização).
+*   **Cpk:** Min((Média - LIE)/3σ, (LSE - Média)/3σ) (Mede a capacidade real considerando a centralização).
+*   **Sigma:** O desvio padrão utilizado para Cp/Cpk é o "Within" (R-bar / d2 ou S-bar / c4), representando a variação de curto prazo (Causas Comuns).
+*   **Pp/Ppk:** Utilizam o desvio padrão global ("Overall") de todos os dados combinados.
+
+### Testes
+*   **Anderson-Darling:** Calcula a estatística A² e o p-valor correspondente para testar a hipótese nula de que os dados seguem uma distribuição normal. Se p-valor < 0.05, a normalidade é rejeitada.
+
+## 6. Créditos
+Desenvolvido por **Thiago Terto** (Engenheiro Químico).
