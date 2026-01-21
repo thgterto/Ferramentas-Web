@@ -1139,9 +1139,9 @@
       const { idx: drawIdx, data: drawData } = downsamplePairs(idx, data, 5000);
       const hasStrat = !!this.state.stratCol && this.state.strata.length === data.length;
       
+      const violationSet = new Set(this.state.violations.map(x => `${x.chart}-${x.i}`));
       const getPointColor = (chartType, index) => {
-         const v = this.state.violations.find(x => x.chart === chartType && x.i === index);
-         if (v) return '#D34041'; 
+         if (violationSet.has(`${chartType}-${index}`)) return '#D34041';
          if (hasStrat) {
             const str = this.state.strata[index-1] || '';
             let hash = 0; for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
