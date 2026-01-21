@@ -674,14 +674,15 @@
     return n.toLocaleString('pt-BR', { minimumFractionDigits: d, maximumFractionDigits: d });
   }
 
-  function parseLocaleNumber(stringVal) {
+  function parseLocaleNumber(stringVal, decimalSep = '.') {
     if (typeof stringVal === 'number') return stringVal;
     if (!stringVal) return NaN;
     let str = stringVal.toString().trim().replace(/^[^\d\-\.,]+/, '');
-    if (str.indexOf(',') > -1 && str.indexOf('.') > -1) {
-        if (str.lastIndexOf(',') > str.lastIndexOf('.')) { str = str.replace(/\./g, '').replace(',', '.'); } 
-        else { str = str.replace(/,/g, ''); }
-    } else if (str.indexOf(',') > -1) { str = str.replace(',', '.'); }
+    if (decimalSep === ',') {
+      str = str.replace(/\./g, '').replace(',', '.');
+    } else {
+      str = str.replace(/,/g, '');
+    }
     return parseFloat(str);
   }
 
@@ -886,7 +887,7 @@
     }
   };
 
-  // --- SMART DICT ---
+  // --- SMART DICT & DETECTOR ---
   const SmartDict = {
     mappings: {
       'val': ['valor', 'medida', 'resultado', 'leitura', 'value', 'data', 'reading'],
@@ -899,6 +900,37 @@
         if (h === key || synonyms.includes(h)) return key;
       }
       return header;
+    }
+  };
+
+  const DecimalDetector = {
+    detectAndNormalize(text) {
+      // Heurística simples: contar ; e ,
+      const lines = text.split(/\r?\n/).slice(0, 20);
+      const sample = lines.join('');
+      const semiCount = (sample.match(/;/g) || []).length;
+      const commaCount = (sample.match(/,/g) || []).length;
+
+      // Se tiver muitos ; é provável que seja CSV europeu/BR (delim=; dec=,)
+      // Mas precisamos verificar se a vírgula está entre números
+      const commaDecimalPattern = /\d+,\d+/g;
+      const dotDecimalPattern = /\d+\.\d+/g;
+
+      const commasInNumbers = (sample.match(commaDecimalPattern) || []).length;
+      const dotsInNumbers = (sample.match(dotDecimalPattern) || []).length;
+
+      if (semiCount >= lines.length * 0.5 && commasInNumbers > dotsInNumbers) {
+         // Delimitador ; e Decimal ,
+         // Normalizar para formato US antes do SheetJS
+         // 1. Remover pontos de milhar (ex: 1.234,56 -> 1234,56) - Risco de colisão se data usar ponto
+         // Vamos ser conservadores: substituir , por . apenas se cercado de digitos
+         return {
+             normalizedText: text.replace(/(\d),(\d)/g, '$1.$2'),
+             separator: '.' // Texto foi normalizado para ponto, então tratamos como US
+         };
+      }
+
+      return { normalizedText: text, separator: '.' };
     }
   };
 
@@ -980,10 +1012,27 @@
       reader.onload = (evt) => {
         try {
           const data = new Uint8Array(evt.target.result);
-          const wb = XLSX.read(data, {type:'array', cellDates:true});
-          const ws = wb.Sheets[wb.SheetNames[0]];
+          let wb;
 
-          let json = XLSX.utils.sheet_to_json(ws, {header:1});
+          // Verificar extensão para decidir estratégia
+          const isCSV = /\.(csv|txt)$/i.test(file.name);
+
+          if (isCSV) {
+             let text = "";
+             try { text = new TextDecoder("utf-8").decode(data); } catch(e) { console.error(e); }
+
+             const detection = DecimalDetector.detectAndNormalize(text);
+             this.state.decimalSep = detection.separator;
+             wb = XLSX.read(detection.normalizedText, {type:'string', raw:true});
+          } else {
+             // XLSX/XLS (Binário) - SheetJS lida nativamente
+             this.state.decimalSep = '.'; // Padrão JS
+             wb = XLSX.read(data, {type:'array', raw:true});
+          }
+
+          const ws = wb.Sheets[wb.SheetNames[0]];
+          let json = XLSX.utils.sheet_to_json(ws, {header:1, raw:false}); // raw:false deixa o SheetJS tentar parsear o que sobrou (agora com . deve ser numero)
+
           if(!json.length) throw new Error("Arquivo vazio");
 
           const headers = json[0].map(h => SmartDict.normalize(h));
@@ -1028,7 +1077,7 @@
       const stratCol = this.state.stratCol;
       
       let mapped = this.state.raw.map(r => ({
-          val: parseLocaleNumber(r[col]),
+          val: parseLocaleNumber(r[col], this.state.decimalSep),
           strat: stratCol ? r[stratCol] : 'Todos'
       })).filter(o => !isNaN(o.val));
 
