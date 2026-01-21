@@ -332,44 +332,59 @@
 
 <!-- WEB WORKER (Lógica Inalterada) -->
 <script id="worker-js" type="javascript/worker">
-  self.onmessage = function(e) {
-    const { raw, means, limitsInd, limitsBar, sigmaBar, rules } = e.data;
-    const viols = [];
-    function add(chart, i, val, rule, type) { viols.push({ chart, i: i+1, val, rule, type }); }
+  const RuleStrategies = {
+    r1: (data, limits, add) => {
+        for (let i = 0; i < data.length; i++) {
+          if (data[i] > limits.ucl || data[i] < limits.lcl) add(i, data[i], '1 pt > 3σ', 'crit');
+        }
+    },
+    r2: (data, limits, add) => {
+        if (data.length < 9) return;
+        const cl = limits.cl;
+        for (let i = 8; i < data.length; i++) {
+          const slice = data.slice(i-8, i+1);
+          if (slice.every(v => v > cl) || slice.every(v => v < cl)) add(i, data[i], '9 ptos mesmo lado', 'warn');
+        }
+    },
+    r3: (data, limits, add) => {
+        if (data.length < 3) return;
+        const cl = limits.cl; const sigma = (limits.ucl - cl) / 3; const u2 = cl + 2*sigma, l2 = cl - 2*sigma;
+        for (let i = 2; i < data.length; i++) {
+          const slice = data.slice(i-2, i+1);
+          if (slice.filter(v=>v>u2).length >= 2 || slice.filter(v=>v<l2).length >= 2) add(i, data[i], '2 de 3 > 2σ', 'warn');
+        }
+    },
+    r4: (data, limits, add) => {
+        if (data.length < 5) return;
+        const cl = limits.cl; const sigma = (limits.ucl - cl) / 3; const u1 = cl + sigma, l1 = cl - sigma;
+        for (let i = 4; i < data.length; i++) {
+          const slice = data.slice(i-4, i+1);
+          if (slice.filter(v=>v>u1).length >= 4 || slice.filter(v=>v<l1).length >= 4) add(i, data[i], '4 de 5 > 1σ', 'warn');
+        }
+    },
+    r5: (data, limits, add) => {
+        if (data.length < 6) return;
+        for (let i = 5; i < data.length; i++) {
+          const slice = data.slice(i-5, i+1);
+          let inc = true, dec = true;
+          for (let j = 1; j < slice.length; j++) { if (slice[j] <= slice[j-1]) inc = false; if (slice[j] >= slice[j-1]) dec = false; }
+          if (inc || dec) add(i, data[i], 'Tendência (6 ptos)', 'warn');
+        }
+    }
+  };
 
-    if (rules.r1) {
-      for (let i = 0; i < raw.length; i++) { if (raw[i] > limitsInd.ucl || raw[i] < limitsInd.lcl) add('IND', i, raw[i], '1 pt > 3σ', 'crit'); }
-      for (let i = 0; i < means.length; i++) { if (means[i] > limitsBar.ucl || means[i] < limitsBar.lcl) add('XBAR', i, means[i], '1 pt > 3σ', 'crit'); }
-    }
-    if (rules.r2 && means.length >= 9) {
-      const cl = limitsBar.cl;
-      for (let i = 8; i < means.length; i++) {
-        const slice = means.slice(i-8, i+1);
-        if (slice.every(v => v > cl) || slice.every(v => v < cl)) add('XBAR', i, means[i], '9 ptos mesmo lado', 'warn');
+  self.onmessage = function(e) {
+    const { raw, means, limitsInd, limitsBar, rules } = e.data;
+    const viols = [];
+    const add = (chart) => (i, val, rule, type) => viols.push({ chart, i: i+1, val, rule, type });
+
+    Object.keys(rules).forEach(ruleKey => {
+      if (rules[ruleKey] && RuleStrategies[ruleKey]) {
+        RuleStrategies[ruleKey](raw, limitsInd, add('IND'));
+        if(means && means.length) RuleStrategies[ruleKey](means, limitsBar, add('XBAR'));
       }
-    }
-    if (rules.r3 && means.length >= 3) {
-      const cl = limitsBar.cl; const sigma = (limitsBar.ucl - cl) / 3; const u2 = cl + 2*sigma, l2 = cl - 2*sigma;
-      for (let i = 2; i < means.length; i++) {
-        const slice = means.slice(i-2, i+1);
-        if (slice.filter(v=>v>u2).length >= 2 || slice.filter(v=>v<l2).length >= 2) add('XBAR', i, means[i], '2 de 3 > 2σ', 'warn');
-      }
-    }
-    if (rules.r4 && means.length >= 5) {
-      const cl = limitsBar.cl; const sigma = (limitsBar.ucl - cl) / 3; const u1 = cl + sigma, l1 = cl - sigma;
-      for (let i = 4; i < means.length; i++) {
-        const slice = means.slice(i-4, i+1);
-        if (slice.filter(v=>v>u1).length >= 4 || slice.filter(v=>v<l1).length >= 4) add('XBAR', i, means[i], '4 de 5 > 1σ', 'warn');
-      }
-    }
-    if (rules.r5 && means.length >= 6) {
-      for (let i = 5; i < means.length; i++) {
-        const slice = means.slice(i-5, i+1);
-        let inc = true, dec = true;
-        for (let j = 1; j < slice.length; j++) { if (slice[j] <= slice[j-1]) inc = false; if (slice[j] >= slice[j-1]) dec = false; }
-        if (inc || dec) add('XBAR', i, means[i], 'Tendência (6 ptos)', 'warn');
-      }
-    }
+    });
+
     self.postMessage(viols);
   };
 </script>
@@ -871,6 +886,22 @@
     }
   };
 
+  // --- SMART DICT ---
+  const SmartDict = {
+    mappings: {
+      'val': ['valor', 'medida', 'resultado', 'leitura', 'value', 'data', 'reading'],
+      'lote': ['batch', 'lot', 'grupo', 'serie'],
+      'data': ['date', 'timestamp', 'hora', 'tempo']
+    },
+    normalize(header) {
+      const h = header.toLowerCase().trim();
+      for (const [key, synonyms] of Object.entries(this.mappings)) {
+        if (h === key || synonyms.includes(h)) return key;
+      }
+      return header;
+    }
+  };
+
   // --- APP ---
   const App = {
     state: {
@@ -943,29 +974,50 @@
     loadFile(e) {
       const file = e.target.files[0];
       if(!file) return;
-      
-      // Feedback visual imediato
       document.getElementById('file-info').innerHTML = `<span class="material-icons" style="font-size:14px; animation:spin 1s linear infinite">sync</span> Carregando...`;
       
       const reader = new FileReader();
       reader.onload = (evt) => {
-        const data = new Uint8Array(evt.target.result);
-        const wb = XLSX.read(data, {type:'array'});
-        const json = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
-        if(json.length) {
-          this.state.raw = json;
-          const sel = document.getElementById('col-select');
-          const selStrat = document.getElementById('col-strat');
-          sel.innerHTML = '<option value="">Selecione a Coluna...</option>';
-          selStrat.innerHTML = '<option value="">Nenhuma</option>';
-          Object.keys(json[0]).forEach(k => {
-            const opt1 = document.createElement('option'); opt1.value = k; opt1.text = k; sel.add(opt1);
-            const opt2 = document.createElement('option'); opt2.value = k; opt2.text = k; selStrat.add(opt2);
+        try {
+          const data = new Uint8Array(evt.target.result);
+          const wb = XLSX.read(data, {type:'array', cellDates:true});
+          const ws = wb.Sheets[wb.SheetNames[0]];
+
+          let json = XLSX.utils.sheet_to_json(ws, {header:1});
+          if(!json.length) throw new Error("Arquivo vazio");
+
+          const headers = json[0].map(h => SmartDict.normalize(h));
+          const body = json.slice(1);
+
+          const normalizedJson = body.map(row => {
+            let obj = {};
+            row.forEach((v, i) => { if(headers[i]) obj[headers[i]] = v; });
+            return obj;
           });
-          document.getElementById('file-info').innerHTML = `<span class="material-icons" style="font-size:14px; color:var(--col-success)">check_circle</span> ${file.name} (${json.length} linhas)`;
+
+          if(!normalizedJson.length) throw new Error("Nenhum dado válido encontrado");
+
+          this.state.raw = normalizedJson;
+          this.populateSelects(headers);
+          document.getElementById('file-info').innerHTML = `<span class="material-icons" style="font-size:14px; color:var(--col-success)">check_circle</span> ${file.name} (${normalizedJson.length} linhas)`;
+        } catch (err) {
+          console.error(err);
+          alert(`Erro ao ler arquivo: ${err.message}`);
+          document.getElementById('file-info').innerHTML = `<span class="material-icons" style="font-size:14px; color:var(--col-danger)">error</span> Falha na leitura`;
         }
       };
       reader.readAsArrayBuffer(file);
+    },
+
+    populateSelects(headers) {
+      const sel = document.getElementById('col-select');
+      const selStrat = document.getElementById('col-strat');
+      sel.innerHTML = '<option value="">Selecione a Coluna...</option>';
+      selStrat.innerHTML = '<option value="">Nenhuma</option>';
+      headers.forEach(k => {
+        const opt1 = document.createElement('option'); opt1.value = k; opt1.text = k; sel.add(opt1);
+        const opt2 = document.createElement('option'); opt2.value = k; opt2.text = k; selStrat.add(opt2);
+      });
     },
 
     calc() {
@@ -1091,9 +1143,46 @@
 
     handleWorkerResult(viols) {
       this.state.violations = viols;
+      this.state.violationSet = new Set(viols.map(x => `${x.chart}-${x.i}`));
       this.renderLog();
       this.renderCharts();
       document.getElementById('loader').style.display = 'none';
+    },
+
+    getPointColor(chartType, index) {
+         if (this.state.violationSet && this.state.violationSet.has(`${chartType}-${index}`)) return '#D34041';
+         const hasStrat = !!this.state.stratCol && this.state.strata.length === this.state.data.length;
+         if (hasStrat) {
+            const str = this.state.strata[index-1] || '';
+            let hash = 0; for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
+            const c = (hash & 0x00FFFFFF).toString(16).toUpperCase();
+            return '#' + '00000'.substring(0, 6 - c.length) + c;
+         }
+         return '#118186';
+    },
+
+    renderGenericChart(id, xData, yData, type, color, limits, title, yTitle, shapes=[], chartTypeForViolations=null, xaxisMatches=null) {
+      const layout = this.getChartLayout(title, limits?.ucl, limits?.cl, limits?.lcl, yTitle);
+      if(shapes.length) layout.shapes = layout.shapes ? layout.shapes.concat(shapes) : shapes;
+      layout.separators = ',.';
+      if (xaxisMatches) layout.xaxis.matches = xaxisMatches;
+
+      let pointColors = color;
+      if (chartTypeForViolations) {
+          pointColors = xData.map(i => this.getPointColor(chartTypeForViolations, i));
+      }
+
+      const hasStrat = !!this.state.stratCol && this.state.strata.length === this.state.data.length;
+      const lineColor = (id === 'plt-ind' && hasStrat) ? '#ccc' : '#2AA8CE';
+
+      Plotly.react(id, [{
+        x: xData,
+        y: yData,
+        type: type === 'scattergl' ? 'scattergl' : 'scatter',
+        mode: 'lines+markers',
+        marker: { color: pointColors, size: 5, line: {color:'#fff', width:0.5} },
+        line: { color: lineColor, width: 1.5 }
+      }], layout, this.plotlyConfig());
     },
 
     getChartLayout(title, ucl, cl, lcl, yTitle) {
@@ -1137,55 +1226,19 @@
 
       const idx = data.map((_,i)=>i+1);
       const { idx: drawIdx, data: drawData } = downsamplePairs(idx, data, 5000);
-      const hasStrat = !!this.state.stratCol && this.state.strata.length === data.length;
       
-      const violationSet = new Set(this.state.violations.map(x => `${x.chart}-${x.i}`));
-      const getPointColor = (chartType, index) => {
-         if (violationSet.has(`${chartType}-${index}`)) return '#D34041';
-         if (hasStrat) {
-            const str = this.state.strata[index-1] || '';
-            let hash = 0; for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
-            const c = (hash & 0x00FFFFFF).toString(16).toUpperCase();
-            return '#' + '00000'.substring(0, 6 - c.length) + c;
-         }
-         return '#118186';
-      };
-      
-      const colorsInd = drawIdx.map(i => getPointColor('IND', i));
-      const layoutInd = this.getChartLayout('', ind.ucl, ind.cl, ind.lcl, 'Individual');
-      layoutInd.xaxis.matches = 'x'; layoutInd.separators = ',.';
-      
-      Plotly.react('plt-ind', [{
-        x: drawIdx, y: drawData, type: 'scattergl', mode: 'lines+markers',
-        marker: { color: colorsInd, size: 5, line: {color:'#fff', width:0.5} },
-        line: { color: hasStrat ? '#ccc' : '#2AA8CE', width: 1.5 }
-      }], layoutInd, this.plotlyConfig());
+      this.renderGenericChart('plt-ind', drawIdx, drawData, 'scattergl', null, ind, 'Individual', 'Individual', [], 'IND', 'x');
 
       const mrVals = []; for(let i=1; i<drawData.length; i++) mrVals.push(Math.abs(drawData[i]-drawData[i-1]));
-      const layoutMr = this.getChartLayout('', mr.ucl, mr.cl, 0, 'Amplitude');
-      layoutMr.xaxis.matches = 'x'; layoutMr.separators = ',.';
-      Plotly.react('plt-mr', [{
-        x: drawIdx.slice(1), y: mrVals, type: 'scattergl', mode: 'lines+markers', line:{color:'#2AA8CE', width:1.5},
-        marker: { color: '#118186', size: 5 }
-      }], layoutMr, this.plotlyConfig());
+      this.renderGenericChart('plt-mr', drawIdx.slice(1), mrVals, 'scattergl', '#118186', {ucl:mr.ucl, cl:mr.cl, lcl:0}, 'Amplitude', 'Amplitude', [], null, 'x');
 
       const { means, ranges, stds } = this.state.processed;
       const xIdx = means.map((_, i) => i + 1);
-      const layoutXBar = this.getChartLayout('', xbar.ucl, xbar.cl, xbar.lcl, 'Média');
-      layoutXBar.xaxis.matches = 'x2'; layoutXBar.separators = ',.';
-      Plotly.react('plt-xbar', [{ x: xIdx, y: means, type:'scatter', mode:'lines+markers', line:{color:'#2AA8CE', width:1.5}, marker: { color: '#118186', size: 6 } }], layoutXBar, this.plotlyConfig());
 
-      const layoutXBarS = this.getChartLayout('', xbars.ucl, xbars.cl, xbars.lcl, 'Média');
-      layoutXBarS.xaxis.matches = 'x2'; layoutXBarS.separators = ',.';
-      Plotly.react('plt-xbars', [{ x: xIdx, y: means, type:'scatter', mode:'lines+markers', line:{color:'#2AA8CE', width:1.5}, marker: { color: '#118186', size: 6 } }], layoutXBarS, this.plotlyConfig());
-
-      const layoutR = this.getChartLayout('', r.ucl, r.cl, r.lcl, 'Amplitude');
-      layoutR.xaxis.matches = 'x2'; layoutR.separators = ',.';
-      Plotly.react('plt-r', [{ x: xIdx, y: ranges, type:'scatter', mode:'lines+markers', line:{color:'#2AA8CE', width:1.5}, marker: {color: '#118186'} }], layoutR, this.plotlyConfig());
-
-      const layoutS = this.getChartLayout('', s.ucl, s.cl, s.lcl, 'Desvio Padrão');
-      layoutS.xaxis.matches = 'x2'; layoutS.separators = ',.';
-      Plotly.react('plt-s', [{ x: xIdx, y: stds, type:'scatter', mode:'lines+markers', line:{color:'#2AA8CE', width:1.5}, marker: {color: '#118186'} }], layoutS, this.plotlyConfig());
+      this.renderGenericChart('plt-xbar', xIdx, means, 'scatter', null, xbar, 'Média', 'Média', [], 'XBAR', 'x2');
+      this.renderGenericChart('plt-xbars', xIdx, means, 'scatter', null, xbars, 'Média', 'Média', [], 'XBAR', 'x2');
+      this.renderGenericChart('plt-r', xIdx, ranges, 'scatter', '#118186', r, 'Amplitude', 'Amplitude', [], null, 'x2');
+      this.renderGenericChart('plt-s', xIdx, stds, 'scatter', '#118186', s, 'Desvio Padrão', 'Desvio Padrão', [], null, 'x2');
 
       if(document.getElementById('t-six').classList.contains('active')) this.renderSixpack();
       if(document.getElementById('t-adv').classList.contains('active')) this.renderAdvanced();
