@@ -1,0 +1,1503 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <title>CEP PRO | Controle Estatístico Avançado</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <!-- Bibliotecas Externas (CDNs Estáveis) -->
+  <script src="https://cdn.plot.ly/plotly-2.27.0.min.js" charset="utf-8"></script>
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+  <!-- jStat para funções de distribuição probabilística -->
+  <script src="https://cdn.jsdelivr.net/npm/jstat@latest/dist/jstat.min.js"></script>
+
+  <!-- IBM Plex Sans (Tipografia Moderna) -->
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+
+  <style>
+    :root {
+      /* Nova Paleta de Cores: https://coolors.co/palette/118186-d34041-212928-5f727c-96b1b1-f2f1f1-fefefe-dbe3ec-2aa8ce */
+      
+      /* Estrutura */
+      --bg-body: #F2F1F1;          /* Cinza Claro Fundo */
+      --bg-panel: #FEFEFE;         /* Branco Painel */
+      --border-color: #DBE3EC;     /* Azul Acinzentado Borda */
+      
+      /* Semântica */
+      --col-primary: #118186;      /* Teal Profundo (Ação Principal) */
+      --col-primary-hover: #0D666A;
+      
+      --col-info: #2AA8CE;         /* Azul Brilhante (Insights/Linhas) */
+      --col-info-hover: #228AB0;
+
+      --col-danger: #D34041;       /* Vermelho (Erro/Violação) */
+      --col-warning: #F5A623;      /* Laranja (Alerta - Adaptado para contraste) */
+      --col-success: #118186;      /* Teal (Sucesso/Estável) */
+      
+      /* Tipografia */
+      --col-text: #212928;         /* Cinza Quase Preto (Leitura) */
+      --col-muted: #5F727C;        /* Cinza Ardósia (Legendas) */
+
+      /* Gráficos */
+      --chart-line: #2AA8CE;       
+      --chart-point: #118186;
+      --chart-violation: #D34041;
+
+      --trans-speed: 0.3s;
+      --shadow-soft: 0 4px 12px rgba(33, 41, 40, 0.08);
+    }
+
+    * { box-sizing: border-box; outline: none; }
+    
+    /* Reset Global Clean */
+    * { border-radius: 0 !important; }
+
+    body {
+      margin: 0;
+      height: 100vh;
+      display: grid;
+      grid-template-columns: 280px minmax(0,1fr) 320px;
+      grid-template-rows: 56px minmax(0,1fr);
+      font-family: 'IBM Plex Sans', sans-serif;
+      background: var(--bg-body);
+      color: var(--col-text);
+      overflow: hidden;
+      font-size: 14px;
+      transition: grid-template-columns var(--trans-speed) ease;
+    }
+
+    body.hide-sidebar { grid-template-columns: 0px minmax(0,1fr) 320px; }
+    body.hide-panel { grid-template-columns: 280px minmax(0,1fr) 0px; }
+    body.hide-sidebar.hide-panel { grid-template-columns: 0px minmax(0,1fr) 0px; }
+
+    /* Header */
+    .header {
+      grid-column: 1 / -1;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      background: #FFFFFF;
+      border-bottom: 1px solid var(--border-color);
+      z-index: 20;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+    }
+    
+    .header-left, .header-right { display: flex; align-items: center; gap: 20px; }
+
+    .brand { 
+      font-size: 1.1rem; font-weight: 600; color: var(--col-text); 
+      display: flex; align-items: center; gap: 12px; letter-spacing: 0.5px; 
+    }
+    .version-tag { 
+      font-size: 0.65rem; background: var(--border-color); color: var(--col-muted); 
+      padding: 3px 8px; font-weight: 500; letter-spacing: 0.5px;
+    }
+
+    .toggle-btn {
+      background: transparent; border: 1px solid transparent; cursor: pointer; color: var(--col-muted);
+      padding: 8px; display: flex; align-items: center; justify-content: center;
+      transition: all 0.2s;
+    }
+    .toggle-btn:hover { background: #F4F4F4; color: var(--col-primary); }
+    .toggle-btn.active { background: #E0F2F1; color: var(--col-primary); }
+
+    /* KPI Deck */
+    .kpi-deck { display: flex; gap: 24px; align-items: center; }
+    .kpi-group { display: flex; gap: 24px; align-items: center; }
+    
+    .kpi-sep { 
+      width: 1px; height: 32px; background: var(--border-color); margin: 0 4px; 
+    }
+
+    .kpi-item { display: flex; flex-direction: column; align-items: flex-end; position: relative; min-width: 40px; }
+    .kpi-label { font-size: 0.7rem; font-weight: 500; color: var(--col-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .kpi-value { font-size: 1.35rem; font-weight: 300; color: var(--col-text); line-height: 1.1; font-variant-numeric: tabular-nums; }
+    
+    .status-badge {
+      position: absolute; top: -10px; right: -20px;
+      font-size: 0.6rem; font-weight: 600; padding: 2px 6px;
+      text-transform: uppercase; white-space: nowrap; box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    }
+    .bdg-good { background: #E0F2F1; color: var(--col-primary); }
+    .bdg-warn { background: #FFF3E0; color: #E65100; }
+    .bdg-bad { background: #FFEBEE; color: var(--col-danger); }
+
+    .alert-pill {
+      display: flex; align-items: center; gap: 8px; padding: 6px 16px;
+      background: var(--col-danger); border: none;
+      color: #FFF; font-weight: 600; font-size: 0.8rem; cursor: pointer;
+      box-shadow: 0 2px 6px rgba(211, 64, 65, 0.3);
+      transition: transform 0.1s;
+    }
+    .alert-pill:hover { transform: translateY(-1px); background: #B71C1C; }
+
+    /* Sidebar */
+    .sidebar {
+      grid-row: 2; background: #FFFFFF; border-right: 1px solid var(--border-color);
+      display: flex; flex-direction: column; gap: 32px; padding: 24px; overflow-y: auto;
+    }
+    .sidebar-group { display: flex; flex-direction: column; gap: 12px; }
+    .group-title { 
+      font-size: 0.75rem; font-weight: 600; color: var(--col-primary); 
+      text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; border-bottom: 2px solid #F4F4F4; padding-bottom: 4px;
+    }
+
+    /* Buttons */
+    .btn {
+      border: none; padding: 12px 20px; font-size: 0.9rem; font-weight: 500;
+      cursor: pointer; display: flex; align-items: center; justify-content: flex-start; gap: 12px;
+      transition: all 0.2s; width: 100%; text-align: left;
+      min-height: 48px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    }
+    .btn:active { transform: translateY(1px); }
+    
+    .btn-primary { background: var(--col-primary); color: #fff; }
+    .btn-primary:hover { background: var(--col-primary-hover); box-shadow: 0 4px 12px rgba(17, 129, 134, 0.2); }
+    
+    .btn-secondary { background: #FFFFFF; color: var(--col-text); border: 1px solid var(--border-color); }
+    .btn-secondary:hover { border-color: var(--col-muted); background: #F9F9F9; }
+    
+    .btn-action { background: var(--col-info); color: #fff; }
+    .btn-action:hover { background: var(--col-info-hover); box-shadow: 0 4px 12px rgba(42, 168, 206, 0.25); }
+    
+    .btn-mini-group { display: flex; gap: 8px; }
+    .btn-mini { flex: 1; font-size: 0.8rem; padding: 8px; min-height: 36px; justify-content: center; text-align: center;}
+
+    /* Inputs */
+    input, select {
+      width: 100%; padding: 0 12px; height: 42px; 
+      border: 1px solid var(--border-color); background: #FAFAFA;
+      font-family: inherit; font-size: 0.9rem; color: var(--col-text);
+      transition: all 0.2s;
+    }
+    input:focus, select:focus { 
+      border-color: var(--col-primary); background: #FFFFFF; 
+      box-shadow: 0 0 0 2px rgba(17, 129, 134, 0.1); 
+    }
+    label { font-size: 0.8rem; color: var(--col-muted); margin-bottom: 6px; display: block; font-weight: 500; }
+
+    .rule-list label { display: flex; align-items: center; gap: 10px; font-size: 0.85rem; cursor: pointer; padding: 4px 0; color: var(--col-text); }
+    .rule-list input { width: 18px; height: 18px; margin: 0; cursor: pointer; accent-color: var(--col-primary); }
+
+    /* Main Stage */
+    .stage {
+      grid-row: 2; background: var(--bg-body); padding: 20px;
+      display: flex; flex-direction: column; gap: 20px; overflow: hidden; position: relative;
+    }
+
+    .toolbar {
+      display: flex; align-items: center; gap: 16px; background: #FFFFFF; padding: 12px 20px;
+      border: 1px solid var(--border-color); box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+    }
+    .toolbar-lbl { font-weight: 600; font-size: 0.8rem; text-transform: uppercase; color: var(--col-muted); letter-spacing: 0.5px; }
+
+    /* Tabs */
+    .tab-nav { display: flex; gap: 2px; }
+    .tab-btn {
+      background: rgba(255,255,255,0.6); border: none; padding: 12px 20px; font-weight: 500;
+      color: var(--col-muted); cursor: pointer; font-size: 0.9rem;
+      border-bottom: 3px solid transparent; flex: 1; text-align: center;
+      transition: all 0.2s;
+    }
+    .tab-btn:hover { background: #FFFFFF; color: var(--col-primary); }
+    .tab-btn.active { 
+      background: #FFFFFF; color: var(--col-primary); font-weight: 600; 
+      border-bottom-color: var(--col-primary); box-shadow: 0 -2px 4px rgba(0,0,0,0.02);
+    }
+
+    .tab-pane { display: none; flex: 1; flex-direction: column; gap: 16px; min-height: 0; }
+    .tab-pane.active { display: flex; }
+
+    /* Charts */
+    .chart-container {
+      flex: 1; background: #FFFFFF; border: 1px solid var(--border-color);
+      position: relative; overflow: hidden; display: flex; flex-direction: column;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.03);
+    }
+    .chart-header {
+      position: absolute; top: 0; left: 0; z-index: 10;
+      background: rgba(255,255,255,0.95); padding: 10px 16px;
+      font-size: 0.9rem; font-weight: 600; pointer-events: none;
+      color: var(--col-text); width: 100%; border-bottom: 1px solid #F0F0F0;
+      backdrop-filter: blur(4px);
+    }
+    .chart-action {
+      position: absolute; top: 8px; right: 8px; z-index: 10;
+      background: transparent; border: 1px solid transparent;
+      width: 32px; height: 32px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; color: var(--col-muted); transition: all 0.2s;
+    }
+    .chart-action:hover { background: #F4F4F4; color: var(--col-primary); border-color: var(--border-color); }
+
+    .plot-div { width: 100%; height: 100%; margin-top: 32px; }
+
+    /* Sixpack Grid */
+    .sixpack-grid {
+      display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr 1fr;
+      gap: 12px; height: 100%;
+    }
+    .sixpack-cell {
+      background: #FFFFFF; border: 1px solid var(--border-color);
+      position: relative; display: flex; flex-direction: column; overflow: hidden;
+    }
+    .sixpack-cell .chart-header { font-size: 0.75rem; padding: 6px 12px; background: #FAFAFA; }
+
+    /* Right Panel */
+    .panel {
+      grid-row: 2; background: #FFFFFF; border-left: 1px solid var(--border-color);
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+    .panel-section { padding: 20px; border-bottom: 1px solid var(--border-color); }
+    .panel-title { 
+      font-size: 0.8rem; font-weight: 700; text-transform: uppercase; color: var(--col-primary); 
+      margin-bottom: 16px; letter-spacing: 1px; display: flex; align-items: center; gap: 8px;
+    }
+    
+    .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; font-size: 0.9rem; }
+    .stat-item { display: flex; flex-direction: column; padding-bottom: 4px; border-bottom: 1px dotted #EEE; }
+    .stat-lbl { font-size: 0.75rem; color: var(--col-muted); margin-bottom: 2px; }
+    .stat-val { font-weight: 500; font-family: 'IBM Plex Sans', monospace; color: var(--col-text); }
+
+    .log-list { flex: 1; overflow-y: auto; background: #FAFAFA; }
+    .log-entry {
+      padding: 14px 20px; border-bottom: 1px solid #E0E0E0;
+      background: #FFFFFF; border-left: 4px solid transparent; cursor: pointer; transition: all 0.2s;
+    }
+    .log-entry:hover { background: #F4F4F4; padding-left: 24px; }
+    .log-entry.crit { border-left-color: var(--col-danger); }
+    .log-entry.warn { border-left-color: var(--col-warning); }
+    
+    .log-loader-item { padding: 16px; text-align: center; color: var(--col-muted); font-size: 0.85rem; font-style: italic; }
+
+    /* Run Chart Table */
+    .run-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+    .run-table td, .run-table th { padding: 10px; border-bottom: 1px solid #EEE; text-align: left; }
+    .run-table th { font-weight: 600; color: var(--col-muted); background: #FAFAFA; }
+    .run-table tr:last-child td { border-bottom: none; }
+
+    /* Insight Styles */
+    .insight-card { 
+      border: 1px solid var(--border-color); padding: 20px; margin-bottom: 20px; 
+      background: #F9FAFB; border-left: 4px solid var(--col-info); 
+      box-shadow: 0 2px 4px rgba(0,0,0,0.03);
+    }
+    .insight-card.danger { border-left-color: var(--col-danger); background: #FFF5F5; }
+    .insight-card.success { border-left-color: var(--col-success); background: #F0FDF4; }
+    
+    .insight-title { font-weight: 600; font-size: 1.1rem; margin-bottom: 12px; display: flex; align-items: center; gap: 10px; }
+    .insight-body { font-size: 0.95rem; line-height: 1.6; color: var(--col-text); }
+    .insight-list { margin: 12px 0 0 20px; padding: 0; color: var(--col-text); }
+    .insight-list li { margin-bottom: 6px; }
+
+    /* Modals & Loader */
+    #loader {
+      position: absolute; inset: 0; background: rgba(255,255,255,0.92); z-index: 100;
+      display: none; align-items: center; justify-content: center; flex-direction: column;
+      backdrop-filter: blur(2px);
+    }
+    .spinner {
+      width: 60px; height: 60px; border: 4px solid #E0E0E0;
+      border-top-color: var(--col-primary); border-radius: 50%; animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(33,41,40,0.7); z-index: 200;
+      display: none; align-items: center; justify-content: center;
+      backdrop-filter: blur(3px);
+    }
+    .modal-box {
+      background: #FFFFFF; width: 90%; max-width: 1000px; height: 85%;
+      box-shadow: 0 24px 48px rgba(0,0,0,0.2); display: flex; flex-direction: column; overflow: hidden;
+      animation: slideUp 0.3s ease-out;
+    }
+    .modal-box.small { max-width: 480px; height: auto; padding: 32px; gap: 20px; border-top: 4px solid var(--col-primary); }
+    
+    @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+    .modal-header {
+      padding: 16px 24px; background: #FAFAFA; border-bottom: 1px solid var(--border-color);
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .modal-title { font-size: 1.2rem; font-weight: 600; color: var(--col-text); margin: 0; }
+    .modal-close { background: none; border: none; cursor: pointer; color: var(--col-muted); transition: color 0.2s; }
+    .modal-close:hover { color: var(--col-danger); }
+    .modal-body { flex: 1; padding: 24px; position: relative; overflow-y: auto; }
+  </style>
+</head>
+<body>
+
+<!-- WEB WORKER (Lógica Inalterada) -->
+<script id="worker-js" type="javascript/worker">
+  self.onmessage = function(e) {
+    const { raw, means, limitsInd, limitsBar, sigmaBar, rules } = e.data;
+    const viols = [];
+    function add(chart, i, val, rule, type) { viols.push({ chart, i: i+1, val, rule, type }); }
+
+    if (rules.r1) {
+      for (let i = 0; i < raw.length; i++) { if (raw[i] > limitsInd.ucl || raw[i] < limitsInd.lcl) add('IND', i, raw[i], '1 pt > 3σ', 'crit'); }
+      for (let i = 0; i < means.length; i++) { if (means[i] > limitsBar.ucl || means[i] < limitsBar.lcl) add('XBAR', i, means[i], '1 pt > 3σ', 'crit'); }
+    }
+    if (rules.r2 && means.length >= 9) {
+      const cl = limitsBar.cl;
+      for (let i = 8; i < means.length; i++) {
+        const slice = means.slice(i-8, i+1);
+        if (slice.every(v => v > cl) || slice.every(v => v < cl)) add('XBAR', i, means[i], '9 ptos mesmo lado', 'warn');
+      }
+    }
+    if (rules.r3 && means.length >= 3) {
+      const cl = limitsBar.cl; const sigma = (limitsBar.ucl - cl) / 3; const u2 = cl + 2*sigma, l2 = cl - 2*sigma;
+      for (let i = 2; i < means.length; i++) {
+        const slice = means.slice(i-2, i+1);
+        if (slice.filter(v=>v>u2).length >= 2 || slice.filter(v=>v<l2).length >= 2) add('XBAR', i, means[i], '2 de 3 > 2σ', 'warn');
+      }
+    }
+    if (rules.r4 && means.length >= 5) {
+      const cl = limitsBar.cl; const sigma = (limitsBar.ucl - cl) / 3; const u1 = cl + sigma, l1 = cl - sigma;
+      for (let i = 4; i < means.length; i++) {
+        const slice = means.slice(i-4, i+1);
+        if (slice.filter(v=>v>u1).length >= 4 || slice.filter(v=>v<l1).length >= 4) add('XBAR', i, means[i], '4 de 5 > 1σ', 'warn');
+      }
+    }
+    if (rules.r5 && means.length >= 6) {
+      for (let i = 5; i < means.length; i++) {
+        const slice = means.slice(i-5, i+1);
+        let inc = true, dec = true;
+        for (let j = 1; j < slice.length; j++) { if (slice[j] <= slice[j-1]) inc = false; if (slice[j] >= slice[j-1]) dec = false; }
+        if (inc || dec) add('XBAR', i, means[i], 'Tendência (6 ptos)', 'warn');
+      }
+    }
+    self.postMessage(viols);
+  };
+</script>
+
+<!-- UI Main -->
+<header class="header">
+  <div class="header-left">
+    <button class="toggle-btn" id="toggle-sidebar" title="Menu Principal"><span class="material-icons">menu</span></button>
+    <div class="brand">
+      <span class="material-icons" style="color:var(--col-primary)">query_stats</span>
+      <div style="display:flex; flex-direction:column; line-height:1;">
+        <span>CEP PRO</span>
+        <span class="version-tag">V1.3 UI REFRESH</span>
+      </div>
+    </div>
+  </div>
+  
+  <div class="header-right">
+    <div class="kpi-deck">
+      <button class="alert-pill" id="alert-pill" style="display:none" onclick="App.scrollToLog()">
+        <span class="material-icons" style="font-size:18px">notifications_active</span>
+        <span id="alert-count" style="margin-left:4px;">0</span>
+      </button>
+      <div id="kpi-container" style="display:flex; gap:24px; align-items:center;"></div>
+    </div>
+    <button class="toggle-btn" id="toggle-panel" title="Painel de Detalhes"><span class="material-icons">space_dashboard</span></button>
+  </div>
+</header>
+
+<aside class="sidebar">
+  <div class="sidebar-group">
+    <div class="group-title">Fonte de Dados</div>
+    <button class="btn btn-primary" onclick="document.getElementById('file-input').click()">
+      <span class="material-icons">folder_open</span> Importar Arquivo
+    </button>
+    <input type="file" id="file-input" accept=".csv,.xlsx" style="display:none">
+    <div id="file-info" style="font-size:0.75rem; color:var(--col-muted); display:flex; align-items:center; gap:6px;">
+      <span class="material-icons" style="font-size:14px">info</span> Nenhum arquivo carregado
+    </div>
+  </div>
+
+  <div class="sidebar-group">
+    <div class="group-title">Parâmetros de Análise</div>
+    <label>Variável de Controle</label>
+    <select id="col-select"><option value="">Selecione a Coluna...</option></select>
+    
+    <label style="margin-top:8px;">Fator de Estratificação (Opcional)</label>
+    <select id="col-strat"><option value="">Nenhuma</option></select>
+
+    <label style="margin-top:8px;">Tamanho do Subgrupo (n)</label>
+    <input type="number" id="inp-n" value="5" min="2" max="15">
+
+    <label style="display:flex; align-items:center; gap:8px; margin-top:12px; cursor:pointer;">
+      <input type="checkbox" id="chk-iqr"> 
+      <span>Filtrar Outliers (IQR)</span>
+    </label>
+  </div>
+
+  <div class="sidebar-group">
+    <div class="group-title">Limites de Especificação</div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+      <div>
+        <label>LIE (Mín)</label>
+        <input type="number" id="inp-lsl" placeholder="-">
+      </div>
+      <div>
+        <label>LSE (Máx)</label>
+        <input type="number" id="inp-usl" placeholder="-">
+      </div>
+    </div>
+  </div>
+
+  <div class="sidebar-group">
+    <div class="group-title">Regras de Controle</div>
+    <div class="rule-list">
+      <label><input type="checkbox" id="r1" checked> 1. Pontos Fora dos Limites (3σ)</label>
+      <label><input type="checkbox" id="r2" checked> 2. 9 Pontos Consecutivos (Mesmo Lado)</label>
+      <label><input type="checkbox" id="r3" checked> 3. 2 de 3 Pontos > 2σ</label>
+      <label><input type="checkbox" id="r4" checked> 4. 4 de 5 Pontos > 1σ</label>
+      <label><input type="checkbox" id="r5" checked> 5. Tendência (6 Pontos)</label>
+    </div>
+  </div>
+
+  <div class="sidebar-group">
+    <div class="group-title">Relatórios & Exportação</div>
+    <div class="btn-mini-group">
+      <button class="btn btn-secondary btn-mini" onclick="App.exportCSV('series')">CSV Dados</button>
+      <button class="btn btn-secondary btn-mini" onclick="App.exportCSV('events')">CSV Logs</button>
+    </div>
+    <button class="btn btn-secondary" style="margin-top:8px;" onclick="App.exportXLSX()">
+      <span class="material-icons">table_view</span> Relatório Excel
+    </button>
+  </div>
+
+  <div style="margin-top: auto; border-top: 1px solid var(--border-color); padding-top: 20px;">
+    <span style="font-size: 0.75rem; color: var(--col-muted); display:block; margin-bottom:4px;">Desenvolvido por</span>
+    <a href="https://www.linkedin.com/in/thiago-terto-eng-qu%C3%ADmico/" target="_blank" style="display: flex; align-items: center; gap: 8px; text-decoration: none; color: var(--col-primary); font-weight: 600; transition: color 0.2s; font-size: 0.9rem;">
+      <span class="material-icons" style="font-size: 18px;">link</span>
+      Thiago Terto
+    </a>
+  </div>
+</aside>
+
+<section class="stage">
+  <div id="loader"><div class="spinner"></div><div style="margin-top:16px; font-weight:500; color:var(--col-muted);">Processando dados...</div></div>
+
+  <div class="toolbar">
+    <div class="toolbar-lbl">Zoom & Janela</div>
+    <select id="sel-window" style="width:auto; padding-right:32px; border:1px solid var(--border-color); background:#FFF;">
+      <option value="0">Visualizar Tudo</option>
+      <option value="50">Últimos 50 Pontos</option>
+      <option value="100">Últimos 100 Pontos</option>
+      <option value="200">Últimos 200 Pontos</option>
+    </select>
+    <input type="range" id="rng-window" min="0" value="0" style="flex:1;">
+    <div class="toolbar-lbl" id="lbl-window" style="min-width:100px; text-align:right;">Total: 0</div>
+  </div>
+
+  <div class="tab-nav">
+    <button class="tab-btn active" data-tab="t-imr">I-MR</button>
+    <button class="tab-btn" data-tab="t-xbar">X-Bar R</button>
+    <button class="tab-btn" data-tab="t-xbars">X-Bar S</button>
+    <button class="tab-btn" data-tab="t-six">Sixpack</button>
+    <button class="tab-btn" data-tab="t-run">Run Chart</button>
+    <button class="tab-btn" data-tab="t-adv">Avançado</button>
+  </div>
+
+  <div id="t-imr" class="tab-pane active">
+    <div class="chart-container">
+      <div class="chart-header">Carta I (Valores Individuais)</div>
+      <button class="chart-action" onclick="App.expandChart('ind')" title="Expandir"><span class="material-icons" style="font-size:20px">fullscreen</span></button>
+      <div id="plt-ind" class="plot-div"></div>
+    </div>
+    <div class="chart-container">
+      <div class="chart-header">Carta MR (Amplitude Móvel)</div>
+      <button class="chart-action" onclick="App.expandChart('mr')" title="Expandir"><span class="material-icons" style="font-size:20px">fullscreen</span></button>
+      <div id="plt-mr" class="plot-div"></div>
+    </div>
+  </div>
+
+  <div id="t-xbar" class="tab-pane">
+    <div class="chart-container">
+      <div class="chart-header">Carta X-Bar (Médias do Subgrupo)</div>
+      <button class="chart-action" onclick="App.expandChart('xbar')" title="Expandir"><span class="material-icons" style="font-size:20px">fullscreen</span></button>
+      <div id="plt-xbar" class="plot-div"></div>
+    </div>
+    <div class="chart-container">
+      <div class="chart-header">Carta R (Amplitude do Subgrupo)</div>
+      <button class="chart-action" onclick="App.expandChart('r')" title="Expandir"><span class="material-icons" style="font-size:20px">fullscreen</span></button>
+      <div id="plt-r" class="plot-div"></div>
+    </div>
+  </div>
+
+  <div id="t-xbars" class="tab-pane">
+    <div class="chart-container">
+      <div class="chart-header">Carta X-Bar (Médias do Subgrupo)</div>
+      <button class="chart-action" onclick="App.expandChart('xbars')" title="Expandir"><span class="material-icons" style="font-size:20px">fullscreen</span></button>
+      <div id="plt-xbars" class="plot-div"></div>
+    </div>
+    <div class="chart-container">
+      <div class="chart-header">Carta S (Desvio Padrão do Subgrupo)</div>
+      <button class="chart-action" onclick="App.expandChart('s')" title="Expandir"><span class="material-icons" style="font-size:20px">fullscreen</span></button>
+      <div id="plt-s" class="plot-div"></div>
+    </div>
+  </div>
+
+  <div id="t-six" class="tab-pane">
+    <div class="sixpack-grid">
+      <div class="sixpack-cell"><div class="chart-header">1. Carta I (Indiv.)</div><div id="six-1" class="plot-div"></div></div>
+      <div class="sixpack-cell"><div class="chart-header">2. Histograma Capabilidade</div><div id="six-2" class="plot-div"></div></div>
+      <div class="sixpack-cell"><div class="chart-header">3. Carta MR (Ampl.)</div><div id="six-3" class="plot-div"></div></div>
+      <div class="sixpack-cell"><div class="chart-header">4. Probabilidade Normal</div><div id="six-4" class="plot-div"></div></div>
+      <div class="sixpack-cell"><div class="chart-header">5. Últimos 25</div><div id="six-5" class="plot-div"></div></div>
+      <div class="sixpack-cell"><div class="chart-header">6. Plot Capabilidade</div><div id="six-6" class="plot-div"></div></div>
+    </div>
+  </div>
+
+  <div id="t-run" class="tab-pane">
+    <div class="chart-container" style="flex:2;">
+      <div class="chart-header">Gráfico de Corridas (Run Chart)</div>
+      <button class="chart-action" onclick="App.expandChart('run')" title="Expandir"><span class="material-icons" style="font-size:20px">fullscreen</span></button>
+      <div id="plt-run" class="plot-div"></div>
+    </div>
+    <div class="chart-container" style="flex:1; overflow-y:auto; padding:20px;">
+      <div class="chart-header">Estatísticas do Teste de Corridas</div>
+      <div id="run-stats" style="margin-top:24px;"></div>
+    </div>
+  </div>
+
+  <div id="t-adv" class="tab-pane">
+    <div class="chart-container">
+      <div class="chart-header">CUSUM (Soma Acumulada)</div>
+      <div id="plt-cusum" class="plot-div"></div>
+    </div>
+    <div class="chart-container">
+      <div class="chart-header">EWMA (Média Móvel Exponencial)</div>
+      <div id="plt-ewma" class="plot-div"></div>
+    </div>
+  </div>
+</section>
+
+<aside class="panel">
+  <div class="panel-section">
+    <div class="panel-title"><span class="material-icons" style="font-size:16px;">calculate</span> Estatística Descritiva</div>
+    <div class="stats-grid" id="stats-grid">
+      <div style="color:var(--col-muted); text-align:center; grid-column:span 2; font-style:italic; padding:20px;">
+        Aguardando carregamento de dados...
+      </div>
+    </div>
+  </div>
+  
+  <div class="panel-section" style="background:#FAFAFA;">
+    <div class="panel-title"><span class="material-icons" style="font-size:16px;">handyman</span> Ferramentas</div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom: 8px;">
+      <button class="btn btn-secondary" style="justify-content:center;" onclick="App.openModal('pareto')">
+        <span class="material-icons" style="font-size:18px;">bar_chart</span> Pareto
+      </button>
+      <button class="btn btn-secondary" style="justify-content:center;" onclick="App.openModal('box')">
+        <span class="material-icons" style="font-size:18px;">candlestick_chart</span> Boxplot
+      </button>
+      <button class="btn btn-action" style="grid-column: span 2; justify-content:center;" onclick="App.openModal('insights')">
+        <span class="material-icons" style="font-size:18px;">lightbulb</span> Analisar Processo
+      </button>
+    </div>
+  </div>
+
+  <div class="panel-section" style="border-bottom:none; padding-bottom:4px;">
+    <div class="panel-title"><span class="material-icons" style="font-size:16px;">history</span> Diário de Eventos</div>
+  </div>
+  <div class="log-list" id="log-list"></div>
+</aside>
+
+<!-- Modal Charts/Insights -->
+<div class="modal-overlay" id="modal-chart">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3 class="modal-title" id="modal-title">Visualização</h3>
+      <button class="modal-close" onclick="App.closeModal('modal-chart')"><span class="material-icons">close</span></button>
+    </div>
+    <div id="modal-body" class="modal-body"></div>
+  </div>
+</div>
+
+<!-- Modal Notes -->
+<div class="modal-overlay" id="modal-note">
+  <div class="modal-box small">
+    <h3 style="margin:0 0 16px 0; font-weight:600; color:var(--col-primary);">Registro de Ocorrência</h3>
+    <div style="background:#F4F4F4; padding:12px; border-radius:4px; font-size:0.85rem; border:1px solid #EEE;" id="note-context"></div>
+    
+    <div>
+      <label>Causa Raiz</label>
+      <textarea id="note-cause" rows="3" style="width:100%; border:1px solid var(--border-color); padding:10px; font-family:inherit; border-radius:0;"></textarea>
+    </div>
+    
+    <div>
+      <label>Ação Corretiva</label>
+      <textarea id="note-action" rows="3" style="width:100%; border:1px solid var(--border-color); padding:10px; font-family:inherit; border-radius:0;"></textarea>
+    </div>
+
+    <div style="display:flex; justify-content:flex-end; gap:12px; margin-top:8px;">
+      <button class="btn btn-secondary" style="width:auto;" onclick="App.closeModal('modal-note')">Cancelar</button>
+      <button class="btn btn-primary" style="width:auto;" onclick="App.saveNote()">Salvar Registro</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  'use strict';
+
+  // --- UTILS ---
+  function debounce(func, wait) {
+    let timeout;
+    return function(...args) {
+      clearTimeout(timeout);
+      timeout = setTimeout(() => func.apply(this, args), wait);
+    };
+  }
+
+  function fmt(n, d=2) {
+    if(isNaN(n) || !isFinite(n)) return '--';
+    return n.toLocaleString('pt-BR', { minimumFractionDigits: d, maximumFractionDigits: d });
+  }
+
+  function parseLocaleNumber(stringVal) {
+    if (typeof stringVal === 'number') return stringVal;
+    if (!stringVal) return NaN;
+    let str = stringVal.toString().trim().replace(/^[^\d\-\.,]+/, '');
+    if (str.indexOf(',') > -1 && str.indexOf('.') > -1) {
+        if (str.lastIndexOf(',') > str.lastIndexOf('.')) { str = str.replace(/\./g, '').replace(',', '.'); } 
+        else { str = str.replace(/,/g, ''); }
+    } else if (str.indexOf(',') > -1) { str = str.replace(',', '.'); }
+    return parseFloat(str);
+  }
+
+  const UI = {
+    kpi: (label, value, badgeHtml = '') => `
+      <div class="kpi-item">
+        <div class="kpi-label">${label}</div>
+        <div class="kpi-value">${value}</div>
+        ${badgeHtml}
+      </div>`,
+    stat: (label, value) => `
+      <div class="stat-item">
+        <div class="stat-lbl">${label}</div>
+        <div class="stat-val">${value}</div>
+      </div>`
+  };
+
+  function downsamplePairs(idx, data, threshold) {
+    if (threshold >= data.length || threshold === 0) return { idx, data };
+    const sampledIdx = [], sampledData = [];
+    const step = Math.floor(data.length / threshold);
+    const len = data.length;
+    for (let i = 0; i < len; i += step) {
+      const end = (i + step > len) ? len : i + step;
+      let minVal = Infinity, maxVal = -Infinity, minI = -1, maxI = -1;
+      for(let j = i; j < end; j++) {
+        if (data[j] < minVal) { minVal = data[j]; minI = idx[j]; }
+        if (data[j] > maxVal) { maxVal = data[j]; maxI = idx[j]; }
+      }
+      if(minI === maxI) { sampledIdx.push(minI); sampledData.push(minVal); }
+      else if (minI < maxI) { sampledIdx.push(minI, maxI); sampledData.push(minVal, maxVal); }
+      else { sampledIdx.push(maxI, minI); sampledData.push(maxVal, minVal); }
+    }
+    return { idx: sampledIdx, data: sampledData };
+  }
+
+  // --- SPC MATH ---
+  const SPC = {
+    consts: {
+      2: { A2:1.880, d2:1.128, D3:0, D4:3.267, B3:0, B4:3.267 }, 3: { A2:1.023, d2:1.693, D3:0, D4:2.574, B3:0, B4:2.568 },
+      4: { A2:0.729, d2:2.059, D3:0, D4:2.282, B3:0, B4:2.266 }, 5: { A2:0.577, d2:2.326, D3:0, D4:2.114, B3:0, B4:2.089 },
+      6: { A2:0.483, d2:2.534, D3:0, D4:2.004, B3:0.030, B4:1.970 }, 7: { A2:0.419, d2:2.704, D3:0.076, D4:1.924, B3:0.118, B4:1.882 },
+      8: { A2:0.373, d2:2.847, D3:0.136, D4:1.864, B3:0.185, B4:1.815 }, 9: { A2:0.337, d2:2.970, D3:0.184, D4:1.816, B3:0.239, B4:1.761 },
+      10:{ A2:0.308, d2:3.078, D3:0.223, D4:1.777, B3:0.284, B4:1.716 }, 11:{ A2:0.285, d2:3.173, D3:0.256, D4:1.744, B3:0.321, B4:1.679 },
+      12:{ A2:0.266, d2:3.258, D3:0.283, D4:1.717, B3:0.354, B4:1.646 }, 13:{ A2:0.249, d2:3.336, D3:0.307, D4:1.693, B3:0.382, B4:1.618 },
+      14:{ A2:0.235, d2:3.407, D3:0.328, D4:1.672, B3:0.406, B4:1.594 }, 15:{ A2:0.223, d2:3.472, D3:0.347, D4:1.653, B3:0.428, B4:1.572 }
+    },
+    getFactors(n) { return this.consts[n] || this.consts[15]; },
+    mean: (arr) => arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length : 0,
+    stdDev: (arr, mu) => arr.length > 1 ? Math.sqrt(arr.reduce((a,b)=>a+(b-mu)**2,0)/(arr.length-1)) : 0,
+    
+    moments: (arr, mean, std) => {
+        if (arr.length < 3) return { skew: 0, kurt: 0 };
+        const n = arr.length;
+        let sum3 = 0, sum4 = 0;
+        for (let i=0; i<n; i++) {
+            const z = (arr[i] - mean) / std;
+            sum3 += Math.pow(z, 3);
+            sum4 += Math.pow(z, 4);
+        }
+        const skew = (n * sum3) / ((n-1)*(n-2));
+        const kurt = (n*(n+1)*sum4) / ((n-1)*(n-2)*(n-3)) - (3*Math.pow(n-1,2)) / ((n-2)*(n-3));
+        return { skew, kurt };
+    },
+
+    describe: (arr) => {
+      if(!arr.length) return {};
+      const s = [...arr].sort((a,b)=>a-b);
+      const min = s[0];
+      const max = s[s.length-1];
+      const q1 = s[Math.floor((s.length-1)*0.25)];
+      const median = s[Math.floor((s.length-1)*0.5)];
+      const q3 = s[Math.floor((s.length-1)*0.75)];
+      return { n: arr.length, min, max, range: max - min, q1, median, q3, iqr: q3 - q1 };
+    },
+
+    cdf: (x, m, s) => {
+      if(s===0) return x<m ? 0 : 1;
+      const z = (x-m)/s;
+      const t = 1/(1+0.2316419*Math.abs(z));
+      const d = 0.3989423 * Math.exp(-z*z/2);
+      const p = 1 - d*t*(0.3193815 + t*(-0.3565638 + t*(1.781478 + t*(-1.821256 + t*1.330274))));
+      return z<0 ? 1-p : p;
+    },
+
+    andersonDarling: (data, mean, stdDev) => {
+      const n = data.length;
+      if (n < 5) return { A2: NaN, pValue: NaN };
+      const sorted = [...data].sort((a,b) => a - b);
+      const Y = sorted.map(x => stdDev > 0 ? (x - mean) / stdDev : 0);
+      const Phi = Y.map(z => {
+        const t = 1 / (1 + 0.2316419 * Math.abs(z));
+        const d = 0.3989423 * Math.exp(-z * z / 2);
+        const p = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274))));
+        return z >= 0 ? 1 - p : p;
+      });
+      let sum = 0;
+      for (let i = 0; i < n; i++) {
+        const phi_i = Math.max(1e-10, Math.min(1 - 1e-10, Phi[i]));
+        const phi_rev = Math.max(1e-10, Math.min(1 - 1e-10, Phi[n - 1 - i]));
+        sum += (2 * (i + 1) - 1) * (Math.log(phi_i) + Math.log(1 - phi_rev));
+      }
+      const A2 = -n - sum / n;
+      const A2star = A2 * (1 + 0.75 / n + 2.25 / (n * n));
+      let pValue = NaN;
+      if (A2star >= 0.6) pValue = Math.exp(1.2937 - 5.709 * A2star + 0.0186 * A2star * A2star);
+      else if (A2star > 0.34) pValue = Math.exp(0.9177 - 4.279 * A2star - 1.38 * A2star * A2star);
+      else if (A2star > 0.2) pValue = 1 - Math.exp(-8.318 + 42.796 * A2star - 59.938 * A2star * A2star);
+      else pValue = 1 - Math.exp(-13.436 + 101.14 * A2star - 223.73 * A2star * A2star);
+      return { A2: A2star, pValue: Math.max(0, Math.min(1, pValue)) };
+    },
+
+    runTest: (data, median) => {
+        const n = data.length;
+        if (n < 2) return null;
+        let runs = 1, above = data[0] > median;
+        for (let i = 1; i < n; i++) {
+            if ((data[i] > median) !== above && data[i] !== median) { runs++; above = !above; }
+        }
+        const m = n/2; const E = 1 + n/2; const Var = (n-1)/4;
+        const Z = (runs - E) / Math.sqrt(Var);
+        const pCluster = SPC.cdf(Z, 0, 1);
+        const pMixture = 1 - pCluster;
+        return { runs, E, pCluster, pMixture };
+    },
+
+    cusum: (data, mean, stdDev, k=0.5, h=4) => {
+        const K = k * stdDev, H = h * stdDev, cp = [0], cm = [0]; 
+        for(let i=0; i<data.length; i++) {
+            cp.push(Math.max(0, data[i] - (mean + K) + cp[i]));
+            cm.push(Math.max(0, (mean - K) - data[i] + cm[i]));
+        }
+        return { cp: cp.slice(1), cm: cm.slice(1), h: H };
+    },
+
+    ewma: (data, mean, stdDev, lambda=0.2, L=3) => {
+        const z = [mean], ucl = [], lcl = [];
+        for(let i=0; i<data.length; i++) {
+            const nextZ = lambda * data[i] + (1 - lambda) * z[i];
+            z.push(nextZ);
+            const term = Math.sqrt((lambda / (2 - lambda)) * (1 - Math.pow(1 - lambda, 2 * (i + 1))));
+            ucl.push(mean + L * stdDev * term);
+            lcl.push(mean - L * stdDev * term);
+        }
+        return { z: z.slice(1), ucl, lcl };
+    },
+
+    diagnose: (stats, limits, violations, lsl, usl) => {
+        const findings = [];
+        const actions = [];
+        let status = 'Estável';
+        let statusClass = 'success';
+
+        if (violations.length > 0) {
+            status = 'Instável';
+            statusClass = 'danger';
+            findings.push(`Foram detectados ${violations.length} pontos fora de controle estatístico.`);
+            actions.push("Interrompa a análise de capacidade. O processo não é previsível no momento.");
+            actions.push("Identifique e elimine as causas especiais (pontos marcados em vermelho) antes de calcular Cp/Cpk.");
+        }
+
+        if (stats.n > 10) {
+            const ad = SPC.andersonDarling(App.state.data, stats.mean, stats.sOverall);
+            if (ad.pValue < 0.05) {
+                findings.push("Os dados não seguem uma distribuição normal (Valor P < 0.05).");
+                actions.push("Os índices Cpk/Ppk podem não ser confiáveis. Considere uma Transformação Box-Cox ou análise não-paramétrica.");
+            }
+        }
+
+        if (!isNaN(lsl) || !isNaN(usl)) {
+            const cp = (usl - lsl) / (6 * stats.sWithin);
+            const cpk = Math.min((usl - stats.mean)/(3*stats.sWithin), (stats.mean - lsl)/(3*stats.sWithin));
+            
+            if (cpk < 1.0) {
+                findings.push(`Capacidade Inadequada (Cpk = ${cpk.toFixed(2)}). O processo está gerando defeitos.`);
+                if (cp > 1.33) {
+                    findings.push("O processo tem potencial (Cp alto), mas está descentralizado.");
+                    actions.push("Ajuste a média do processo para o centro da especificação (Ajuste de Offset).");
+                } else {
+                    findings.push("A variabilidade do processo é excessiva (Cp baixo).");
+                    actions.push("Investigue as causas comuns de variação (6M: Máquina, Método, Material, etc.).");
+                    actions.push("Realize um DOE (Experimento) para reduzir a variância.");
+                }
+            } else if (cpk < 1.33) {
+                findings.push("Capacidade Marginal (1.0 < Cpk < 1.33). Requer monitoramento rigoroso.");
+            } else {
+                findings.push("Processo Capaz (Cpk > 1.33). Mantenha o controle atual.");
+            }
+        }
+
+        if(findings.length === 0) findings.push("O processo aparenta estar estável e dentro dos parâmetros normais.");
+        if(actions.length === 0) actions.push("Continue o monitoramento padrão.");
+
+        return { status, statusClass, findings, actions };
+    }
+  };
+
+  // --- APP ---
+  const App = {
+    state: {
+      raw: [], data: [], col: null,
+      processed: { vals:[], means:[], ranges:[], stds:[] },
+      limits: {}, stats: {}, descStats: {}, violations: [], notes: {},
+      window: { size: 0, offset: 0 },
+      advanced: { cusum: {}, ewma: {}, run: {} },
+      stratCol: null,
+      strata: [],
+      logRendered: 0,
+      logBatchSize: 50
+    },
+    worker: null,
+
+    init() {
+      const blob = new Blob([document.getElementById('worker-js').textContent], {type:"text/javascript"});
+      this.worker = new Worker(URL.createObjectURL(blob));
+      this.worker.onmessage = (e) => this.handleWorkerResult(e.data);
+
+      const dbUpdate = debounce(() => this.calc(), 300);
+
+      document.getElementById('file-input').addEventListener('change', e => this.loadFile(e));
+      document.getElementById('col-select').addEventListener('change', e => { this.state.col = e.target.value; this.calc(); });
+      document.getElementById('col-strat').addEventListener('change', e => { this.state.stratCol = e.target.value; this.calc(); });
+      
+      ['inp-n', 'inp-lsl', 'inp-usl', 'rng-window'].forEach(id => document.getElementById(id).addEventListener('input', dbUpdate));
+      ['chk-iqr', 'sel-window', 'r1','r2','r3','r4','r5'].forEach(id => document.getElementById(id).addEventListener('change', () => this.calc()));
+
+      document.getElementById('toggle-sidebar').addEventListener('click', () => this.toggle('sidebar'));
+      document.getElementById('toggle-panel').addEventListener('click', () => this.toggle('panel'));
+      
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.addEventListener('click', e => this.switchTab(e.target)));
+
+      const logList = document.getElementById('log-list');
+      logList.addEventListener('scroll', () => {
+        if (logList.scrollTop + logList.clientHeight >= logList.scrollHeight - 50) this.appendLogs();
+      });
+
+      this.initCharts();
+      this.renderKPIs();
+    },
+
+    toggle(area) {
+      document.body.classList.toggle(`hide-${area}`);
+      document.getElementById(`toggle-${area}`).classList.toggle('active');
+      setTimeout(() => {
+        window.dispatchEvent(new Event('resize'));
+        const active = document.querySelector('.tab-pane.active');
+        if(active) active.querySelectorAll('.plot-div').forEach(el=>Plotly.Plots.resize(el));
+      }, 350);
+    },
+
+    switchTab(btn) {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      const tabId = btn.dataset.tab;
+      document.getElementById(tabId).classList.add('active');
+      requestAnimationFrame(() => {
+        window.dispatchEvent(new Event('resize'));
+        const container = document.getElementById(tabId);
+        container.querySelectorAll('.plot-div').forEach(el => Plotly.Plots.resize(el));
+        if(tabId === 't-six') this.renderSixpack();
+        if(tabId === 't-adv') this.renderAdvanced();
+        if(tabId === 't-run') this.renderRunChart();
+      });
+    },
+
+    loadFile(e) {
+      const file = e.target.files[0];
+      if(!file) return;
+      
+      // Feedback visual imediato
+      document.getElementById('file-info').innerHTML = `<span class="material-icons" style="font-size:14px; animation:spin 1s linear infinite">sync</span> Carregando...`;
+      
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+        const data = new Uint8Array(evt.target.result);
+        const wb = XLSX.read(data, {type:'array'});
+        const json = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
+        if(json.length) {
+          this.state.raw = json;
+          const sel = document.getElementById('col-select');
+          const selStrat = document.getElementById('col-strat');
+          sel.innerHTML = '<option value="">Selecione a Coluna...</option>';
+          selStrat.innerHTML = '<option value="">Nenhuma</option>';
+          Object.keys(json[0]).forEach(k => {
+            const opt1 = document.createElement('option'); opt1.value = k; opt1.text = k; sel.add(opt1);
+            const opt2 = document.createElement('option'); opt2.value = k; opt2.text = k; selStrat.add(opt2);
+          });
+          document.getElementById('file-info').innerHTML = `<span class="material-icons" style="font-size:14px; color:var(--col-success)">check_circle</span> ${file.name} (${json.length} linhas)`;
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    },
+
+    calc() {
+      if(!this.state.col) return;
+      document.getElementById('loader').style.display = 'flex';
+
+      const col = this.state.col;
+      const stratCol = this.state.stratCol;
+      
+      let mapped = this.state.raw.map(r => ({
+          val: parseLocaleNumber(r[col]),
+          strat: stratCol ? r[stratCol] : 'Todos'
+      })).filter(o => !isNaN(o.val));
+
+      let arr = mapped.map(o => o.val);
+      
+      if(document.getElementById('chk-iqr').checked) {
+        const s = [...arr].sort((a,b)=>a-b);
+        const q1 = s[Math.floor((s.length-1)*0.25)];
+        const q3 = s[Math.floor((s.length-1)*0.75)];
+        const iqr = q3 - q1;
+        const min = q1 - 1.5*iqr;
+        const max = q3 + 1.5*iqr;
+        mapped = mapped.filter(o => o.val >= min && o.val <= max);
+        arr = mapped.map(o => o.val);
+      }
+
+      const winSize = parseInt(document.getElementById('sel-window').value);
+      const winRange = document.getElementById('rng-window');
+      
+      if(winSize > 0 && winSize < arr.length) {
+        winRange.max = arr.length - winSize;
+        winRange.disabled = false;
+        const off = parseInt(winRange.value);
+        this.state.data = arr.slice(off, off + winSize);
+        this.state.strata = mapped.slice(off, off + winSize).map(o => o.strat);
+        document.getElementById('lbl-window').textContent = `Janela: ${off+1} - ${off+winSize}`;
+      } else {
+        winRange.disabled = true;
+        this.state.data = arr;
+        this.state.strata = mapped.map(o => o.strat);
+        document.getElementById('lbl-window').textContent = `Total: ${arr.length}`;
+      }
+
+      const data = this.state.data;
+      const n = parseInt(document.getElementById('inp-n').value) || 5;
+      const f = SPC.getFactors(n);
+
+      const means = [], ranges = [], stds = [];
+      const len = data.length;
+      for(let i = 0; i < len; i += n) {
+        const end = (i + n > len) ? len : i + n;
+        const count = end - i;
+        if(count < 2) continue; 
+        let sum = 0, min = data[i], max = data[i];
+        for(let j = i; j < end; j++) {
+          const val = data[j]; sum += val;
+          if(val < min) min = val; if(val > max) max = val;
+        }
+        const m = sum / count;
+        means.push(m); ranges.push(max - min);
+        let sqDiffSum = 0;
+        for(let j = i; j < end; j++) sqDiffSum += (data[j] - m) ** 2;
+        stds.push(Math.sqrt(sqDiffSum / (count - 1)));
+      }
+
+      const meanGrand = SPC.mean(data);
+      const rBar = SPC.mean(ranges);
+      const sBar = SPC.mean(stds);
+      
+      const mr = []; for(let i=1; i<data.length; i++) mr.push(Math.abs(data[i]-data[i-1]));
+      const mrBar = SPC.mean(mr);
+
+      this.state.limits = {
+        ind: { cl: meanGrand, ucl: meanGrand + 2.66*mrBar, lcl: meanGrand - 2.66*mrBar },
+        mr:  { cl: mrBar, ucl: 3.267*mrBar, lcl: 0 },
+        xbar:{ cl: meanGrand, ucl: meanGrand + f.A2*rBar, lcl: meanGrand - f.A2*rBar },
+        r:   { cl: rBar, ucl: f.D4*rBar, lcl: f.D3*rBar },
+        s:   { cl: sBar, ucl: f.B4*sBar, lcl: f.B3*sBar }
+      };
+
+      const sWithin = rBar / f.d2;
+      const sOverall = SPC.stdDev(data, meanGrand);
+      
+      const moments = SPC.moments(data, meanGrand, sOverall);
+      const desc = SPC.describe(data);
+      this.state.stats = { mean: meanGrand, sWithin, sOverall, n: data.length, skew: moments.skew, kurt: moments.kurt };
+      this.state.descStats = desc;
+      this.state.processed = { vals: data, means, ranges, stds };
+
+      this.state.advanced.cusum = SPC.cusum(data, meanGrand, sOverall);
+      this.state.advanced.ewma = SPC.ewma(data, meanGrand, sOverall);
+      this.state.advanced.run = SPC.runTest(data, desc.median);
+
+      this.worker.postMessage({
+        raw: data, means,
+        limitsInd: this.state.limits.ind,
+        limitsBar: this.state.limits.xbar,
+        sigmaBar: sWithin, 
+        rules: {
+          r1: document.getElementById('r1').checked,
+          r2: document.getElementById('r2').checked,
+          r3: document.getElementById('r3').checked,
+          r4: document.getElementById('r4').checked,
+          r5: document.getElementById('r5').checked
+        }
+      });
+
+      this.renderKPIs();
+      this.renderStatsPanel();
+    },
+
+    handleWorkerResult(viols) {
+      this.state.violations = viols;
+      this.renderLog();
+      this.renderCharts();
+      document.getElementById('loader').style.display = 'none';
+    },
+
+    getChartLayout(title, ucl, cl, lcl, yTitle) {
+      return {
+        margin: {t:40, b:40, l:50, r:60}, showlegend: false,
+        title: { text: title, font: {size:12, family:'IBM Plex Sans'}, x:0.02, xanchor:'left' },
+        xaxis: { showgrid:false }, 
+        yaxis: { title: yTitle, showgrid:true, gridcolor:'#E0E0E0' }, 
+        font: { family: 'IBM Plex Sans' },
+        shapes: [
+          { type:'line', x0:0, x1:1, xref:'paper', y0:ucl, y1:ucl, line:{color:'#D34041', dash:'dot', width:1.5} },
+          { type:'line', x0:0, x1:1, xref:'paper', y0:cl, y1:cl, line:{color:'#118186', width:2} },
+          { type:'line', x0:0, x1:1, xref:'paper', y0:lcl, y1:lcl, line:{color:'#D34041', dash:'dot', width:1.5} }
+        ],
+        annotations: [
+          { x:1, xref:'paper', y:ucl, text:'UCL', showarrow:false, xanchor:'left', font:{color:'#D34041', size:10} },
+          { x:1, xref:'paper', y:cl, text:'CL', showarrow:false, xanchor:'left', font:{color:'#118186', size:10} },
+          { x:1, xref:'paper', y:lcl, text:'LCL', showarrow:false, xanchor:'left', font:{color:'#D34041', size:10} }
+        ],
+        hovermode: 'closest'
+      };
+    },
+
+    plotlyConfig() { return { displayModeBar: false, responsive: true }; },
+    
+    baseLayout(title, yTitle) {
+       return {
+          title: { text: title, font: {size:12, family:'IBM Plex Sans'}, x:0.02, xanchor:'left' },
+          margin: {t:40, b:40, l:50, r:20},
+          xaxis: { showgrid:false },
+          yaxis: { title: yTitle, showgrid:true, gridcolor:'#E0E0E0' },
+          font: { family: 'IBM Plex Sans' },
+          separators: ',.'
+       };
+    },
+
+    renderCharts() {
+      const { data } = this.state;
+      const { ind, mr, xbar, r, s } = this.state.limits;
+      if(!data.length) return;
+
+      const idx = data.map((_,i)=>i+1);
+      const { idx: drawIdx, data: drawData } = downsamplePairs(idx, data, 5000);
+      const hasStrat = !!this.state.stratCol && this.state.strata.length === data.length;
+      
+      const getPointColor = (chartType, index) => {
+         const v = this.state.violations.find(x => x.chart === chartType && x.i === index);
+         if (v) return '#D34041'; 
+         if (hasStrat) {
+            const str = this.state.strata[index-1] || '';
+            let hash = 0; for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
+            const c = (hash & 0x00FFFFFF).toString(16).toUpperCase();
+            return '#' + '00000'.substring(0, 6 - c.length) + c;
+         }
+         return '#118186';
+      };
+      
+      const colorsInd = drawIdx.map(i => getPointColor('IND', i));
+      const layoutInd = this.getChartLayout('', ind.ucl, ind.cl, ind.lcl, 'Individual');
+      layoutInd.xaxis.matches = 'x'; layoutInd.separators = ',.';
+      
+      Plotly.react('plt-ind', [{
+        x: drawIdx, y: drawData, type: 'scattergl', mode: 'lines+markers',
+        marker: { color: colorsInd, size: 5, line: {color:'#fff', width:0.5} },
+        line: { color: hasStrat ? '#ccc' : '#2AA8CE', width: 1.5 }
+      }], layoutInd, this.plotlyConfig());
+
+      const mrVals = []; for(let i=1; i<drawData.length; i++) mrVals.push(Math.abs(drawData[i]-drawData[i-1]));
+      const layoutMr = this.getChartLayout('', mr.ucl, mr.cl, 0, 'Amplitude');
+      layoutMr.xaxis.matches = 'x'; layoutMr.separators = ',.';
+      Plotly.react('plt-mr', [{
+        x: drawIdx.slice(1), y: mrVals, type: 'scattergl', mode: 'lines+markers', line:{color:'#2AA8CE', width:1.5},
+        marker: { color: '#118186', size: 5 }
+      }], layoutMr, this.plotlyConfig());
+
+      const { means, ranges, stds } = this.state.processed;
+      const xIdx = means.map((_, i) => i + 1);
+      const layoutXBar = this.getChartLayout('', xbar.ucl, xbar.cl, xbar.lcl, 'Média');
+      layoutXBar.xaxis.matches = 'x2'; layoutXBar.separators = ',.';
+      Plotly.react('plt-xbar', [{ x: xIdx, y: means, type:'scatter', mode:'lines+markers', line:{color:'#2AA8CE', width:1.5}, marker: { color: '#118186', size: 6 } }], layoutXBar, this.plotlyConfig());
+      Plotly.react('plt-xbars', [{ x: xIdx, y: means, type:'scatter', mode:'lines+markers', line:{color:'#2AA8CE', width:1.5}, marker: { color: '#118186', size: 6 } }], layoutXBar, this.plotlyConfig());
+
+      const layoutR = this.getChartLayout('', r.ucl, r.cl, r.lcl, 'Amplitude');
+      layoutR.xaxis.matches = 'x2'; layoutR.separators = ',.';
+      Plotly.react('plt-r', [{ x: xIdx, y: ranges, type:'scatter', mode:'lines+markers', line:{color:'#2AA8CE', width:1.5}, marker: {color: '#118186'} }], layoutR, this.plotlyConfig());
+
+      const layoutS = this.getChartLayout('', s.ucl, s.cl, s.lcl, 'Desvio Padrão');
+      layoutS.xaxis.matches = 'x2'; layoutS.separators = ',.';
+      Plotly.react('plt-s', [{ x: xIdx, y: stds, type:'scatter', mode:'lines+markers', line:{color:'#2AA8CE', width:1.5}, marker: {color: '#118186'} }], layoutS, this.plotlyConfig());
+
+      if(document.getElementById('t-six').classList.contains('active')) this.renderSixpack();
+      if(document.getElementById('t-adv').classList.contains('active')) this.renderAdvanced();
+      if(document.getElementById('t-run').classList.contains('active')) this.renderRunChart();
+    },
+
+    renderRunChart() {
+      const { data } = this.state;
+      const { median } = this.state.descStats;
+      const { run } = this.state.advanced;
+      if(!data.length) return;
+
+      const layoutRun = this.baseLayout('', 'Valores Individuais');
+      layoutRun.shapes = [{type:'line', x0:0, x1:1, xref:'paper', y0:median, y1:median, line:{color:'#118186', width:2, dash:'dash'}}];
+      layoutRun.annotations = [{x:1, xref:'paper', y:median, text:'Mediana', showarrow:false, xanchor:'left', font:{size:10, color:'#118186'}}];
+
+      Plotly.react('plt-run', [{
+        y: data, type: 'scatter', mode: 'lines+markers', 
+        line: {color:'#2AA8CE'}, marker: {size:5, color: data.map(v => v > median ? '#2AA8CE' : '#D34041')}
+      }], layoutRun, this.plotlyConfig());
+
+      const tbl = `
+        <table class="run-table">
+          <tr><th>Métrica</th><th>Valor</th></tr>
+          <tr><td>Número de Corridas</td><td>${run.runs}</td></tr>
+          <tr><td>Corridas Esperadas</td><td>${fmt(run.E)}</td></tr>
+          <tr><td>Valor P (Agrupamento)</td><td>${fmt(run.pCluster, 3)}</td></tr>
+          <tr><td>Valor P (Misturas)</td><td>${fmt(run.pMixture, 3)}</td></tr>
+        </table>
+        <div style="font-size:0.75rem; color:#666; margin-top:12px; padding:8px; background:#F9FAFB; border-left:3px solid var(--col-info);">
+          <strong>Nota:</strong> Valor P < 0.05 sugere comportamento não aleatório (Padrão Detectado).
+        </div>
+      `;
+      document.getElementById('run-stats').innerHTML = tbl;
+    },
+
+    renderSixpack() {
+      const { data } = this.state;
+      const { mean, sOverall, sWithin } = this.state.stats;
+      const { ind } = this.state.limits;
+      if(data.length < 10) return;
+
+      const layoutI = { margin:{t:20,b:20,l:30,r:10}, xaxis:{showticklabels:false}, yaxis:{showticklabels:false}, showlegend:false, separators:',.', shapes:[{type:'line', y0:ind.ucl, y1:ind.ucl, x0:0, x1:1, xref:'paper', line:{color:'#D34041', width:1}},{type:'line', y0:ind.lcl, y1:ind.lcl, x0:0, x1:1, xref:'paper', line:{color:'#D34041', width:1}}] };
+      Plotly.react('six-1', [{ y: data, type:'scatter', mode:'lines', line:{color:'#2AA8CE', width:1} }], layoutI, this.plotlyConfig());
+
+      const min=Math.min(...data), max=Math.max(...data), xRange=[]; const step=(max-min)/50; for(let v=min; v<=max; v+=step) xRange.push(v);
+      const yWithin = xRange.map(x => (1/(sWithin*Math.sqrt(2*Math.PI))) * Math.exp(-0.5*Math.pow((x-mean)/sWithin, 2)));
+      const yOverall = xRange.map(x => (1/(sOverall*Math.sqrt(2*Math.PI))) * Math.exp(-0.5*Math.pow((x-mean)/sOverall, 2)));
+      
+      const lsl=parseFloat(document.getElementById('inp-lsl').value), usl=parseFloat(document.getElementById('inp-usl').value);
+      const shapesHist = [];
+      if(!isNaN(lsl)) shapesHist.push({type:'line', x0:lsl, x1:lsl, y0:0, y1:1, yref:'paper', line:{color:'#D34041', width:2, dash:'dot'}});
+      if(!isNaN(usl)) shapesHist.push({type:'line', x0:usl, x1:usl, y0:0, y1:1, yref:'paper', line:{color:'#D34041', width:2, dash:'dot'}});
+
+      Plotly.react('six-2', [
+        { x: data, type:'histogram', histnorm:'probability density', marker:{color:'rgba(42, 168, 206, 0.5)'}, name:'Hist' },
+        { x: xRange, y: yWithin, type:'scatter', mode:'lines', line:{color:'#D34041', dash:'dash'}, name:'Within' },
+        { x: xRange, y: yOverall, type:'scatter', mode:'lines', line:{color:'#118186'}, name:'Overall' }
+      ], { margin:{t:20,b:20,l:30,r:10}, showlegend:false, shapes: shapesHist, separators:',.' }, this.plotlyConfig());
+
+      const mrVals = []; for(let i=1; i<data.length; i++) mrVals.push(Math.abs(data[i]-data[i-1]));
+      Plotly.react('six-3', [{ y: mrVals, type:'scatter', mode:'lines', line:{color:'#2AA8CE', width:1} }], 
+        { margin:{t:20,b:20,l:30,r:10}, xaxis:{showticklabels:false}, yaxis:{showticklabels:false}, showlegend:false, separators:',.' }, this.plotlyConfig());
+
+      const sorted = [...data].sort((a,b)=>a-b);
+      const theoretical = sorted.map((_,i) => { const p=(i+0.5)/data.length; return p<0.5 ? -Math.sqrt(-2*Math.log(p)) : Math.sqrt(-2*Math.log(1-p)); }).map(z => z*sOverall + mean);
+      const ad = SPC.andersonDarling(data, mean, sOverall);
+      const lineTrace = { x: [Math.min(...theoretical), Math.max(...theoretical)], y: [Math.min(...theoretical), Math.max(...theoretical)], type: 'scatter', mode: 'lines', line: {color:'#D34041'}, name:'Ref Line' };
+
+      Plotly.react('six-4', [
+        { x: theoretical, y: sorted, type:'scatter', mode:'markers', marker:{size:3, color:'#2AA8CE'} },
+        lineTrace
+      ], {
+        margin: {t:20,b:20,l:35,r:10}, xaxis:{title:''}, yaxis:{title:''}, showlegend:false, separators:',.',
+        annotations: [{x:0.05, y:0.95, xref:'paper', yref:'paper', text:`P: ${fmt(ad.pValue, 3)}`, showarrow:false, align:'left', font:{size:10}}]
+      }, this.plotlyConfig());
+
+      const last25 = data.slice(-25);
+      Plotly.react('six-5', [{ y: last25, type:'scatter', mode:'lines+markers', marker:{size:4, color:'#118186'} }], 
+        { margin:{t:20,b:20,l:30,r:10}, xaxis:{showticklabels:false}, yaxis:{showticklabels:false}, showlegend:false, separators:',.' }, this.plotlyConfig());
+
+      const traces = [
+        { x: [mean-3*sWithin, mean+3*sWithin], y: [1, 1], type:'scatter', mode:'lines', line:{width:5, color:'#2AA8CE'}, name:'Within' },
+        { x: [mean-3*sOverall, mean+3*sOverall], y: [0.5, 0.5], type:'scatter', mode:'lines', line:{width:5, color:'#118186'}, name:'Overall' }
+      ];
+      if (!isNaN(lsl)) {
+        const maxVis = Math.max(mean+4*sOverall, lsl + (mean-lsl)*2);
+        traces.push({ x: [lsl, maxVis], y: [0, 0], type:'scatter', mode:'lines', line:{width:5, color:'#D34041'}, name:'LSL ->' });
+        traces.push({ x: [lsl, lsl], y: [-0.1, 0.1], type:'scatter', mode:'lines', line:{width:5, color:'#D34041'}, showlegend:false });
+      } else if (!isNaN(usl)) {
+        const minVis = Math.min(mean-4*sOverall, usl - (usl-mean)*2);
+        traces.push({ x: [minVis, usl], y: [0, 0], type:'scatter', mode:'lines', line:{width:5, color:'#D34041'}, name:'<- USL' });
+        traces.push({ x: [usl, usl], y: [-0.1, 0.1], type:'scatter', mode:'lines', line:{width:5, color:'#D34041'}, showlegend:false });
+      }
+      Plotly.react('six-6', traces, { margin:{t:20,b:20,l:30,r:10}, xaxis:{showticklabels:true}, yaxis:{showticklabels:false, range:[-0.5, 1.5]}, showlegend:false, separators:',.' }, this.plotlyConfig());
+    },
+
+    renderAdvanced() {
+        const { cusum, ewma } = this.state.advanced;
+        if (!cusum.cp) return;
+        const idx = Array.from({length: cusum.cp.length}, (_, i) => i + 1);
+        const layoutCusum = this.baseLayout('Tabular CUSUM', 'Soma Acumulada');
+        layoutCusum.shapes = [ { type:'line', x0:0, x1:1, xref:'paper', y0:cusum.h, y1:cusum.h, line:{color:'#D34041', dash:'dot'} } ];
+        Plotly.react('plt-cusum', [{ x: idx, y: cusum.cp, name: 'C+', mode: 'lines+markers', line: {color: '#2AA8CE'} }, { x: idx, y: cusum.cm, name: 'C-', mode: 'lines+markers', line: {color: '#118186'} }], layoutCusum, this.plotlyConfig());
+
+        const layoutEwma = this.baseLayout('EWMA (Lambda=0.2)', 'Valor Ponderado');
+        Plotly.react('plt-ewma', [{ x: idx, y: ewma.z, name: 'EWMA', mode: 'lines+markers', line: {color: '#2AA8CE'} }, { x: idx, y: ewma.ucl, name: 'UCL', mode: 'lines', line: {color: '#D34041', dash:'dot'} }, { x: idx, y: ewma.lcl, name: 'LCL', mode: 'lines', line: {color: '#D34041', dash:'dot'} }], layoutEwma, this.plotlyConfig());
+    },
+
+    renderKPIs() {
+      const { sWithin, sOverall, mean } = this.state.stats;
+      const lsl = parseFloat(document.getElementById('inp-lsl').value);
+      const usl = parseFloat(document.getElementById('inp-usl').value);
+      let cpk=NaN, ppk=NaN, ppm=NaN, cp=NaN, pp=NaN, yieldPct=NaN;
+
+      if (!isNaN(lsl) || !isNaN(usl)) {
+        if(sWithin > 0) {
+          if (isNaN(lsl)) { cpk = (usl - mean)/(3*sWithin); }
+          else if (isNaN(usl)) { cpk = (mean - lsl)/(3*sWithin); }
+          else { cp = (usl - lsl) / (6 * sWithin); cpk = Math.min((usl - mean)/(3*sWithin), (mean - lsl)/(3*sWithin)); }
+        }
+        if(sOverall > 0) {
+           if (isNaN(lsl)) { ppk = (usl - mean)/(3*sOverall); ppm = (1 - SPC.cdf(usl, mean, sOverall)) * 1e6; }
+           else if (isNaN(usl)) { ppk = (mean - lsl)/(3*sOverall); ppm = SPC.cdf(lsl, mean, sOverall) * 1e6; }
+           else { pp = (usl - lsl) / (6 * sOverall); ppk = Math.min((usl - mean)/(3*sOverall), (mean - lsl)/(3*sOverall)); ppm = (SPC.cdf(lsl, mean, sOverall) + (1 - SPC.cdf(usl, mean, sOverall))) * 1e6; }
+           yieldPct = 100 * (1 - ppm/1e6);
+        }
+      }
+
+      const kpiContainer = document.getElementById('kpi-container');
+      let badgeHtml = '';
+      if(isFinite(cpk)) {
+        const cls = cpk>=1.33 ? 'bdg-good' : cpk>=1 ? 'bdg-warn' : 'bdg-bad';
+        const txt = cpk>=1.33 ? 'Bom' : (cpk>=1 ? 'Reg' : 'Mau');
+        badgeHtml = `<div class="status-badge ${cls}">${txt}</div>`;
+      }
+
+      kpiContainer.innerHTML = [
+        UI.kpi('Cp', isFinite(cp) ? fmt(cp) : '--'), `<div class="kpi-sep"></div>`,
+        UI.kpi('Cpk', isFinite(cpk) ? fmt(cpk) : '--', badgeHtml), `<div class="kpi-sep"></div>`,
+        UI.kpi('Pp', isFinite(pp) ? fmt(pp) : '--'), `<div class="kpi-sep"></div>`,
+        UI.kpi('Ppk', isFinite(ppk) ? fmt(ppk) : '--'), `<div class="kpi-sep"></div>`,
+        UI.kpi('Yield', isFinite(yieldPct) ? fmt(yieldPct)+'%' : '--%'), `<div class="kpi-sep"></div>`,
+        UI.kpi('PPM', isFinite(ppm) ? Math.round(ppm).toLocaleString('pt-BR') : '--')
+      ].join('');
+    },
+
+    renderStatsPanel() {
+      const s = this.state.descStats;
+      const { mean, sWithin, sOverall, skew, kurt } = this.state.stats;
+      const grid = document.getElementById('stats-grid');
+      if(!s.n) { grid.innerHTML = '<div style="color:var(--col-muted); text-align:center; grid-column:span 2; font-style:italic; padding:20px;">Aguardando carregamento de dados...</div>'; return; }
+      
+      grid.innerHTML = [
+        UI.stat('Média', fmt(mean,4)), UI.stat('Desv. Within', fmt(sWithin,4)),
+        UI.stat('Desv. Overall', fmt(sOverall,4)), UI.stat('N', s.n),
+        UI.stat('Mínimo', fmt(s.min,4)), UI.stat('Máximo', fmt(s.max,4)),
+        UI.stat('Amplitude', fmt(s.range,4)), UI.stat('Mediana', fmt(s.median,4)),
+        UI.stat('Assimetria', fmt(skew,4)), UI.stat('Curtose', fmt(kurt,4)),
+        UI.stat('Q1', fmt(s.q1,4)), UI.stat('Q3', fmt(s.q3,4)),
+        UI.stat('IQR', fmt(s.iqr,4))
+      ].join('');
+    },
+
+    renderLog() {
+      const list = document.getElementById('log-list');
+      const badge = document.getElementById('alert-pill');
+      const total = this.state.violations.length;
+      badge.style.display = total ? 'flex' : 'none';
+      document.getElementById('alert-count').textContent = total;
+      list.innerHTML = ''; 
+      this.state.logRendered = 0;
+      if(!total) { list.innerHTML = '<div style="padding:24px; color:#aaa; text-align:center; font-style:italic;">Nenhuma anomalia detectada.</div>'; return; }
+      this.appendLogs();
+    },
+
+    appendLogs() {
+      const list = document.getElementById('log-list');
+      const { violations, logRendered, logBatchSize, notes } = this.state;
+      if (logRendered >= violations.length) return;
+      const nextBatch = violations.slice(logRendered, logRendered + logBatchSize);
+      const html = nextBatch.map(v => {
+        const note = notes[`${v.chart}-${v.i}`];
+        const icon = note ? '📝 ' : '';
+        return `<div class="log-entry ${v.type}" onclick="App.openNote('${v.chart}', ${v.i})">
+          <div style="font-weight:600; color:var(--col-text); margin-bottom:4px;">${icon}${v.rule}</div>
+          <div style="font-size:0.8rem; color:var(--col-muted);">
+            <span style="font-weight:500; color:var(--col-primary);">${v.chart}</span> | Ponto #${v.i} | Valor: ${fmt(v.val, 3)}
+          </div>
+        </div>`;
+      }).join('');
+      list.insertAdjacentHTML('beforeend', html);
+      this.state.logRendered += nextBatch.length;
+      const oldLoader = document.getElementById('log-loader');
+      if (oldLoader) oldLoader.remove();
+      if (this.state.logRendered < violations.length) {
+        list.insertAdjacentHTML('beforeend', `<div id="log-loader" class="log-loader-item">Carregando mais... (${this.state.logRendered}/${violations.length})</div>`);
+      }
+    },
+
+    openModal(type) {
+      document.getElementById('modal-chart').style.display = 'flex';
+      requestAnimationFrame(() => {
+        if(type === 'pareto') this.drawPareto();
+        else if (type === 'box') this.drawBoxplot();
+        else if (type === 'insights') this.drawInsights();
+        Plotly.Plots.resize('modal-body');
+      });
+    },
+
+    drawPareto() {
+      const viols = this.state.violations;
+      if (viols.length === 0) { document.getElementById('modal-body').innerHTML = '<div style="text-align:center; padding:50px; color:var(--col-muted);">Nenhuma violação registrada para análise.</div>'; document.getElementById('modal-title').textContent = 'Análise de Pareto'; return; }
+      const counts = {}; viols.forEach(v => counts[v.rule] = (counts[v.rule] || 0) + 1);
+      const sorted = Object.entries(counts).sort((a,b)=>b[1]-a[1]);
+      Plotly.newPlot('modal-body', [{ x: sorted.map(x=>x[0]), y: sorted.map(x=>x[1]), type: 'bar', marker:{color:'#118186'} }], { title: 'Pareto de Causas', margin:{t:40,b:80}, font:{family:'IBM Plex Sans'} }, this.plotlyConfig());
+      document.getElementById('modal-title').textContent = 'Análise de Pareto';
+    },
+
+    drawBoxplot() {
+      const data = this.state.data;
+      const strata = this.state.strata;
+      const hasStrat = !!this.state.stratCol && strata && strata.length === data.length;
+      let traces = [];
+      if (hasStrat) {
+        const groups = {}; data.forEach((v, i) => { const g = strata[i]; if(!groups[g]) groups[g] = []; groups[g].push(v); });
+        traces = Object.keys(groups).map(g => ({ y: groups[g], type:'box', name: g, boxmean:'sd' }));
+      } else { traces = [{ y: data, type: 'box', boxmean: 'sd', marker:{color:'#118186'}, name:'Todos' }]; }
+      Plotly.newPlot('modal-body', traces, { title: 'Distribuição (Boxplot)', margin:{t:40,b:40}, font:{family:'IBM Plex Sans'}, separators:',.' }, this.plotlyConfig());
+      document.getElementById('modal-title').textContent = 'Distribuição (Boxplot)';
+    },
+
+    drawInsights() {
+      const { stats, limits, violations } = this.state;
+      const lsl = parseFloat(document.getElementById('inp-lsl').value);
+      const usl = parseFloat(document.getElementById('inp-usl').value);
+      
+      const analysis = SPC.diagnose(stats, limits, violations, lsl, usl);
+      
+      document.getElementById('modal-title').textContent = 'Insights Gerados (IA)';
+      const container = document.getElementById('modal-body');
+      container.innerHTML = `
+        <div class="insight-card ${analysis.statusClass}">
+          <div class="insight-title">
+            <span class="material-icons">${analysis.status === 'Estável' ? 'check_circle' : 'error'}</span>
+            Status do Processo: ${analysis.status}
+          </div>
+          <div class="insight-body">
+            Diagnóstico baseado nas regras de controle estatístico e índices de capacidade.
+          </div>
+        </div>
+
+        <div style="margin-bottom:24px;">
+          <h4 style="margin:0 0 12px 0; color:var(--col-text); border-bottom:1px solid #EEE; padding-bottom:8px;">Análise Detalhada</h4>
+          <ul class="insight-list">
+            ${analysis.findings.map(f => `<li>${f}</li>`).join('')}
+          </ul>
+        </div>
+
+        <div>
+          <h4 style="margin:0 0 12px 0; color:var(--col-text); border-bottom:1px solid #EEE; padding-bottom:8px;">Plano de Ação Sugerido</h4>
+          <ul class="insight-list">
+            ${analysis.actions.map(a => `<li>${a}</li>`).join('')}
+          </ul>
+        </div>
+      `;
+    },
+
+    expandChart(id) {
+      document.getElementById('modal-chart').style.display = 'flex';
+      document.getElementById('modal-title').textContent = 'Visualização Expandida';
+      const map = {'ind':'plt-ind', 'mr':'plt-mr', 'xbar':'plt-xbar', 'r':'plt-r', 'xbars':'plt-xbars', 's':'plt-s', 'run':'plt-run'};
+      const srcId = map[id];
+      const srcDiv = document.getElementById(srcId);
+      if (srcDiv && srcDiv.data) Plotly.newPlot('modal-body', srcDiv.data, srcDiv.layout, this.plotlyConfig());
+    },
+
+    openNote(chart, i) {
+      this.currentNoteKey = `${chart}-${i}`;
+      const note = this.state.notes[this.currentNoteKey] || {};
+      document.getElementById('note-context').innerHTML = `
+        <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+          <strong>Carta:</strong> ${chart}
+        </div>
+        <div><strong>Ponto:</strong> #${i}</div>
+      `;
+      document.getElementById('note-cause').value = note.cause || '';
+      document.getElementById('note-action').value = note.action || '';
+      document.getElementById('modal-note').style.display = 'flex';
+    },
+    
+    saveNote() {
+      if(this.currentNoteKey) {
+        this.state.notes[this.currentNoteKey] = { cause: document.getElementById('note-cause').value, action: document.getElementById('note-action').value };
+        this.renderLog(); 
+      }
+      this.closeModal('modal-note');
+    },
+
+    closeModal(id) { document.getElementById(id).style.display = 'none'; },
+    scrollToLog() { document.getElementById('toggle-panel').click(); document.getElementById('log-list').scrollIntoView({behavior: "smooth"}); },
+
+    exportCSV(type) {
+      if(!this.state.data.length) return alert('Sem dados para exportar.');
+      let csvContent = "data:text/csv;charset=utf-8,";
+      if(type === 'series') { csvContent += "Index,Valor\n" + this.state.data.map((v,i)=>`${i+1},${fmt(v)}`).join("\n"); } 
+      else { csvContent += "Carta,Ponto,Valor,Regra,Causa,Acao\n" + this.state.violations.map(v => { const n = this.state.notes[`${v.chart}-${v.i}`] || {}; return `${v.chart},${v.i},${fmt(v.val)},${v.rule},${n.cause||''},${n.action||''}`; }).join("\n"); }
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute("download", `cep_${type}.csv`);
+      document.body.appendChild(link);
+      link.click();
+    },
+
+    exportXLSX() {
+      if(!this.state.data.length) return alert('Sem dados para exportar.');
+      const ws = XLSX.utils.json_to_sheet(this.state.data.map((v,i)=>({Index:i+1, Valor:v})));
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Dados");
+      XLSX.writeFile(wb, "cep_completo.xlsx");
+    },
+
+    initCharts() {
+      const base = { title: { text:'Aguardando dados...', font:{size:12, color:'#aaa'} } };
+      ['plt-ind','plt-mr','plt-xbar','plt-r','plt-xbars','plt-s','plt-cusum','plt-ewma','plt-run'].forEach(id => {
+         const el = document.getElementById(id);
+         if(el) Plotly.newPlot(id, [], base, this.plotlyConfig());
+      });
+    }
+  };
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const check = setInterval(() => {
+      if(typeof Plotly !== 'undefined' && typeof XLSX !== 'undefined') { clearInterval(check); App.init(); }
+    }, 200);
+  });
+</script>
+</body>
+</html>
+
+
