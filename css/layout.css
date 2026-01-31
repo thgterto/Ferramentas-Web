@@ -47,3 +47,87 @@ body.hide-sidebar.hide-panel { grid-template-columns: 0px minmax(0,1fr) 0px; }
   display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr 1fr;
   gap: 12px; height: 100%;
 }
+
+/* Sixpack Dashboard Layout */
+.sixpack-wrapper {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 20px;
+  height: 100%;
+  overflow: hidden;
+}
+
+.sixpack-charts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: repeat(3, 1fr);
+  gap: 16px;
+  overflow-y: auto;
+  padding-right: 8px;
+}
+
+.sixpack-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow-y: auto;
+  padding-right: 8px;
+  min-width: 250px;
+}
+
+.stat-card {
+  background: #FFF;
+  border: 1px solid var(--border-color, #EEE);
+  border-radius: 4px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+.stat-header {
+  background: #F8F9FA;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-color, #EEE);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--col-muted, #888);
+  letter-spacing: 0.5px;
+}
+
+.stat-body {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.stat-label {
+  font-size: 0.85rem;
+  color: var(--col-text-secondary, #666);
+  font-weight: 500;
+}
+
+.stat-value {
+  font-family: 'IBM Plex Sans', monospace;
+  font-weight: 600;
+  font-size: 1rem;
+  color: var(--col-text, #333);
+}
+
+.stat-value.large {
+  font-size: 1.5rem;
+}
+
+.stat-value.highlight {
+  color: var(--col-primary, #ea2a33);
+}
+
+.stat-value.success {
+  color: #20B2AA;
+}

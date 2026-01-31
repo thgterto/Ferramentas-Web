@@ -189,13 +189,76 @@
   </div>
 
   <div id="t-six" class="tab-pane">
-    <div class="sixpack-grid">
-      <div class="sixpack-cell"><div class="chart-header">1. Carta I (Indiv.)</div><div id="six-1" class="plot-div"></div></div>
-      <div class="sixpack-cell"><div class="chart-header">2. Histograma Capabilidade</div><div id="six-2" class="plot-div"></div></div>
-      <div class="sixpack-cell"><div class="chart-header">3. Carta MR (Ampl.)</div><div id="six-3" class="plot-div"></div></div>
-      <div class="sixpack-cell"><div class="chart-header">4. Probabilidade Normal</div><div id="six-4" class="plot-div"></div></div>
-      <div class="sixpack-cell"><div class="chart-header">5. Últimos 25</div><div id="six-5" class="plot-div"></div></div>
-      <div class="sixpack-cell"><div class="chart-header">6. Plot Capabilidade</div><div id="six-6" class="plot-div"></div></div>
+    <div class="sixpack-wrapper">
+      <div class="sixpack-charts">
+        <div class="chart-container"><div class="chart-header">1. Carta I (Indiv.)</div><div id="six-1" class="plot-div"></div></div>
+        <div class="chart-container"><div class="chart-header">2. Carta MR (Ampl.)</div><div id="six-3" class="plot-div"></div></div>
+        <div class="chart-container"><div class="chart-header">3. Últimos 25</div><div id="six-5" class="plot-div"></div></div>
+        <div class="chart-container"><div class="chart-header">4. Histograma Capabilidade</div><div id="six-2" class="plot-div"></div></div>
+        <div class="chart-container"><div class="chart-header">5. Probabilidade Normal</div><div id="six-4" class="plot-div"></div></div>
+        <div class="chart-container"><div class="chart-header">6. Plot Capabilidade</div><div id="six-6" class="plot-div"></div></div>
+      </div>
+
+      <div class="sixpack-sidebar">
+        <div class="stat-card">
+          <div class="stat-header">Dados do Processo</div>
+          <div class="stat-body">
+            <div class="stat-row">
+              <span class="stat-label">Média</span>
+              <span class="stat-value" id="sp-mean">-</span>
+            </div>
+            <div class="stat-row">
+              <span class="stat-label">Amostra N</span>
+              <span class="stat-value" id="sp-n">-</span>
+            </div>
+            <div style="border-top:1px solid #EEE; margin:4px 0;"></div>
+            <div class="stat-row">
+              <span class="stat-label">Desvio Padrão (Within)</span>
+              <span class="stat-value" id="sp-swithin">-</span>
+            </div>
+            <div class="stat-row">
+              <span class="stat-label">Desvio Padrão (Overall)</span>
+              <span class="stat-value" id="sp-soverall">-</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-header">Capacidade (Curto Prazo)</div>
+          <div class="stat-body">
+            <div class="stat-row">
+              <div style="display:flex; flex-direction:column;">
+                <span class="stat-label">Cp</span>
+                <span class="stat-value large success" id="sp-cp">-</span>
+              </div>
+              <div style="display:flex; flex-direction:column; text-align:right;">
+                <span class="stat-label">Cpk</span>
+                <span class="stat-value large success" id="sp-cpk">-</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-header">Performance (Global)</div>
+          <div class="stat-body">
+            <div class="stat-row">
+              <div style="display:flex; flex-direction:column;">
+                <span class="stat-label">Pp</span>
+                <span class="stat-value large" id="sp-pp">-</span>
+              </div>
+              <div style="display:flex; flex-direction:column; text-align:right;">
+                <span class="stat-label">Ppk</span>
+                <span class="stat-value large highlight" id="sp-ppk">-</span>
+              </div>
+            </div>
+            <div class="stat-row">
+              <span class="stat-label">Cpm</span>
+              <span class="stat-value" id="sp-cpm">-</span>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 

@@ -137,12 +137,31 @@ export function renderRunChart() {
 
 export function renderSixpack() {
   const { data, stats, limits } = state;
-  const { mean, sOverall, sWithin } = stats;
+  const { mean, sOverall, sWithin, cp, cpk, pp, ppk, cpm } = stats;
   const { ind } = limits;
   if(data.length < 10) return;
 
-  const layoutI = { margin:{t:20,b:20,l:30,r:10}, xaxis:{showticklabels:false}, yaxis:{showticklabels:false}, showlegend:false, separators:',.', shapes:[{type:'line', y0:ind.ucl, y1:ind.ucl, x0:0, x1:1, xref:'paper', line:{color:'#D34041', width:1}},{type:'line', y0:ind.lcl, y1:ind.lcl, x0:0, x1:1, xref:'paper', line:{color:'#D34041', width:1}}] };
-  Plotly.react('six-1', [{ y: data, type:'scatter', mode:'lines', line:{color:'#2AA8CE', width:1} }], layoutI, plotlyConfig());
+  // Populate Stats Sidebar
+  const setVal = (id, val, digits=3) => {
+      const el = document.getElementById(id);
+      if(el) el.textContent = val !== undefined && val !== null ? fmt(val, digits) : '-';
+  };
+
+  setVal('sp-mean', mean);
+  setVal('sp-n', data.length, 0);
+  setVal('sp-swithin', sWithin, 4);
+  setVal('sp-soverall', sOverall, 4);
+  setVal('sp-cp', cp, 2);
+  setVal('sp-cpk', cpk, 2);
+  setVal('sp-pp', pp, 2);
+  setVal('sp-ppk', ppk, 2);
+  setVal('sp-cpm', cpm, 2);
+
+  const colorRed = '#ea2a33';
+  const colorJade = '#20B2AA';
+
+  const layoutI = { margin:{t:20,b:20,l:30,r:10}, xaxis:{showticklabels:false}, yaxis:{showticklabels:false}, showlegend:false, separators:',.', shapes:[{type:'line', y0:ind.ucl, y1:ind.ucl, x0:0, x1:1, xref:'paper', line:{color:colorRed, width:1}},{type:'line', y0:ind.lcl, y1:ind.lcl, x0:0, x1:1, xref:'paper', line:{color:colorRed, width:1}}] };
+  Plotly.react('six-1', [{ y: data, type:'scatter', mode:'lines', line:{color:colorJade, width:1.5} }], layoutI, plotlyConfig());
 
   const min=Math.min(...data), max=Math.max(...data), xRange=[]; const step=(max-min)/50; for(let v=min; v<=max; v+=step) xRange.push(v);
   const yWithin = xRange.map(x => (1/(sWithin*Math.sqrt(2*Math.PI))) * Math.exp(-0.5*Math.pow((x-mean)/sWithin, 2)));
@@ -150,61 +169,47 @@ export function renderSixpack() {
 
   const lsl=parseFloat(document.getElementById('inp-lsl').value), usl=parseFloat(document.getElementById('inp-usl').value);
   const shapesHist = [];
-  if(!isNaN(lsl)) shapesHist.push({type:'line', x0:lsl, x1:lsl, y0:0, y1:1, yref:'paper', line:{color:'#D34041', width:2, dash:'dot'}});
-  if(!isNaN(usl)) shapesHist.push({type:'line', x0:usl, x1:usl, y0:0, y1:1, yref:'paper', line:{color:'#D34041', width:2, dash:'dot'}});
+  if(!isNaN(lsl)) shapesHist.push({type:'line', x0:lsl, x1:lsl, y0:0, y1:1, yref:'paper', line:{color:colorRed, width:2, dash:'dot'}});
+  if(!isNaN(usl)) shapesHist.push({type:'line', x0:usl, x1:usl, y0:0, y1:1, yref:'paper', line:{color:colorRed, width:2, dash:'dot'}});
 
   Plotly.react('six-2', [
-    { x: data, type:'histogram', histnorm:'probability density', marker:{color:'rgba(42, 168, 206, 0.5)'}, name:'Hist' },
-    { x: xRange, y: yWithin, type:'scatter', mode:'lines', line:{color:'#D34041', dash:'dash'}, name:'Within' },
-    { x: xRange, y: yOverall, type:'scatter', mode:'lines', line:{color:'#118186'}, name:'Overall' }
+    { x: data, type:'histogram', histnorm:'probability density', marker:{color:'rgba(32, 178, 170, 0.5)'}, name:'Hist' },
+    { x: xRange, y: yWithin, type:'scatter', mode:'lines', line:{color:colorRed, dash:'dash'}, name:'Within' },
+    { x: xRange, y: yOverall, type:'scatter', mode:'lines', line:{color:colorJade}, name:'Overall' }
   ], { margin:{t:20,b:20,l:30,r:10}, showlegend:false, shapes: shapesHist, separators:',.' }, plotlyConfig());
 
   const mrVals = []; for(let i=1; i<data.length; i++) mrVals.push(Math.abs(data[i]-data[i-1]));
-  Plotly.react('six-3', [{ y: mrVals, type:'scatter', mode:'lines', line:{color:'#2AA8CE', width:1} }],
+  Plotly.react('six-3', [{ y: mrVals, type:'scatter', mode:'lines', line:{color:colorJade, width:1.5} }],
     { margin:{t:20,b:20,l:30,r:10}, xaxis:{showticklabels:false}, yaxis:{showticklabels:false}, showlegend:false, separators:',.' }, plotlyConfig());
-
-  // Note: theoretical quantiles are needed for six-4. It involves math (SPC.cdf inverse or similar).
-  // Ideally, worker calculates the theoretical quantiles or we implement the math here.
-  // The original code did:
-  // const theoretical = sorted.map((_,i) => { const p=(i+0.5)/data.length; return p<0.5 ? -Math.sqrt(-2*Math.log(p)) : Math.sqrt(-2*Math.log(1-p)); }).map(z => z*sOverall + mean);
-  // This is simple enough to keep here.
 
   const sorted = [...data].sort((a,b)=>a-b);
   const theoretical = sorted.map((_,i) => { const p=(i+0.5)/data.length; return p<0.5 ? -Math.sqrt(-2*Math.log(p)) : Math.sqrt(-2*Math.log(1-p)); }).map(z => z*sOverall + mean);
-  // pValue from AD test. Worker calculated stats, but maybe not AD pValue?
-  // Wait, worker calculates AD pValue inside `diagnose` but doesn't expose it directly in `stats`.
-  // Actually, `diagnose` returns findings.
-  // Original code called `SPC.andersonDarling` here too.
-  // I should move `andersonDarling` result to `stats` or `advanced` in worker.
-  // For now, I'll skip the pValue annotation or approximate it?
-  // No, I should expose it.
 
-  const lineTrace = { x: [Math.min(...theoretical), Math.max(...theoretical)], y: [Math.min(...theoretical), Math.max(...theoretical)], type: 'scatter', mode: 'lines', line: {color:'#D34041'}, name:'Ref Line' };
+  const lineTrace = { x: [Math.min(...theoretical), Math.max(...theoretical)], y: [Math.min(...theoretical), Math.max(...theoretical)], type: 'scatter', mode: 'lines', line: {color:colorRed}, name:'Ref Line' };
 
   Plotly.react('six-4', [
-    { x: theoretical, y: sorted, type:'scatter', mode:'markers', marker:{size:3, color:'#2AA8CE'} },
+    { x: theoretical, y: sorted, type:'scatter', mode:'markers', marker:{size:3, color:colorJade} },
     lineTrace
   ], {
-    margin: {t:20,b:20,l:35,r:10}, xaxis:{title:''}, yaxis:{title:''}, showlegend:false, separators:',.',
-    // annotations: [{x:0.05, y:0.95, xref:'paper', yref:'paper', text:`P: ${fmt(ad.pValue, 3)}`, showarrow:false, align:'left', font:{size:10}}]
+    margin: {t:20,b:20,l:35,r:10}, xaxis:{title:''}, yaxis:{title:''}, showlegend:false, separators:',.'
   }, plotlyConfig());
 
   const last25 = data.slice(-25);
-  Plotly.react('six-5', [{ y: last25, type:'scatter', mode:'lines+markers', marker:{size:4, color:'#118186'} }],
+  Plotly.react('six-5', [{ y: last25, type:'scatter', mode:'lines+markers', line:{color:colorJade}, marker:{size:4, color:colorJade} }],
     { margin:{t:20,b:20,l:30,r:10}, xaxis:{showticklabels:false}, yaxis:{showticklabels:false}, showlegend:false, separators:',.' }, plotlyConfig());
 
   const traces = [
-    { x: [mean-3*sWithin, mean+3*sWithin], y: [1, 1], type:'scatter', mode:'lines', line:{width:5, color:'#2AA8CE'}, name:'Within' },
+    { x: [mean-3*sWithin, mean+3*sWithin], y: [1, 1], type:'scatter', mode:'lines', line:{width:5, color:colorJade}, name:'Within' },
     { x: [mean-3*sOverall, mean+3*sOverall], y: [0.5, 0.5], type:'scatter', mode:'lines', line:{width:5, color:'#118186'}, name:'Overall' }
   ];
   if (!isNaN(lsl)) {
     const maxVis = Math.max(mean+4*sOverall, lsl + (mean-lsl)*2);
-    traces.push({ x: [lsl, maxVis], y: [0, 0], type:'scatter', mode:'lines', line:{width:5, color:'#D34041'}, name:'LSL ->' });
-    traces.push({ x: [lsl, lsl], y: [-0.1, 0.1], type:'scatter', mode:'lines', line:{width:5, color:'#D34041'}, showlegend:false });
+    traces.push({ x: [lsl, maxVis], y: [0, 0], type:'scatter', mode:'lines', line:{width:5, color:colorRed}, name:'LSL ->' });
+    traces.push({ x: [lsl, lsl], y: [-0.1, 0.1], type:'scatter', mode:'lines', line:{width:5, color:colorRed}, showlegend:false });
   } else if (!isNaN(usl)) {
     const minVis = Math.min(mean-4*sOverall, usl - (usl-mean)*2);
-    traces.push({ x: [minVis, usl], y: [0, 0], type:'scatter', mode:'lines', line:{width:5, color:'#D34041'}, name:'<- USL' });
-    traces.push({ x: [usl, usl], y: [-0.1, 0.1], type:'scatter', mode:'lines', line:{width:5, color:'#D34041'}, showlegend:false });
+    traces.push({ x: [minVis, usl], y: [0, 0], type:'scatter', mode:'lines', line:{width:5, color:colorRed}, name:'<- USL' });
+    traces.push({ x: [usl, usl], y: [-0.1, 0.1], type:'scatter', mode:'lines', line:{width:5, color:colorRed}, showlegend:false });
   }
   Plotly.react('six-6', traces, { margin:{t:20,b:20,l:30,r:10}, xaxis:{showticklabels:true}, yaxis:{showticklabels:false, range:[-0.5, 1.5]}, showlegend:false, separators:',.' }, plotlyConfig());
 }
