@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Advanced Sixpack Analysis Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#ea2a33", // Cinnabar Red variant
+                        "jade": "#20B2AA",
+                        "background-light": "#f8f6f6",
+                        "background-dark": "#121212",
+                        "carbon-gray": "#393939",
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<style>
+        .chart-grid-line { stroke: #e5e5e5; stroke-dasharray: 2; }
+        .control-limit-line { stroke: #ea2a33; stroke-width: 1.5; stroke-dasharray: 4; }
+        .data-line { stroke: #20B2AA; stroke-width: 2; fill: none; }
+        .data-point { fill: #20B2AA; }
+        .mono-stats { font-variant-numeric: tabular-nums; }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-display text-carbon-gray dark:text-gray-200">
+<div class="relative flex min-h-screen w-full flex-col overflow-x-hidden">
+<!-- Top Navigation -->
+<header class="flex h-14 items-center justify-between border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-background-dark px-6">
+<div class="flex items-center gap-6">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary text-2xl">analytics</span>
+<h1 class="text-lg font-bold tracking-tight">Industrial Analytics <span class="font-normal text-gray-400">| SPC Engine</span></h1>
+</div>
+<nav class="hidden md:flex items-center gap-6 border-l border-gray-200 dark:border-gray-800 pl-6 h-6">
+<a class="text-sm font-medium hover:text-primary transition-colors" href="#">Dashboard</a>
+<a class="text-sm font-medium hover:text-primary transition-colors" href="#">Batch History</a>
+<a class="text-sm font-medium text-primary" href="#">Live Analysis</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<div class="relative hidden sm:block">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-lg">search</span>
+<input class="h-9 w-64 rounded bg-gray-100 dark:bg-gray-800 border-none pl-10 text-xs focus:ring-1 focus:ring-primary" placeholder="Search batch or tool ID..." type="text"/>
+</div>
+<button class="flex items-center justify-center p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800">
+<span class="material-symbols-outlined text-gray-600 dark:text-gray-400">notifications</span>
+</button>
+<div class="h-8 w-8 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
+<img alt="User Profile" data-alt="User profile avatar of a male engineer" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC-PYc8mm3Gu5NG7HlcXPJt0H7UjpEmBvB7dikUaw6Vlm50ZsPFovSApRQXhpNetc1cS9lxnQ93eDKKiFWdAUk04xHH2lVGtu27OSQrt6mmnPHsHGwUQAN5r_Z3ZF6bdCxK-VcIaISkmH_4DHbSZLTbNR0Cjb3-8XE1LOnCDVUEWXE0nGQaIVR9tF1GOCKeI7JpqHgRn_s_SqIZPMjoiM45eQ_bcISykGrGX_GmT9ayBAfhtjZDWPvMlm7I-vCI3qnOyG4ho0HkP6jD"/>
+</div>
+</div>
+</header>
+<!-- Main Content Area -->
+<main class="flex-1 px-6 py-6 lg:px-10">
+<!-- Breadcrumbs & Header Actions -->
+<div class="mb-6 flex flex-col md:flex-row md:items-end justify-between gap-4">
+<div class="space-y-1">
+<nav class="flex items-center gap-2 text-xs text-gray-500 font-medium uppercase tracking-wider">
+<a class="hover:text-primary" href="#">Process Control</a>
+<span>/</span>
+<a class="hover:text-primary" href="#">Analytics</a>
+<span>/</span>
+<span class="text-gray-900 dark:text-white">Sixpack Analysis</span>
+</nav>
+<div class="flex items-center gap-3">
+<h2 class="text-3xl font-bold text-gray-900 dark:text-white">Batch Analysis: #882-A-92</h2>
+<span class="flex items-center gap-1 rounded bg-green-100 dark:bg-green-900/30 px-2 py-0.5 text-[10px] font-bold text-green-700 dark:text-green-400 uppercase tracking-tighter">
+<span class="size-1.5 rounded-full bg-green-500"></span> In Control
+                        </span>
+</div>
+</div>
+<div class="flex gap-2">
+<button class="flex items-center gap-2 rounded bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-4 h-9 text-sm font-semibold hover:bg-gray-50 transition-colors">
+<span class="material-symbols-outlined text-lg">calendar_today</span>
+                        Last 24 Hours
+                    </button>
+<button class="flex items-center gap-2 rounded bg-primary px-4 h-9 text-sm font-semibold text-white shadow-sm hover:bg-primary/90 transition-colors">
+<span class="material-symbols-outlined text-lg">download</span>
+                        Export Report
+                    </button>
+</div>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+<!-- Left Section: 2/3 Grid for 6 Charts -->
+<div class="lg:col-span-8 grid grid-cols-1 md:grid-cols-2 gap-4">
+<!-- Chart 1: I-Chart -->
+<div class="rounded bg-white dark:bg-background-dark border border-gray-200 dark:border-gray-800 p-4 shadow-sm">
+<div class="flex justify-between items-start mb-4">
+<div>
+<h3 class="text-sm font-bold text-gray-900 dark:text-white">I Chart (Individual)</h3>
+<p class="text-[10px] text-gray-500">Subgroup size 1</p>
+</div>
+<span class="text-[10px] font-mono font-bold bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded">UCL=10.45</span>
+</div>
+<div class="h-40 w-full">
+<svg height="100%" viewbox="0 0 400 150" width="100%">
+<line class="control-limit-line" x1="0" x2="400" y1="20" y2="20"></line>
+<line class="control-limit-line" x1="0" x2="400" y1="130" y2="130"></line>
+<line stroke="#999" stroke-dasharray="2" stroke-width="1" x1="0" x2="400" y1="75" y2="75"></line>
+<path class="data-line" d="M0 100 L40 60 L80 110 L120 70 L160 30 L200 80 L240 50 L280 90 L320 65 L360 40 L400 95"></path>
+<circle class="data-point" cx="40" cy="60" r="3"></circle>
+<circle class="data-point" cx="160" cy="30" r="3"></circle>
+<circle class="data-point" cx="360" cy="40" r="3"></circle>
+</svg>
+</div>
+</div>
+<!-- Chart 2: MR Chart -->
+<div class="rounded bg-white dark:bg-background-dark border border-gray-200 dark:border-gray-800 p-4 shadow-sm">
+<div class="flex justify-between items-start mb-4">
+<div>
+<h3 class="text-sm font-bold text-gray-900 dark:text-white">Moving Range Chart</h3>
+<p class="text-[10px] text-gray-500">Variation tracking</p>
+</div>
+<span class="text-[10px] font-mono font-bold bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded">UCL=0.42</span>
+</div>
+<div class="h-40 w-full">
+<svg height="100%" viewbox="0 0 400 150" width="100%">
+<line class="control-limit-line" x1="0" x2="400" y1="30" y2="30"></line>
+<line stroke="#999" stroke-width="1" x1="0" x2="400" y1="145" y2="145"></line>
+<path class="data-line" d="M0 130 L40 140 L80 120 L120 145 L160 90 L200 135 L240 110 L280 140 L320 120 L360 100 L400 130"></path>
+<circle class="data-point" cx="160" cy="90" r="3"></circle>
+<circle class="data-point" cx="360" cy="100" r="3"></circle>
+</svg>
+</div>
+</div>
+<!-- Chart 3: Last 25 Observations -->
+<div class="rounded bg-white dark:bg-background-dark border border-gray-200 dark:border-gray-800 p-4 shadow-sm">
+<div class="flex justify-between items-start mb-4">
+<div>
+<h3 class="text-sm font-bold text-gray-900 dark:text-white">Last 25 Observations</h3>
+<p class="text-[10px] text-gray-500">Individual run trend</p>
+</div>
+</div>
+<div class="h-40 w-full">
+<svg height="100%" viewbox="0 0 400 150" width="100%">
+<path class="data-line" d="M0 80 L20 75 L40 85 L60 70 L80 65 L100 75 L120 80 L140 90 L160 85 L180 80 L200 70 L220 60 L240 65 L260 75 L280 85 L300 90 L320 80 L340 70 L360 65 L380 75 L400 80"></path>
+<circle class="data-point" cx="220" cy="60" r="3"></circle>
+</svg>
+</div>
+</div>
+<!-- Chart 4: Capability Histogram -->
+<div class="rounded bg-white dark:bg-background-dark border border-gray-200 dark:border-gray-800 p-4 shadow-sm">
+<div class="flex justify-between items-start mb-4">
+<div>
+<h3 class="text-sm font-bold text-gray-900 dark:text-white">Capability Histogram</h3>
+<p class="text-[10px] text-gray-500">Distribution vs Specification</p>
+</div>
+</div>
+<div class="h-40 w-full">
+<svg height="100%" viewbox="0 0 400 150" width="100%">
+<rect fill="#20B2AA" fill-opacity="0.3" height="40" width="20" x="100" y="110"></rect>
+<rect fill="#20B2AA" fill-opacity="0.5" height="70" width="20" x="125" y="80"></rect>
+<rect fill="#20B2AA" fill-opacity="0.8" height="110" width="20" x="150" y="40"></rect>
+<rect fill="#20B2AA" height="130" width="20" x="175" y="20"></rect>
+<rect fill="#20B2AA" fill-opacity="0.8" height="120" width="20" x="200" y="30"></rect>
+<rect fill="#20B2AA" fill-opacity="0.5" height="80" width="20" x="225" y="70"></rect>
+<rect fill="#20B2AA" fill-opacity="0.3" height="50" width="20" x="250" y="100"></rect>
+<!-- Normal Curve -->
+<path d="M50 145 Q 185 -50 320 145" fill="none" stroke="#444" stroke-width="1.5"></path>
+</svg>
+</div>
+</div>
+<!-- Chart 5: Normal Prob Plot -->
+<div class="rounded bg-white dark:bg-background-dark border border-gray-200 dark:border-gray-800 p-4 shadow-sm">
+<div class="flex justify-between items-start mb-4">
+<div>
+<h3 class="text-sm font-bold text-gray-900 dark:text-white">Normal Probability Plot</h3>
+<p class="text-[10px] text-gray-500">AD=0.342, P=0.481</p>
+</div>
+</div>
+<div class="h-40 w-full">
+<svg height="100%" viewbox="0 0 400 150" width="100%">
+<line stroke="#999" stroke-width="1" x1="50" x2="350" y1="130" y2="20"></line>
+<circle class="data-point" cx="80" cy="115" r="2"></circle>
+<circle class="data-point" cx="120" cy="100" r="2"></circle>
+<circle class="data-point" cx="180" cy="75" r="2"></circle>
+<circle class="data-point" cx="250" cy="50" r="2"></circle>
+<circle class="data-point" cx="320" cy="35" r="2"></circle>
+</svg>
+</div>
+</div>
+<!-- Chart 6: Capability Plot -->
+<div class="rounded bg-white dark:bg-background-dark border border-gray-200 dark:border-gray-800 p-4 shadow-sm">
+<div class="flex justify-between items-start mb-4">
+<div>
+<h3 class="text-sm font-bold text-gray-900 dark:text-white">Capability Plot</h3>
+<p class="text-[10px] text-gray-500">Within/Overall Benchmarks</p>
+</div>
+</div>
+<div class="h-40 w-full flex items-center justify-center">
+<div class="w-full flex flex-col gap-4">
+<div class="space-y-1">
+<div class="flex justify-between text-[10px] font-bold"><span>Within</span><span>Z = 4.12</span></div>
+<div class="h-3 w-full bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
+<div class="h-full bg-jade" style="width: 82%"></div>
+</div>
+</div>
+<div class="space-y-1">
+<div class="flex justify-between text-[10px] font-bold"><span>Overall</span><span>Z = 3.98</span></div>
+<div class="h-3 w-full bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
+<div class="h-full bg-primary" style="width: 79%"></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Right Sidebar: 1/3 Grid for Stats -->
+<div class="lg:col-span-4 flex flex-col gap-4">
+<!-- Process Data Card -->
+<div class="rounded bg-white dark:bg-background-dark border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+<div class="bg-gray-50 dark:bg-gray-800/50 px-4 py-2 border-b border-gray-200 dark:border-gray-800">
+<h3 class="text-xs font-bold uppercase tracking-widest text-gray-500">Process Data</h3>
+</div>
+<div class="p-4 space-y-4">
+<div class="flex items-center justify-between">
+<span class="text-sm font-medium text-gray-600 dark:text-gray-400">Mean</span>
+<span class="mono-stats font-bold text-lg">10.024</span>
+</div>
+<div class="flex items-center justify-between">
+<span class="text-sm font-medium text-gray-600 dark:text-gray-400">Sample N</span>
+<span class="mono-stats font-bold text-lg">1,250</span>
+</div>
+<div class="grid grid-cols-2 gap-4 pt-2 border-t border-gray-100 dark:border-gray-800">
+<div>
+<span class="block text-[10px] font-bold text-gray-400 uppercase">StDev (Within)</span>
+<span class="mono-stats font-bold text-sm">0.0842</span>
+</div>
+<div>
+<span class="block text-[10px] font-bold text-gray-400 uppercase">StDev (Overall)</span>
+<span class="mono-stats font-bold text-sm">0.1021</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Capability Card -->
+<div class="rounded bg-white dark:bg-background-dark border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+<div class="bg-gray-50 dark:bg-gray-800/50 px-4 py-2 border-b border-gray-200 dark:border-gray-800">
+<h3 class="text-xs font-bold uppercase tracking-widest text-gray-500">Short-Term Capability</h3>
+</div>
+<div class="p-4 grid grid-cols-2 gap-y-6">
+<div>
+<span class="block text-[10px] font-bold text-gray-400 uppercase">Cp</span>
+<span class="mono-stats font-bold text-2xl text-jade">1.62</span>
+</div>
+<div>
+<span class="block text-[10px] font-bold text-gray-400 uppercase">Cpk</span>
+<span class="mono-stats font-bold text-2xl text-jade">1.48</span>
+</div>
+<div>
+<span class="block text-[10px] font-bold text-gray-400 uppercase">Lower Cpk</span>
+<span class="mono-stats font-bold text-sm">1.52</span>
+</div>
+<div>
+<span class="block text-[10px] font-bold text-gray-400 uppercase">Upper Cpk</span>
+<span class="mono-stats font-bold text-sm">1.44</span>
+</div>
+</div>
+</div>
+<!-- Performance Card -->
+<div class="rounded bg-white dark:bg-background-dark border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+<div class="bg-gray-50 dark:bg-gray-800/50 px-4 py-2 border-b border-gray-200 dark:border-gray-800 flex justify-between">
+<h3 class="text-xs font-bold uppercase tracking-widest text-gray-500">Performance (Overall)</h3>
+<span class="material-symbols-outlined text-gray-400 text-sm">info</span>
+</div>
+<div class="p-4 space-y-4">
+<div class="flex items-center justify-between">
+<div class="flex flex-col">
+<span class="text-xs font-bold text-gray-400 uppercase">Pp</span>
+<span class="mono-stats font-bold text-xl">1.33</span>
+</div>
+<div class="flex flex-col text-right">
+<span class="text-xs font-bold text-gray-400 uppercase">Ppk</span>
+<span class="mono-stats font-bold text-xl text-primary">1.21</span>
+</div>
+</div>
+<div class="h-1 bg-gray-100 dark:bg-gray-800 rounded-full w-full">
+<div class="h-full bg-primary rounded-full" style="width: 72%"></div>
+</div>
+<div class="flex items-center justify-between">
+<span class="text-xs font-medium text-gray-600 dark:text-gray-400">Cpm</span>
+<span class="mono-stats font-bold">1.28</span>
+</div>
+</div>
+</div>
+<!-- Quick Tools -->
+<div class="flex flex-wrap gap-2">
+<button class="flex-1 rounded bg-gray-800 dark:bg-gray-700 text-white text-[10px] font-bold uppercase py-2 hover:bg-black transition-colors">Generate PDF</button>
+<button class="flex-1 rounded border border-gray-300 dark:border-gray-600 text-carbon-gray dark:text-gray-300 text-[10px] font-bold uppercase py-2 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">Batch History</button>
+</div>
+</div>
+</div>
+</main>
+<!-- Tooltip (Simulated) -->
+<div class="fixed bottom-6 right-10 flex items-center gap-3 rounded-full bg-carbon-gray px-4 py-2 text-white shadow-xl animate-pulse">
+<span class="material-symbols-outlined text-primary">sensors</span>
+<span class="text-xs font-bold tracking-tight">System Status: Monitoring Live Streams</span>
+</div>
+</div>
+</body></html>
