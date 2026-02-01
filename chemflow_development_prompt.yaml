@@ -1,0 +1,268 @@
+# ChemFlow Development Master Prompt
+# Single Source of Truth for Development, Testing, and Deployment
+# Generated based on ChemFlow PRD and Technical Research
+
+project_metadata:
+  name: ChemFlow
+  version: 0.1.0 (MVP)
+  description: Plataforma Web Integrada para Design of Experiments (DOE) & Quimiometria.
+  stack:
+    frontend: React 18, TypeScript, TailwindCSS, Plotly.js
+    backend: FastAPI, PostgreSQL, scikit-learn, Celery/Redis
+    infrastructure: Vercel (Frontend), Railway (Backend/DB)
+
+# ==============================================================================
+# 1. CONTEXTO ESTRATÉGICO & VISÃO
+# ==============================================================================
+vision:
+  elevator_pitch: |
+    ChemFlow é a primeira plataforma web que unifica Design of Experiments (DOE) e análise
+    quimiométrica em um ambiente colaborativo, acessível e interpretável—democratizando
+    ferramentas antes restritas a softwares proprietários de alto custo.
+
+  value_proposition:
+    integration: DOE → Coleta → PCA/PLS/RSM em workflow único.
+    accessibility: Web-native, zero instalação, modelo freemium.
+    interpretability: SHAP nativo para explicar modelos "Black Box".
+    collaboration: Compartilhamento de designs/datasets/modelos.
+
+  target_audience:
+    primary:
+      segment: Academia (Estudantes Pós-Graduação, Docentes)
+      pain_points: Ferramentas caras ($500-2000), curva de aprendizado íngreme.
+      gains: Acesso gratuito, interface intuitiva, resultados rápidos.
+    secondary:
+      segment: Indústria (QA/QC, R&D)
+      pain_points: Trial-and-error custoso, falta de integração.
+    tertiary:
+      segment: Startups Deep Tech
+      pain_points: Budget limitado para software enterprise.
+
+# ==============================================================================
+# 2. ANÁLISE DE MERCADO & COMPETIÇÃO
+# ==============================================================================
+market_context:
+  tam: $2.5B (Global Chemometrics 2033)
+  sam: $150M (Web-based DOE + Chemometrics)
+  som: $5M (Year 3)
+
+competition:
+  matrix:
+    design_expert: { price: 2, integration: 5, web_native: 0, interpretability: 3, ux: 7 }
+    simca:         { price: 2, integration: 6, web_native: 6, interpretability: 4, ux: 4 }
+    doeiy:         { price: 10, integration: 3, web_native: 10, interpretability: 2, ux: 8 }
+    chemflow:      { price: 9, integration: 10, web_native: 10, interpretability: 9, ux: 9 }
+
+  positioning:
+    short_term: "O DoEIY com esteróides quimiométricos"
+    medium_term: "A alternativa moderna ao Design-Expert + SIMCA"
+    long_term: "O Figma da química experimental"
+
+# ==============================================================================
+# 3. ARQUITETURA TÉCNICA
+# ==============================================================================
+architecture:
+  frontend:
+    framework: React 18
+    language: TypeScript
+    styling: TailwindCSS
+    charts: Plotly.js (v2.27.0+) - *Critical: Use Plotly.react for performance update pattern*
+    state_management: Zustand or Context API
+    data_parsing: SheetJS (Client-side preview) -> FormData (Upload)
+
+  backend:
+    framework: FastAPI
+    language: Python 3.10+
+    database: PostgreSQL
+    orm: SQLAlchemy / Prisma
+    ml_engine: scikit-learn, statsmodels, SHAP, doepy
+    async_tasks: Celery + Redis (for long-running PCA/PLS on large datasets)
+
+  database_schema:
+    users:
+      - id: uuid (pk)
+      - email: string (unique)
+      - tier: enum (free, pro, team)
+    projects:
+      - id: uuid (pk)
+      - owner_id: uuid (fk)
+      - name: string
+      - created_at: timestamp
+    designs:
+      - id: uuid (pk)
+      - project_id: uuid (fk)
+      - type: string (full_factorial, lhs, etc)
+      - factors: jsonb
+      - matrix: jsonb # Stores the generated experimental design
+    datasets:
+      - id: uuid (pk)
+      - project_id: uuid (fk)
+      - raw_data: jsonb # Or link to S3 for large files
+      - processed_data: jsonb
+    models:
+      - id: uuid (pk)
+      - dataset_id: uuid (fk)
+      - type: enum (pca, pls)
+      - parameters: jsonb
+      - metrics: jsonb (r2, q2, rmsecv)
+
+# ==============================================================================
+# 4. REQUISITOS FUNCIONAIS (ESPECIFICAÇÃO EXECUTÁVEL)
+# ==============================================================================
+modules:
+  module_1_doe_planning:
+    feature_1_1: Factor Definition Wizard
+    user_story: "Como pesquisador, quero definir fatores (temp, conc) e níveis para otimizar yield."
+    specs:
+      - Input: List of Factors [{name, type: 'continuous'|'categorical', levels: [min, max] | ['A', 'B']}]
+      - Validation: min < max, unique names.
+      - UI: Dynamic form with real-time validation.
+    tech_implementation:
+      frontend: "React Hook Form for validation. Context for holding state."
+      backend: "POST /api/designs/factors -> Returns preview matrix snippet."
+
+    feature_1_2: Design Algorithm Selector
+    algorithms:
+      - Full Factorial: "build.full_fact(factors)"
+      - Latin Hypercube (LHS): "build.space_filling_lhs(factors, samples=20)"
+      - Box-Behnken: "build.box_behnken(factors)"
+      - Central Composite (CCD): "build.central_composite(factors)"
+      - Plackett-Burman: "build.plackett_burman(factors)"
+    specs:
+      - UI: Dropdown with explanatory tooltips (Pros/Cons).
+      - Logic: Recommendation engine based on factor count/type.
+
+    feature_1_3: Design Matrix Export
+    specs:
+      - Format: CSV/Excel.
+      - Metadata: Include "Instructions" sheet in Excel.
+      - Libs: `pandas.to_csv`, `xlsxwriter`.
+
+  module_2_data_management:
+    feature_2_1: CSV/Excel Upload
+    user_story: "Upload de planilha com resultados experimentais."
+    specs:
+      - Validation: Check headers against Design Matrix.
+      - Preview: Show first 10 rows.
+      - UI: Drag-and-drop zone.
+    tech_implementation:
+      frontend: "SheetJS (read first bytes for preview), FormData for upload."
+      backend: "Pandas read_csv/excel. Clean NaN/Nulls."
+
+    feature_2_2: Preprocessing Toolkit
+    options:
+      - Mean Centering: "X - X.mean()"
+      - Autoscaling: "(X - X.mean()) / X.std()"
+      - Log Transform: "np.log1p(X)"
+    specs:
+      - UI: Checkboxes with "Apply" button. Histogram comparison (Before/After).
+
+  module_3_chemometrics:
+    feature_3_1: PCA
+    user_story: "Reduzir dimensionalidade e visualizar clusters."
+    specs:
+      - Inputs: Selected columns (X block). Number of components (slider).
+      - Outputs: Score Plot (2D/3D), Loading Plot, Scree Plot.
+      - Performance: Render < 2s for 1000x100 matrix.
+    tech_implementation:
+      backend: |
+        pca = PCA(n_components=n)
+        scores = pca.fit_transform(X)
+        loadings = pca.components_.T
+        explained_var = pca.explained_variance_ratio_
+      frontend: "Plotly Scatter (2D/3D). Color by metadata."
+
+    feature_3_2: PLS Regression
+    user_story: "Prever resposta Y a partir de X."
+    specs:
+      - Logic: Optimize components via Cross-Validation (Q2).
+      - Metrics: R2 (Cal), Q2 (CV), RMSECV.
+      - Outputs: Predicted vs Actual, Regression Coefficients.
+    tech_implementation:
+      backend: |
+        pls = PLSRegression(n_components=best_n)
+        scores = cross_val_score(pls, X, y, cv=5, scoring='r2')
+        # Custom logic to find best_n maximizing Q2
+
+  module_4_rsm:
+    feature_4_1: Contour & Surface Plots
+    specs:
+      - UI: Select X-axis factor, Y-axis factor, Z (Response).
+      - Logic: Interpolation (scipy.interpolate.griddata) for smooth surface.
+      - Plotly: Surface 3D, Contour 2D.
+
+    feature_4_2: Optimization
+    specs:
+      - Algorithm: Desirability Function or Pareto Front.
+      - Output: Top 5 optimal conditions.
+
+  module_5_interpretability:
+    feature_5_1: SHAP Analysis
+    specs:
+      - Rationale: Explain "Black Box" models (though PLS is linear, SHAP standardizes importance).
+      - Plots: Summary Plot (Bar), Beeswarm.
+      - Lib: `shap` python package.
+
+# ==============================================================================
+# 5. REQUISITOS NÃO-FUNCIONAIS
+# ==============================================================================
+nfr:
+  performance:
+    - API Latency: p50 < 200ms
+    - TTI: < 3s
+    - Max Dataset: 1000 samples x 1000 vars (MVP)
+  usability:
+    - Onboarding: Interactive Tutorial.
+    - Contextual Help: Tooltips on all technical terms.
+  security:
+    - Auth: OAuth 2.0 (Google/GitHub).
+    - Data: Encryption at rest.
+
+# ==============================================================================
+# 6. ROADMAP & MILESTONES
+# ==============================================================================
+roadmap:
+  phase_1_mvp:
+    duration: Months 1-4
+    deliverables: Module 1 (DOE) -> Module 2 (Data) -> Module 3 (PCA/PLS basic).
+    goal: 100 Beta Users (Universities).
+  phase_2_expansion:
+    duration: Months 5-8
+    deliverables: SHAP, RSM, Multi-objective Opt.
+    goal: 50 Pro Users (Industry).
+  phase_3_enterprise:
+    duration: Months 9-12
+    deliverables: SSO, Audit Trails, On-premise.
+    goal: $50k ARR.
+
+# ==============================================================================
+# 7. TEMPLATES DE CÓDIGO (Referência)
+# ==============================================================================
+code_templates:
+  factor_interface: |
+    interface Factor {
+      id: string;
+      name: string;
+      type: 'continuous' | 'categorical';
+      levels: number[] | string[];
+      unit?: string;
+    }
+
+  backend_pca_endpoint: |
+    @app.post("/api/analysis/pca")
+    def run_pca(data: UploadedData, n_components: int = 3):
+        pca = PCA(n_components=n_components)
+        scores = pca.fit_transform(data.X)
+        return {
+            "scores": scores.tolist(),
+            "loadings": pca.components_.T.tolist(),
+            "explained_variance": pca.explained_variance_ratio_.tolist()
+        }
+
+  frontend_chart_helper: |
+    // Based on legacy 'pesquisa.md' recommendations for performance
+    import Plotly from 'plotly.js-dist-min';
+
+    export const renderGenericChart = (divId, data, layout) => {
+      Plotly.react(divId, data, layout, { responsive: true });
+    };
