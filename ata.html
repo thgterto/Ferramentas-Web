@@ -413,13 +413,50 @@
                                 </svg>
                                 <!-- Gauge Label -->
                                 <div class="absolute inset-0 flex flex-col items-center justify-center">
-                                    <span class="text-2xl font-bold text-slate-900">0%</span>
+                                    <span id="kpi-value" class="text-2xl font-bold text-slate-900">0%</span>
                                     <span class="text-[10px] font-bold text-slate-400 uppercase">Score</span>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
+
+                <!-- SECTION 2: CHECKLISTS -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <!-- Column 1: Laboratórios -->
+                    <div class="card p-5 flex flex-col gap-4">
+                        <div class="flex items-center gap-2 pb-2 border-b border-slate-100">
+                            <span class="material-symbols-outlined text-primary">science</span>
+                            <h3 class="text-sm font-bold text-slate-700 uppercase tracking-wide">Laboratórios</h3>
+                        </div>
+                        <div class="flex flex-col gap-3" id="checklist-lab">
+                            <!-- Items injected by JS -->
+                        </div>
+                    </div>
+
+                    <!-- Column 2: Balanças -->
+                    <div class="card p-5 flex flex-col gap-4">
+                        <div class="flex items-center gap-2 pb-2 border-b border-slate-100">
+                            <span class="material-symbols-outlined text-accent">local_shipping</span>
+                            <h3 class="text-sm font-bold text-slate-700 uppercase tracking-wide">Balanças</h3>
+                        </div>
+                        <div class="flex flex-col gap-3" id="checklist-bal">
+                            <!-- Items injected by JS -->
+                        </div>
+                    </div>
+
+                    <!-- Column 3: Geral -->
+                    <div class="card p-5 flex flex-col gap-4">
+                        <div class="flex items-center gap-2 pb-2 border-b border-slate-100">
+                            <span class="material-symbols-outlined text-success">verified_user</span>
+                            <h3 class="text-sm font-bold text-slate-700 uppercase tracking-wide">Geral</h3>
+                        </div>
+                        <div class="flex flex-col gap-3" id="checklist-geral">
+                            <!-- Items injected by JS -->
+                        </div>
+                    </div>
+                </div>
+
             </div>
         </main>
     </div>
@@ -433,8 +470,111 @@
          * Handles initialization, event binding, and core interactions.
          */
         document.addEventListener('DOMContentLoaded', () => {
+            initializeChecklists();
             initializeEventListeners();
         });
+
+        // Constants
+        const CHECKLIST_ITEMS = {
+            lab: ["Item de verificação 1", "Item de verificação 2", "Item de verificação 3"],
+            bal: ["Item de verificação 1", "Item de verificação 2", "Item de verificação 3"],
+            geral: ["Item de verificação 1", "Item de verificação 2", "Item de verificação 3"]
+        };
+
+        /**
+         * Initializes the checklist UI components.
+         */
+        function initializeChecklists() {
+            renderChecklist('checklist-lab', CHECKLIST_ITEMS.lab);
+            renderChecklist('checklist-bal', CHECKLIST_ITEMS.bal);
+            renderChecklist('checklist-geral', CHECKLIST_ITEMS.geral);
+            updateKPI(); // Initial calc
+        }
+
+        /**
+         * Renders a list of items into a container.
+         */
+        function renderChecklist(containerId, items) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+
+            items.forEach((item, index) => {
+                const row = document.createElement('div');
+                row.className = "flex flex-col gap-1";
+                row.innerHTML = `
+                    <span class="text-xs font-semibold text-slate-600">${item}</span>
+                    <div class="ans-group" data-group="${containerId}-${index}">
+                        <button type="button" class="ans-btn flex-1" onclick="toggleAnswer(this, 'ok')">OK</button>
+                        <button type="button" class="ans-btn flex-1" onclick="toggleAnswer(this, 'bad')">NÃO OK</button>
+                        <button type="button" class="ans-btn flex-1 sel-na" onclick="toggleAnswer(this, 'na')">N/A</button>
+                    </div>
+                `;
+                container.appendChild(row);
+            });
+        }
+
+        /**
+         * Handles the 3-state toggle logic.
+         */
+        window.toggleAnswer = function(btn, type) {
+            const group = btn.parentElement;
+            const buttons = group.querySelectorAll('.ans-btn');
+
+            // Reset all
+            buttons.forEach(b => {
+                b.classList.remove('sel-ok', 'sel-bad', 'sel-na');
+            });
+
+            // Set active
+            if (type === 'ok') btn.classList.add('sel-ok');
+            if (type === 'bad') btn.classList.add('sel-bad');
+            if (type === 'na') btn.classList.add('sel-na');
+
+            updateKPI();
+        };
+
+        /**
+         * Updates the KPI Gauge based on "OK" answers.
+         */
+        function updateKPI() {
+            const allGroups = document.querySelectorAll('.ans-group');
+            let totalApplicable = 0;
+            let totalOk = 0;
+
+            allGroups.forEach(group => {
+                const okBtn = group.querySelector('.sel-ok');
+                const naBtn = group.querySelector('.sel-na');
+
+                if (!naBtn) { // If NA is NOT selected (meaning it IS applicable)
+                    totalApplicable++;
+                    if (okBtn) totalOk++;
+                }
+            });
+
+            // Default to 100% if nothing is applicable to avoid 0/0
+            // But if there are buttons (initially NA is default), we count them as NA
+            // Actually, in the render function I set default as NA (`sel-na`).
+            // So initially totalApplicable is 0.
+
+            let percentage = 0;
+            if (totalApplicable > 0) {
+                percentage = Math.round((totalOk / totalApplicable) * 100);
+            } else {
+                percentage = 0; // Or 100? Let's say 0 for "Pending"
+            }
+
+            // Update UI
+            document.getElementById('kpi-value').textContent = `${percentage}%`;
+            document.getElementById('kpi-badge').textContent = percentage === 100 ? 'Concluído' : 'Pendente';
+
+            // Update Gauge Stroke
+            const gaugePath = document.getElementById('kpi-gauge-path');
+            if (gaugePath) {
+                gaugePath.style.strokeDasharray = `${percentage}, 100`;
+                gaugePath.style.stroke = percentage >= 90 ? BRAND_COLORS.success :
+                                         percentage >= 70 ? BRAND_COLORS.warn : BRAND_COLORS.danger;
+            }
+        }
 
         /**
          * Binds click events to UI controls.
