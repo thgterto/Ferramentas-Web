@@ -147,6 +147,19 @@
             * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
         }
         @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
+
+        /* Autocomplete Suggestions */
+        .suggestion-box {
+            position: absolute; z-index: 50; background: white;
+            border: 1px solid #cbd5e1; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            max-height: 200px; overflow-y: auto; min-width: 250px; margin-top: 4px;
+        }
+        .suggestion-item {
+            padding: 8px 12px; font-size: 0.8125rem; font-weight: 600; color: #475569; cursor: pointer; border-bottom: 1px solid #f1f5f9; transition: background .15s;
+        }
+        .suggestion-item:last-child { border-bottom: none; }
+        .suggestion-item:hover { background: #f0f9ff; color: #005a7e; }
+        .suggestion-match { color: #005a7e; font-weight: 800; }
     </style>
 </head>
 <body class="text-slate-900 font-display antialiased">
@@ -221,6 +234,10 @@
                         <span class="material-symbols-outlined" style="font-size:17px">picture_as_pdf</span>
                         <span>Export PDF</span>
                     </button>
+                    <button onclick="db.exportDatabase()" class="flex items-center gap-1.5 h-9 px-3.5 bg-emerald-600 text-white hover:bg-emerald-700 rounded-xl text-sm font-bold transition-all shadow-sm cursor-pointer ml-2" title="Salvar Base de Dados (JSON)">
+                        <span class="material-symbols-outlined" style="font-size:17px">save</span>
+                        <span class="hidden sm:inline">Salvar Base</span>
+                    </button>
                 </div>
             </header>
 
@@ -265,7 +282,8 @@
                                 <div class="p-1.5 rounded-lg bg-slate-100"> <span class="material-symbols-outlined text-slate-500" style="font-size:16px">badge</span> </div>
                                 <p class="text-slate-400 text-[10px] font-bold uppercase tracking-widest">Responsável</p>
                             </div>
-                            <input id="resp-input" type="text" placeholder="Nome / Matrícula" class="seamless-input text-slate-900 text-base font-extrabold placeholder:text-slate-300 w-full">
+                            <input id="resp-input" type="text" list="resp-list" placeholder="Nome / Matrícula" class="seamless-input text-slate-900 text-base font-extrabold placeholder:text-slate-300 w-full" autocomplete="off">
+                            <datalist id="resp-list"></datalist>
                         </div>
                     </div>
                     <!-- KPI Gauge -->
@@ -314,6 +332,28 @@
                 </button>
             </div>
             <div class="flex-1 overflow-y-auto p-6 space-y-8">
+                <!-- Database Management -->
+                <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                    <h3 class="text-sm font-bold text-slate-700 uppercase tracking-wider mb-3 flex items-center gap-2">
+                        <span class="material-symbols-outlined">database</span> Gestão da Base de Dados
+                    </h3>
+                    <div class="flex flex-col sm:flex-row gap-4 items-center">
+                        <div class="flex-1 text-xs text-slate-500">
+                            Carregue o arquivo <b>database.json</b> para restaurar o histórico e o dicionário inteligente.
+                            Ao final do turno, clique em <b>Salvar Base</b> para gerar o arquivo atualizado.
+                        </div>
+                        <div class="flex gap-2">
+                            <input type="file" id="db-file-input" accept=".json" class="hidden" onchange="db.importDatabase(this.files[0])">
+                            <button onclick="document.getElementById('db-file-input').click()" class="flex items-center gap-2 px-4 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-lg text-xs font-bold transition-colors">
+                                <span class="material-symbols-outlined" style="font-size:18px">upload</span> Carregar Base
+                            </button>
+                            <button onclick="db.exportDatabase()" class="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white hover:bg-emerald-700 rounded-lg text-xs font-bold transition-colors shadow-sm">
+                                <span class="material-symbols-outlined" style="font-size:18px">download</span> Baixar Atualizada
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Dropdowns Config -->
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div class="space-y-2">
@@ -619,7 +659,19 @@
                             </div>
                             <div class="space-y-1">
                                 <label class="text-[10px] font-bold text-orange-700 uppercase tracking-wider">[S] Situação</label>
-                                <textarea oninput="updatePlan(${cIdx}, ${qIdx}, 's', this.value)" class="w-full text-sm rounded-lg border border-slate-200 bg-white focus:ring-1 focus:ring-primary focus:border-primary resize-none h-14 p-2 outline-none" placeholder="Descreva o problema imediato...">${plan.s}</textarea>
+                                <textarea data-ac="sbar_s" oninput="updatePlan(${cIdx}, ${qIdx}, 's', this.value)" class="w-full text-sm rounded-lg border border-slate-200 bg-white focus:ring-1 focus:ring-primary focus:border-primary resize-none h-14 p-2 outline-none" placeholder="Descreva o problema imediato...">${plan.s}</textarea>
+                            </div>
+                            <div class="space-y-1">
+                                <label class="text-[10px] font-bold text-orange-700 uppercase tracking-wider">[B] Background</label>
+                                <textarea data-ac="sbar_b" oninput="updatePlan(${cIdx}, ${qIdx}, 'b', this.value)" class="w-full text-sm rounded-lg border border-slate-200 bg-white focus:ring-1 focus:ring-primary focus:border-primary resize-none h-14 p-2 outline-none" placeholder="Histórico, contexto...">${plan.b}</textarea>
+                            </div>
+                            <div class="space-y-1">
+                                <label class="text-[10px] font-bold text-orange-700 uppercase tracking-wider">[A] Análise</label>
+                                <textarea data-ac="sbar_a" oninput="updatePlan(${cIdx}, ${qIdx}, 'a', this.value)" class="w-full text-sm rounded-lg border border-slate-200 bg-white focus:ring-1 focus:ring-primary focus:border-primary resize-none h-14 p-2 outline-none" placeholder="Diagnóstico, causa provável...">${plan.a}</textarea>
+                            </div>
+                            <div class="space-y-1">
+                                <label class="text-[10px] font-bold text-orange-700 uppercase tracking-wider">[R] Recomendação</label>
+                                <textarea data-ac="sbar_r" oninput="updatePlan(${cIdx}, ${qIdx}, 'r', this.value)" class="w-full text-sm rounded-lg border border-slate-200 bg-white focus:ring-1 focus:ring-primary focus:border-primary resize-none h-14 p-2 outline-none" placeholder="Ação, solicitação...">${plan.r}</textarea>
                             </div>
                         </div>` : ''}
                     </div>
@@ -680,6 +732,273 @@
         function prepararImpressao() {
             window.print();
         }
+
+        // --- 6. DATABASE & PERSISTENCE ENGINE ---
+        class LocalDatabase {
+            constructor() {
+                this.data = {
+                    meta: { version: "3.2", last_updated: new Date().toISOString() },
+                    settings: {},
+                    dictionary: {
+                        responsible: [],
+                        sbar_s: [], sbar_b: [], sbar_a: [], sbar_r: []
+                    },
+                    history: []
+                };
+            }
+
+            /**
+             * Normaliza texto para o dicionário (Regex para corrigir typos e formatação)
+             */
+            normalize(text) {
+                if (!text || typeof text !== 'string') return "";
+                // Remove espaços extras, trim, e capitaliza primeira letra
+                return text.replace(/\s+/g, ' ').trim().replace(/^./, str => str.toUpperCase());
+            }
+
+            /**
+             * Adiciona termo ao dicionário se não existir
+             */
+            learn(category, text) {
+                const term = this.normalize(text);
+                if (!term || term.length < 2) return;
+
+                if (!this.data.dictionary[category]) this.data.dictionary[category] = [];
+
+                // Evita duplicatas (case insensitive)
+                const exists = this.data.dictionary[category].some(t => t.toLowerCase() === term.toLowerCase());
+                if (!exists) {
+                    this.data.dictionary[category].push(term);
+                    this.data.dictionary[category].sort();
+                }
+            }
+
+            /**
+             * Busca termos para autocomplete
+             */
+            search(category, query) {
+                if (!this.data.dictionary[category]) return [];
+                if (!query) return this.data.dictionary[category].slice(0, 50);
+                const q = query.toLowerCase();
+                return this.data.dictionary[category].filter(t => t.toLowerCase().includes(q));
+            }
+
+            exportDatabase() {
+                // 1. Coletar Dados do Turno Atual
+                const header = {
+                    date: document.getElementById('date-input').value,
+                    shift: document.getElementById('shift-input').value,
+                    unit: document.getElementById('unit-input').value,
+                    responsible: document.getElementById('resp-input').value
+                };
+
+                if (!header.date || !header.shift || !header.unit || !header.responsible) {
+                    alert("Por favor, preencha o cabeçalho (Data, Turno, Unidade, Responsável) antes de salvar.");
+                    return;
+                }
+
+                // Calcular KPI Snapshot
+                let totalOk = 0, totalApp = 0;
+                auditData.forEach((cat, cIdx) => {
+                    cat.questions.forEach((q, qIdx) => {
+                        const ans = answers[cIdx][qIdx];
+                        if (ans && ans !== 'NA') {
+                            totalApp++;
+                            if (ans !== q.anomalyIf) totalOk++;
+                        }
+                    });
+                });
+                const score = totalApp > 0 ? Math.round((totalOk/totalApp)*100) : 0;
+
+                const currentRecord = {
+                    id: this.generateUUID(),
+                    timestamp: new Date().toISOString(),
+                    header: header,
+                    kpi: score,
+                    answers: JSON.parse(JSON.stringify(answers)), // Deep copy
+                    sbar_entries: JSON.parse(JSON.stringify(actionPlans)) // Deep copy
+                };
+
+                // 2. Adicionar ao Histórico
+                this.data.history.push(currentRecord);
+
+                // 3. Aprender (Popular Dicionário)
+                this.learn('responsible', header.responsible);
+
+                for (const cIdx in actionPlans) {
+                    for (const qIdx in actionPlans[cIdx]) {
+                        const plan = actionPlans[cIdx][qIdx];
+                        if (plan.s) this.learn('sbar_s', plan.s);
+                        if (plan.b) this.learn('sbar_b', plan.b);
+                        if (plan.a) this.learn('sbar_a', plan.a);
+                        if (plan.r) this.learn('sbar_r', plan.r);
+                    }
+                }
+
+                // 4. Atualizar Configurações Persistidas
+                this.data.settings = JSON.parse(JSON.stringify(appConfig));
+                this.data.meta.last_updated = new Date().toISOString();
+
+                // 5. Gerar Arquivo
+                const jsonStr = JSON.stringify(this.data, null, 2);
+                const blob = new Blob([jsonStr], { type: "application/json" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                const safeUnit = header.unit.split(' ')[0].replace(/[^a-z0-9]/gi, '');
+                a.download = `ata_db_${header.date}_${safeUnit}.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+
+                alert("Base de dados salva e atualizada com sucesso!\nO arquivo JSON foi baixado.");
+            }
+
+            importDatabase(file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const imported = JSON.parse(e.target.result);
+                        if (!imported.meta || !imported.dictionary) {
+                            throw new Error("Estrutura do arquivo inválida.");
+                        }
+
+                        this.data = imported;
+
+                        // Restaurar Configurações
+                        if (this.data.settings && this.data.settings.turnos) {
+                            appConfig = this.data.settings;
+                            renderAppDropdowns();
+                            // Se houver tagsDict novo, renderiza na config também
+                            if (document.getElementById('settings-modal').classList.contains('hidden') === false) {
+                                renderConfigTags();
+                            }
+                        }
+
+                        alert(`Base carregada com sucesso!\nHistórico: ${this.data.history.length} registros.\nDicionário atualizado.`);
+
+                        // Disparar evento para atualizar autocomplete (será implementado na UI)
+                        document.dispatchEvent(new CustomEvent('db-loaded'));
+
+                    } catch (err) {
+                        alert("Erro ao ler arquivo: " + err.message);
+                        console.error(err);
+                    }
+                };
+                reader.readAsText(file);
+            }
+
+            generateUUID() {
+                // Fallback simples para ambientes sem crypto.randomUUID (http local / file://)
+                if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+                    return crypto.randomUUID();
+                }
+                return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                    var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+                    return v.toString(16);
+                });
+            }
+        }
+
+        const db = new LocalDatabase();
+
+        // --- 7. AUTOCOMPLETE INTELLIGENCE ---
+        class AutoSuggester {
+            constructor() {
+                this.box = null;
+                this.activeTarget = null;
+
+                // Eventos
+                document.addEventListener('db-loaded', () => this.refreshDatalists());
+
+                // Delegação de Eventos para Textareas (SBAR)
+                document.addEventListener('input', (e) => {
+                    if (e.target.dataset.ac) this.handleInput(e.target);
+                });
+
+                document.addEventListener('focusin', (e) => {
+                    if (e.target.dataset.ac) this.handleInput(e.target);
+                });
+
+                // Fechar ao clicar fora
+                document.addEventListener('click', (e) => {
+                    if (this.box && !this.box.contains(e.target) && e.target !== this.activeTarget) {
+                        this.hideBox();
+                    }
+                });
+
+                // Inicialização
+                this.refreshDatalists();
+            }
+
+            refreshDatalists() {
+                // Responsável
+                const respList = document.getElementById('resp-list');
+                if (respList && db.data.dictionary.responsible) {
+                    respList.innerHTML = db.data.dictionary.responsible.map(t => `<option value="${t}">`).join('');
+                }
+            }
+
+            handleInput(target) {
+                const type = target.dataset.ac; // ex: 'sbar_s'
+                const val = target.value;
+
+                // Busca sugestões
+                const matches = db.search(type, val);
+
+                if (matches.length > 0) {
+                    // Não mostrar se for match exato único
+                    if (matches.length === 1 && matches[0] === val) {
+                        this.hideBox();
+                        return;
+                    }
+                    this.showBox(target, matches);
+                } else {
+                    this.hideBox();
+                }
+            }
+
+            showBox(target, matches) {
+                this.activeTarget = target;
+                if (!this.box) {
+                    this.box = document.createElement('div');
+                    this.box.className = 'suggestion-box';
+                    document.body.appendChild(this.box);
+                }
+
+                const rect = target.getBoundingClientRect();
+                this.box.style.left = `${rect.left + window.scrollX}px`;
+                this.box.style.top = `${rect.bottom + window.scrollY}px`;
+                this.box.style.width = `${rect.width}px`;
+
+                this.box.innerHTML = matches.map(m => {
+                    // Highlight match simples
+                    const val = target.value;
+                    const regex = new RegExp(`(${val})`, 'gi');
+                    const highlighted = m.replace(regex, '<span class="suggestion-match">$1</span>');
+                    return `<div class="suggestion-item" onclick="suggester.select('${m.replace(/'/g, "\\'")}')">${highlighted}</div>`;
+                }).join('');
+
+                this.box.style.display = 'block';
+            }
+
+            hideBox() {
+                if (this.box) this.box.style.display = 'none';
+                this.activeTarget = null;
+            }
+
+            select(text) {
+                if (this.activeTarget) {
+                    this.activeTarget.value = text;
+                    // Dispara evento input para atualizar o state (updatePlan)
+                    this.activeTarget.dispatchEvent(new Event('input', { bubbles: true }));
+                    this.hideBox();
+                }
+            }
+        }
+
+        const suggester = new AutoSuggester();
     </script>
 </body>
 </html>
