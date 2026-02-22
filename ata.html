@@ -9,7 +9,7 @@
     <!-- ============================================================================== -->
     <!-- 1. EXTERNAL LIBRARIES & FONTS                                                  -->
     <!-- ============================================================================== -->
-    <!-- Tailwind CSS (CDN for prototyping) -->
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
 
     <!-- Google Fonts: Plus Jakarta Sans -->
@@ -24,7 +24,6 @@
     <script>
         /**
          * Design System Tokens
-         * Centralized color definitions for consistency across JS and Tailwind.
          */
         const BRAND_COLORS = {
             "primary":      "#005a7e",
@@ -41,10 +40,6 @@
             "sidebar-hover":"#1e293b",
         };
 
-        /**
-         * Tailwind Configuration
-         * Extends the default theme with custom colors, fonts, and animations.
-         */
         tailwind.config = {
             darkMode: "class",
             theme: {
@@ -78,23 +73,15 @@
     <!-- 3. CUSTOM STYLES                                                               -->
     <!-- ============================================================================== -->
     <style>
-        /*
-         * Icon Variants
-         * Utilizes font-variation-settings for filled vs outlined states.
-         */
-        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
-        .icon-filled { font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
-
-        /*
-         * Base Reset & Global Styles
-         */
+        /* Base Reset */
         *, *::before, *::after { box-sizing: border-box; }
         body { -webkit-tap-highlight-color: transparent; background: #f0f4f8; }
 
-        /*
-         * Custom Scrollbar
-         * Slim design for better aesthetics on desktop.
-         */
+        /* Icons */
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .icon-filled { font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+
+        /* Scrollbar */
         ::-webkit-scrollbar { width: 5px; height: 5px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 99px; }
@@ -102,16 +89,10 @@
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
-        /*
-         * Sidebar Gradient
-         */
-        #app-sidebar {
-            background: linear-gradient(160deg, #0f172a 0%, #1a2744 100%);
-        }
+        /* Sidebar */
+        #app-sidebar { background: linear-gradient(160deg, #0f172a 0%, #1a2744 100%); }
 
-        /*
-         * Navigation Link Component
-         */
+        /* Navigation */
         .nav-link {
             display: flex; align-items: center; gap: 10px;
             padding: 9px 14px; border-radius: 10px;
@@ -123,37 +104,22 @@
         .nav-link.active { background: rgba(0, 90, 126, .7); color: #fff; box-shadow: 0 2px 12px rgba(0,90,126,.4); }
         .nav-link .material-symbols-outlined { font-size: 20px; }
 
-        /*
-         * Card Component
-         * Elevated surface with hover lift effect.
-         */
+        /* Components */
         .card {
-            background: #fff;
-            border: 1px solid #e2e8f0;
-            border-radius: 14px;
+            background: #fff; border: 1px solid #e2e8f0; border-radius: 14px;
             box-shadow: 0 1px 3px rgba(0,0,0,.05), 0 4px 20px rgba(0,0,0,.04);
             transition: box-shadow .2s ease, transform .2s ease;
         }
         .card:hover { box-shadow: 0 4px 28px rgba(0,0,0,.09); }
 
-        /*
-         * Seamless Form Controls
-         * Inputs that blend into the card background without borders.
-         */
         .seamless-select, .seamless-input {
-            appearance: none; -webkit-appearance: none;
-            background: transparent; border: none;
-            padding: 0; width: 100%;
-            font-family: inherit; outline: none;
+            appearance: none; -webkit-appearance: none; background: transparent; border: none;
+            padding: 0; width: 100%; font-family: inherit; outline: none;
         }
 
-        /*
-         * Answer Toggle Group
-         */
         .ans-group { display: flex; background: #f1f5f9; border-radius: 10px; padding: 4px; gap: 2px; }
         .ans-btn {
-            padding: 5px 18px; border-radius: 7px; font-size: .8125rem;
-            font-weight: 700; border: none; cursor: pointer;
+            padding: 5px 18px; border-radius: 7px; font-size: .8125rem; font-weight: 700; border: none; cursor: pointer;
             transition: all .18s ease; color: #64748b; background: transparent;
         }
         .ans-btn:hover { background: rgba(255,255,255,.7); color: #334155; }
@@ -161,71 +127,18 @@
         .ans-btn.sel-bad { background: #fef2f2; color: #dc2626; box-shadow: 0 1px 4px rgba(220,38,38,.15); }
         .ans-btn.sel-na  { background: #fff; color: #475569; box-shadow: 0 1px 4px rgba(0,0,0,.1); }
 
-        /*
-         * Tabs with Active Underline
-         */
         .tab-btn { position: relative; padding: 14px 16px 12px; border: none; background: none;
-            font-size: .8125rem; font-weight: 700; color: #94a3b8;
-            cursor: pointer; transition: color .2s; white-space: nowrap; }
-        .tab-btn::after { content:''; position:absolute; bottom:0; left:16px; right:16px;
-            height:3px; border-radius:3px 3px 0 0; background:transparent; transition: background .2s; }
+            font-size: .8125rem; font-weight: 700; color: #94a3b8; cursor: pointer; transition: color .2s; white-space: nowrap; }
+        .tab-btn::after { content:''; position:absolute; bottom:0; left:16px; right:16px; height:3px; border-radius:3px 3px 0 0; background:transparent; transition: background .2s; }
         .tab-btn.active { color: #005a7e; }
         .tab-btn.active::after { background: #005a7e; }
         .tab-btn:hover:not(.active) { color: #475569; }
 
-        /*
-         * SBAR Logic Panel
-         */
-        .sbar-panel {
-            margin-top: 12px; padding: 16px;
-            background: #fff7f5; border: 1px solid #fed7aa;
-            border-radius: 12px;
-            animation: fade-up .25s ease both;
-        }
-
-        /*
-         * Log Section Gradient
-         */
-        .log-section {
-            background: linear-gradient(135deg, #e8eff4 0%, #dde6ed 100%);
-            border: 1px solid #cbd5e1; border-radius: 16px;
-        }
-
-        /*
-         * Status Badges
-         */
-        .badge-occ { display:inline-block; padding:1px 8px; border-radius:6px;
-            font-size:.6875rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em;
-            background:#e2e8f0; color:#475569; }
-
-        .crit-alta, .crit-media, .crit-baixa {
-            display:inline-block; padding:2px 9px; border-radius:99px;
-            font-size:.6875rem; font-weight:800;
-            text-transform:uppercase; letter-spacing:.05em;
-        }
-        .crit-alta  { background:#fef2f2; color:#dc2626; }
-        .crit-media { background:#fffbeb; color:#d97706; }
-        .crit-baixa { background:#f0fdf4; color:#16a34a; }
-
-        /*
-         * Gauge Animation
-         */
+        .sbar-panel { margin-top: 12px; padding: 16px; background: #fff7f5; border: 1px solid #fed7aa; border-radius: 12px; animation: fade-up .25s ease both; }
+        .badge-occ { display:inline-block; padding:1px 8px; border-radius:6px; font-size:.6875rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em; background:#e2e8f0; color:#475569; }
         #kpi-gauge-path { transition: stroke-dasharray 1s cubic-bezier(.4,0,.2,1), stroke .6s ease; }
+        #main-header { background: rgba(255,255,255,.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-bottom: 1px solid rgba(226,232,240,.8); }
 
-        /*
-         * Header Glass Effect
-         */
-        #main-header {
-            background: rgba(255,255,255,.85);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border-bottom: 1px solid rgba(226,232,240,.8);
-        }
-
-        /*
-         * Print Optimization
-         * Clean layout for PDF export.
-         */
         @media print {
             body { background: white !important; }
             #app-wrapper { display: none !important; }
@@ -233,13 +146,7 @@
             #print-container { display: block !important; }
             * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
         }
-
-        /*
-         * Accessibility: Reduced Motion
-         */
-        @media (prefers-reduced-motion: reduce) {
-            *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
-        }
+        @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
     </style>
 </head>
 <body class="text-slate-900 font-display antialiased">
@@ -252,7 +159,6 @@
         <!-- SIDEBAR -->
         <aside id="app-sidebar" class="w-64 flex-shrink-0 hidden md:flex flex-col justify-between h-screen fixed left-0 top-0 z-50">
             <div class="flex flex-col gap-7 p-5">
-                <!-- Logo Section -->
                 <div class="flex items-center gap-3 px-1 pt-2">
                     <div class="flex items-center justify-center rounded-xl size-10 bg-primary shadow-glow-primary">
                         <span class="material-symbols-outlined icon-filled text-white" style="font-size:22px">eco</span>
@@ -262,26 +168,17 @@
                         <p class="text-slate-400 text-[10px] font-semibold uppercase tracking-widest mt-1">ATV-OPE-QUA-DA-003</p>
                     </div>
                 </div>
-
-                <!-- Divider -->
                 <div class="h-px bg-white/10 mx-1"></div>
-
-                <!-- Navigation Menu -->
                 <nav class="flex flex-col gap-1">
                     <p class="text-slate-500 text-[10px] font-bold uppercase tracking-widest px-3 mb-1">Menu</p>
                     <button class="nav-link active">
-                        <span class="material-symbols-outlined icon-filled">dashboard</span>
-                        Painel de Turno
+                        <span class="material-symbols-outlined icon-filled">dashboard</span> Painel de Turno
                     </button>
-                    <!-- Replaced inline onclick with ID for event listener -->
                     <button id="btn-settings-sidebar" class="nav-link">
-                        <span class="material-symbols-outlined">settings</span>
-                        Configurações
+                        <span class="material-symbols-outlined">settings</span> Configurações
                     </button>
                 </nav>
             </div>
-
-            <!-- Sidebar Footer -->
             <div class="p-5 border-t border-white/10">
                 <div class="flex items-center gap-3">
                     <div class="size-8 rounded-full bg-primary/40 flex items-center justify-center">
@@ -301,11 +198,9 @@
             <!-- HEADER -->
             <header id="main-header" class="sticky top-0 z-40 flex items-center justify-between px-6 py-3.5">
                 <div class="flex items-center gap-3">
-                    <!-- Mobile Menu Trigger -->
                     <div class="md:hidden p-2 rounded-xl bg-primary/10 text-primary">
                         <span class="material-symbols-outlined" style="font-size:20px">menu</span>
                     </div>
-                    <!-- Sync Indicator -->
                     <div class="p-2 rounded-xl bg-primary/10 text-primary hidden sm:flex">
                         <span class="material-symbols-outlined" style="font-size:20px">sync_alt</span>
                     </div>
@@ -314,8 +209,6 @@
                         <p class="text-xs font-medium text-slate-400 hidden sm:block">Laboratórios &amp; Balanças Rodoviárias</p>
                     </div>
                 </div>
-
-                <!-- Action Buttons -->
                 <div class="flex items-center gap-2">
                     <button id="btn-settings-mobile" class="md:hidden flex items-center justify-center h-9 w-9 text-slate-500 hover:text-primary hover:bg-slate-100 rounded-full transition-colors cursor-pointer" title="Configurações">
                         <span class="material-symbols-outlined" style="font-size:20px">settings</span>
@@ -336,67 +229,46 @@
 
                 <!-- SECTION 1: INFO CARDS & KPI GAUGE -->
                 <div class="grid grid-cols-1 lg:grid-cols-4 gap-4">
-
-                    <!-- Info Cards Container -->
+                    <!-- Info Cards -->
                     <div class="lg:col-span-3 grid grid-cols-2 xl:grid-cols-4 gap-4">
-
-                        <!-- Data Input -->
+                        <!-- Data -->
                         <div class="card p-5 flex flex-col gap-3 cursor-pointer group focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-1">
                             <div class="flex items-center gap-2">
-                                <div class="p-1.5 rounded-lg bg-primary/10">
-                                    <span class="material-symbols-outlined text-primary" style="font-size:16px">calendar_today</span>
-                                </div>
+                                <div class="p-1.5 rounded-lg bg-primary/10"> <span class="material-symbols-outlined text-primary" style="font-size:16px">calendar_today</span> </div>
                                 <p class="text-slate-400 text-[10px] font-bold uppercase tracking-widest">Data do Turno</p>
                             </div>
                             <input id="date-input" type="date" class="seamless-input text-slate-900 text-lg font-extrabold focus:ring-0 cursor-pointer w-full">
                         </div>
-
-                        <!-- Turno Selector -->
+                        <!-- Turno -->
                         <div class="card p-5 flex flex-col gap-3 cursor-pointer group focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-1">
                             <div class="flex items-center gap-2">
-                                <div class="p-1.5 rounded-lg bg-accent/10">
-                                    <span class="material-symbols-outlined text-accent" style="font-size:16px">schedule</span>
-                                </div>
+                                <div class="p-1.5 rounded-lg bg-accent/10"> <span class="material-symbols-outlined text-accent" style="font-size:16px">schedule</span> </div>
                                 <p class="text-slate-400 text-[10px] font-bold uppercase tracking-widest">Turno</p>
                             </div>
-                            <!-- Populated with placeholder options for completeness -->
                             <select id="shift-input" class="seamless-select text-slate-900 text-base font-extrabold cursor-pointer w-full">
                                 <option value="" disabled selected>Selecione...</option>
-                                <option value="A">Turno A</option>
-                                <option value="B">Turno B</option>
-                                <option value="C">Turno C</option>
                             </select>
                         </div>
-
-                        <!-- Unidade Selector -->
+                        <!-- Unidade -->
                         <div class="card p-5 flex flex-col gap-3 cursor-pointer group focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-1">
                             <div class="flex items-center gap-2">
-                                <div class="p-1.5 rounded-lg bg-success/10">
-                                    <span class="material-symbols-outlined text-success" style="font-size:16px">factory</span>
-                                </div>
+                                <div class="p-1.5 rounded-lg bg-success/10"> <span class="material-symbols-outlined text-success" style="font-size:16px">factory</span> </div>
                                 <p class="text-slate-400 text-[10px] font-bold uppercase tracking-widest">Unidade</p>
                             </div>
                             <select id="unit-input" class="seamless-select text-slate-900 text-base font-extrabold cursor-pointer w-full">
                                 <option value="" disabled selected>Selecione...</option>
-                                <option value="U1">Unidade 1</option>
-                                <option value="U2">Unidade 2</option>
                             </select>
                         </div>
-
-                        <!-- Responsável Input -->
+                        <!-- Responsável -->
                         <div class="card p-5 flex flex-col gap-3 group focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-1">
                             <div class="flex items-center gap-2">
-                                <div class="p-1.5 rounded-lg bg-slate-100">
-                                    <span class="material-symbols-outlined text-slate-500" style="font-size:16px">badge</span>
-                                </div>
+                                <div class="p-1.5 rounded-lg bg-slate-100"> <span class="material-symbols-outlined text-slate-500" style="font-size:16px">badge</span> </div>
                                 <p class="text-slate-400 text-[10px] font-bold uppercase tracking-widest">Responsável</p>
                             </div>
                             <input id="resp-input" type="text" placeholder="Nome / Matrícula" class="seamless-input text-slate-900 text-base font-extrabold placeholder:text-slate-300 w-full">
                         </div>
-
                     </div>
-
-                    <!-- KPI Gauge Card -->
+                    <!-- KPI Gauge -->
                     <div class="card p-5 flex flex-col">
                         <div class="flex justify-between items-start">
                             <p class="text-slate-400 text-[10px] font-bold uppercase tracking-widest">Aderência KPI</p>
@@ -404,14 +276,10 @@
                         </div>
                         <div class="flex-1 flex flex-col items-center justify-center gap-1 mt-2">
                             <div class="relative">
-                                <!-- Fixed Truncated SVG -->
                                 <svg class="size-24 transform -rotate-90" viewBox="0 0 36 36">
-                                    <!-- Background Circle -->
                                     <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#f1f5f9" stroke-width="3"></path>
-                                    <!-- Progress Circle -->
                                     <path id="kpi-gauge-path" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#005a7e" stroke-width="3" stroke-dasharray="0, 100"></path>
                                 </svg>
-                                <!-- Gauge Label -->
                                 <div class="absolute inset-0 flex flex-col items-center justify-center">
                                     <span id="kpi-value" class="text-2xl font-bold text-slate-900">0%</span>
                                     <span class="text-[10px] font-bold text-slate-400 uppercase">Score</span>
@@ -421,39 +289,14 @@
                     </div>
                 </div>
 
-                <!-- SECTION 2: CHECKLISTS -->
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <!-- Column 1: Laboratórios -->
-                    <div class="card p-5 flex flex-col gap-4">
-                        <div class="flex items-center gap-2 pb-2 border-b border-slate-100">
-                            <span class="material-symbols-outlined text-primary">science</span>
-                            <h3 class="text-sm font-bold text-slate-700 uppercase tracking-wide">Laboratórios</h3>
-                        </div>
-                        <div class="flex flex-col gap-3" id="checklist-lab">
-                            <!-- Items injected by JS -->
-                        </div>
-                    </div>
+                <!-- SECTION 2: TABS & CHECKLISTS -->
+                <div class="flex gap-4 overflow-x-auto no-scrollbar border-b border-slate-200" id="tabs-container">
+                    <!-- Tabs rendered by JS -->
+                </div>
 
-                    <!-- Column 2: Balanças -->
-                    <div class="card p-5 flex flex-col gap-4">
-                        <div class="flex items-center gap-2 pb-2 border-b border-slate-100">
-                            <span class="material-symbols-outlined text-accent">local_shipping</span>
-                            <h3 class="text-sm font-bold text-slate-700 uppercase tracking-wide">Balanças</h3>
-                        </div>
-                        <div class="flex flex-col gap-3" id="checklist-bal">
-                            <!-- Items injected by JS -->
-                        </div>
-                    </div>
-
-                    <!-- Column 3: Geral -->
-                    <div class="card p-5 flex flex-col gap-4">
-                        <div class="flex items-center gap-2 pb-2 border-b border-slate-100">
-                            <span class="material-symbols-outlined text-success">verified_user</span>
-                            <h3 class="text-sm font-bold text-slate-700 uppercase tracking-wide">Geral</h3>
-                        </div>
-                        <div class="flex flex-col gap-3" id="checklist-geral">
-                            <!-- Items injected by JS -->
-                        </div>
+                <div class="card bg-white border border-slate-200 shadow-sm rounded-xl overflow-hidden">
+                    <div id="questions-container" class="divide-y divide-slate-100">
+                        <!-- Questions rendered by JS -->
                     </div>
                 </div>
 
@@ -461,113 +304,365 @@
         </main>
     </div>
 
+    <!-- SETTINGS MODAL -->
+    <div id="settings-modal" class="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm hidden opacity-0 transition-opacity duration-300">
+        <div id="settings-modal-content" class="bg-white w-full max-w-4xl h-[90vh] rounded-2xl shadow-2xl flex flex-col scale-95 transition-transform duration-300">
+            <div class="flex items-center justify-between p-6 border-b border-slate-100">
+                <h2 class="text-xl font-bold text-slate-800">Configurações Gerais</h2>
+                <button onclick="closeSettingsModal()" class="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-500">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+            <div class="flex-1 overflow-y-auto p-6 space-y-8">
+                <!-- Dropdowns Config -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="space-y-2">
+                        <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">Turnos</label>
+                        <textarea id="config-turnos" class="w-full h-32 border border-slate-200 rounded-xl p-3 text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none resize-none"></textarea>
+                        <p class="text-[10px] text-slate-400">Um por linha</p>
+                    </div>
+                    <div class="space-y-2">
+                        <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">Unidades</label>
+                        <textarea id="config-unidades" class="w-full h-32 border border-slate-200 rounded-xl p-3 text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none resize-none"></textarea>
+                        <p class="text-[10px] text-slate-400">Um por linha</p>
+                    </div>
+                    <div class="space-y-2">
+                        <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">Classificações de Ocorrência</label>
+                        <textarea id="config-classificacoes" class="w-full h-32 border border-slate-200 rounded-xl p-3 text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none resize-none"></textarea>
+                    </div>
+                    <div class="space-y-2">
+                        <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">Equipamentos (Autocomplete)</label>
+                        <textarea id="config-equipamentos" class="w-full h-32 border border-slate-200 rounded-xl p-3 text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none resize-none"></textarea>
+                    </div>
+                </div>
+                <!-- Smart Tags Config -->
+                <div class="space-y-4">
+                    <div class="flex items-center justify-between">
+                        <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">Smart Tags (SBAR)</label>
+                        <button onclick="addNewConfigTag()" class="text-xs font-bold text-primary hover:text-primary-dark flex items-center gap-1">
+                            <span class="material-symbols-outlined" style="font-size:16px">add</span> Nova Categoria
+                        </button>
+                    </div>
+                    <div id="config-tags-container" class="space-y-4">
+                        <!-- Rendered by JS -->
+                    </div>
+                </div>
+            </div>
+            <div class="p-6 border-t border-slate-100 flex justify-end gap-3 bg-slate-50 rounded-b-2xl">
+                <button onclick="closeSettingsModal()" class="px-5 py-2.5 rounded-xl font-bold text-slate-500 hover:bg-slate-200 transition-colors">Cancelar</button>
+                <button onclick="saveSettingsModal()" class="px-5 py-2.5 rounded-xl font-bold bg-primary text-white hover:bg-primary-dark shadow-lg shadow-primary/30 transition-all transform hover:scale-105">Salvar Alterações</button>
+            </div>
+        </div>
+    </div>
+
     <!-- ============================================================================== -->
     <!-- 5. APPLICATION LOGIC                                                           -->
     <!-- ============================================================================== -->
     <script>
-        /**
-         * ATA Digital - Main Application Logic
-         * Handles initialization, event binding, and core interactions.
-         */
-        document.addEventListener('DOMContentLoaded', () => {
-            initializeChecklists();
-            initializeEventListeners();
+        // --- 1. DADOS DO CHECKLIST ---
+        const auditData = [
+            {
+                name: "Balanças Rodoviárias",
+                questions: [
+                    { id: "01", text: "As Balanças de Cana estão operando em condições Normais?", anomalyIf: "NÃO" },
+                    { id: "02", text: "Os Módulos da Balança de Cana estão ligados no No Break?", anomalyIf: "NÃO" },
+                    { id: "03", text: "A balança encontra-se limpa nos intervalos, cabeceira e células?", anomalyIf: "NÃO" },
+                    { id: "04", text: "Os resíduos estão sendo descartados corretamente nas lixeiras?", anomalyIf: "NÃO" },
+                    { id: "05", text: "Atestado de Autorização do INMETRO está atualizado e visível no local?", anomalyIf: "NÃO" },
+                    { id: "06", text: "Certificados de Calibração da Balança estão atualizados e visíveis?", anomalyIf: "NÃO" },
+                    { id: "07", text: "O turno de trabalho está completo?", anomalyIf: "NÃO" },
+                    { id: "08", text: "A Balança operou sem receber reclamação de outra área?", anomalyIf: "SIM" },
+                    { id: "09", text: "O apontamento de Paradas foi realizado corretamente no PIMS?", anomalyIf: "NÃO" },
+                    { id: "10", text: "A troca de turno aconteceu no local de trabalho?", anomalyIf: "NÃO" },
+                    { id: "11", text: "O processo ocorreu sem a necessidade de Lançamento Manual de pesagem?", anomalyIf: "NÃO" },
+                    { id: "12", text: "Processo fluiu de forma contínua, sem paradas por falta de cana?", anomalyIf: "NÃO" },
+                    { id: "13", text: "Foi registrado algum problema (Quebra, Tara padrão, Erro Leitor)?", anomalyIf: "SIM" }
+                ]
+            },
+            {
+                name: "Laboratório PCTS",
+                questions: [
+                    { id: "01", text: "A coroa da Sonda Oblíqua está em bom estado de conservação (afiada e íntegra)?", anomalyIf: "NÃO" },
+                    { id: "02", text: "A Sonda Oblíqua opera com ausência de vazamento, vibração e ruído anormal?", anomalyIf: "NÃO" },
+                    { id: "03", text: "A data da última lubrificação dos equipamentos está no prazo?", anomalyIf: "NÃO" },
+                    { id: "04", text: "Foi realizada assepsia no Desintegrador, Homogeneizador e Esteiras?", anomalyIf: "NÃO" },
+                    { id: "05", text: "As facas do Desintegrador estão íntegras, afiadas e sem arredondamento?", anomalyIf: "NÃO" },
+                    { id: "06", text: "Os martelos do Desintegrador estão íntegros e sem arredondamento?", anomalyIf: "NÃO" },
+                    { id: "07", text: "O Desintegrador e Homogeneizador operam sem vibração e ruído anormal?", anomalyIf: "NÃO" },
+                    { id: "08", text: "A Prensa Hidráulica, Bomba de Óleo e Conexões estão sem vazamentos?", anomalyIf: "NÃO" },
+                    { id: "09", text: "Sonda, Desintegrador, Homogeneizador e Extrator encontram-se limpos?", anomalyIf: "NÃO" },
+                    { id: "10", text: "As balanças do setor de PCTS estão limpas e aferidas?", anomalyIf: "NÃO" },
+                    { id: "11", text: "Os demais equipamentos (Extrator, Centrífuga) funcionam normalmente?", anomalyIf: "NÃO" },
+                    { id: "12", text: "Pisos internos e externos limpos e livres de materiais inadequados?", anomalyIf: "NÃO" },
+                    { id: "13", text: "Bancadas e recipientes estão limpos e etiquetados nos devidos lugares?", anomalyIf: "NÃO" },
+                    { id: "14", text: "O refrigerador está limpo externamente e internamente?", anomalyIf: "NÃO" },
+                    { id: "15", text: "A temperatura interna do Laboratório está na faixa de 20º ± 3ºC?", anomalyIf: "NÃO" },
+                    { id: "16", text: "Equipamentos analíticos e TRDs estão funcionando sem problemas?", anomalyIf: "NÃO" },
+                    { id: "17", text: "Reagentes e soluções estão preparadas, identificadas e dentro da validade?", anomalyIf: "NÃO" },
+                    { id: "18", text: "A troca de turno aconteceu no local de trabalho?", anomalyIf: "NÃO" },
+                    { id: "19", text: "Foi evidenciado algum desvio adicional nas operações?", anomalyIf: "SIM" },
+                    { id: "20", text: "O processo analítico fluiu sem paradas no laboratório?", anomalyIf: "NÃO" }
+                ]
+            },
+            {
+                name: "Laboratório Industrial",
+                questions: [
+                    { id: "01", text: "Equipamentos Analíticos e outros estão em condições Normais de Operação?", anomalyIf: "NÃO" },
+                    { id: "02", text: "Os equipamentos estão limpos?", anomalyIf: "NÃO" },
+                    { id: "03", text: "Os reagentes e as soluções para as análises estão preparadas?", anomalyIf: "NÃO" },
+                    { id: "04", text: "A temperatura do Local de Trabalho se encontra em 20°C ± 3°C?", anomalyIf: "NÃO" },
+                    { id: "05", text: "As bancadas estão limpas e organizadas?", anomalyIf: "NÃO" },
+                    { id: "06", text: "O piso interno está limpo?", anomalyIf: "NÃO" },
+                    { id: "07", text: "O turno de Trabalho está completo?", anomalyIf: "NÃO" },
+                    { id: "08", text: "O Plano da Qualidade Analítico foi atendido em todas as áreas?", anomalyIf: "NÃO" },
+                    { id: "09", text: "O laboratório recebeu alguma reclamação da área do Processo?", anomalyIf: "SIM" },
+                    { id: "10", text: "O Processo deixou de cumprir as Amostragens da Destilaria?", anomalyIf: "SIM" },
+                    { id: "11", text: "A troca de turno aconteceu no local de trabalho?", anomalyIf: "NÃO" },
+                    { id: "12", text: "Processo parou ou sofreu interrupções no laboratório?", anomalyIf: "SIM" },
+                    { id: "13", text: "Algum problema adicional foi registrado no Laboratório?", anomalyIf: "SIM" },
+                    { id: "14", text: "As chaves dos amostradores estão disponíveis no local adequado?", anomalyIf: "NÃO" }
+                ]
+            }
+        ];
+
+        // --- 2. ESTADO GLOBAL ---
+        let currentActiveTab = 0;
+        const answers = { 0: {}, 1: {}, 2: {} };
+        const actionPlans = { 0: {}, 1: {}, 2: {} };
+
+        // Initialize state
+        auditData.forEach((cat, cIdx) => {
+            cat.questions.forEach((q, qIdx) => {
+                answers[cIdx][qIdx] = null;
+                actionPlans[cIdx][qIdx] = { type: "", s: "", b: "", a: "", r: "" };
+            });
         });
 
-        // Constants
-        const CHECKLIST_ITEMS = {
-            lab: ["Item de verificação 1", "Item de verificação 2", "Item de verificação 3"],
-            bal: ["Item de verificação 1", "Item de verificação 2", "Item de verificação 3"],
-            geral: ["Item de verificação 1", "Item de verificação 2", "Item de verificação 3"]
+        // --- 3. CONFIGURAÇÕES GERAIS ---
+        let appConfig = {
+            turnos: ["Turno A (06:00 - 14:00)", "Turno B (14:00 - 22:00)", "Turno C (22:00 - 06:00)"],
+            unidades: ["UAE - Água Emendada", "UAT - Alto Taquari", "UCP - Costa Rica", "USL - Santa Luzia", "URC - Rio Claro", "UMV - Morro Vermelho"],
+            classificacoes: ["Parada de Processo / Falta Cana", "Manutenção / Quebra", "Desvio de Qualidade", "Ocorrência de SSMA", "Passagem de Turno", "Outra Observação"],
+            equipamentos: ["Balança Rodoviária 1", "Balança Rodoviária 2", "Sonda Oblíqua", "Desintegrador", "Homogeneizador", "Prensa Hidráulica", "Centrífuga", "Titrino / Titulador", "Espectrofotômetro NIR", "Geladeira de Amostras"],
+            tagsDict: {
+                "Manutenção": ["quebra", "vazamento", "ruído", "falha", "óleo", "bomba", "defeito", "peça", "troca"],
+                "5S / Limpeza": ["sujo", "sujeira", "limpeza", "lixo", "resíduo", "assepsia"],
+                "Qualidade": ["calibração", "inmetro", "vencido", "validade", "reagente", "aferição", "padrão", "desvio"],
+                "Operacional": ["pims", "setup", "falta", "turno", "amostragem", "chave"],
+                "SSMA": ["epi", "segurança", "acidente", "incidente", "risco", "emergência"]
+            }
         };
 
-        /**
-         * Initializes the checklist UI components.
-         */
-        function initializeChecklists() {
-            renderChecklist('checklist-lab', CHECKLIST_ITEMS.lab);
-            renderChecklist('checklist-bal', CHECKLIST_ITEMS.bal);
-            renderChecklist('checklist-geral', CHECKLIST_ITEMS.geral);
-            updateKPI(); // Initial calc
+        document.addEventListener('DOMContentLoaded', () => {
+            renderAppDropdowns();
+            renderTabs();
+            renderQuestions();
+            updateKPI();
+
+            // Event Listeners
+            document.getElementById('btn-settings-sidebar').addEventListener('click', openSettingsModal);
+            document.getElementById('btn-settings-mobile').addEventListener('click', openSettingsModal);
+            document.getElementById('btn-whatsapp').addEventListener('click', sendWhatsApp);
+            document.getElementById('btn-print').addEventListener('click', prepararImpressao);
+        });
+
+        function renderAppDropdowns() {
+            // Turnos
+            document.getElementById('shift-input').innerHTML = '<option value="" disabled selected>Selecione...</option>' +
+                appConfig.turnos.map(t => `<option value="${t}">${t}</option>`).join('');
+
+            // Unidades
+            document.getElementById('unit-input').innerHTML = '<option value="" disabled selected>Selecione...</option>' +
+                appConfig.unidades.map(u => `<option value="${u}">${u}</option>`).join('');
         }
 
-        /**
-         * Renders a list of items into a container.
-         */
-        function renderChecklist(containerId, items) {
-            const container = document.getElementById(containerId);
-            if (!container) return;
+        // --- GESTÃO DO MODAL DE CONFIGURAÇÕES ---
+        window.openSettingsModal = function() {
+            document.getElementById('config-turnos').value = appConfig.turnos.join('\\n');
+            document.getElementById('config-unidades').value = appConfig.unidades.join('\\n');
+            document.getElementById('config-classificacoes').value = appConfig.classificacoes.join('\\n');
+            document.getElementById('config-equipamentos').value = appConfig.equipamentos.join('\\n');
 
-            items.forEach((item, index) => {
-                const row = document.createElement('div');
-                row.className = "flex flex-col gap-1";
-                row.innerHTML = `
-                    <span class="text-xs font-semibold text-slate-600">${item}</span>
-                    <div class="ans-group" data-group="${containerId}-${index}">
-                        <button type="button" class="ans-btn flex-1" onclick="toggleAnswer(this, 'ok')">OK</button>
-                        <button type="button" class="ans-btn flex-1" onclick="toggleAnswer(this, 'bad')">NÃO OK</button>
-                        <button type="button" class="ans-btn flex-1 sel-na" onclick="toggleAnswer(this, 'na')">N/A</button>
+            renderConfigTags();
+
+            const modal = document.getElementById('settings-modal');
+            const content = document.getElementById('settings-modal-content');
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                content.classList.remove('scale-95');
+            }, 10);
+        }
+
+        window.closeSettingsModal = function() {
+            const modal = document.getElementById('settings-modal');
+            const content = document.getElementById('settings-modal-content');
+            modal.classList.add('opacity-0');
+            content.classList.add('scale-95');
+            setTimeout(() => modal.classList.add('hidden'), 300);
+        }
+
+        function renderConfigTags() {
+            const container = document.getElementById('config-tags-container');
+            let html = '';
+            for(const [cat, words] of Object.entries(appConfig.tagsDict)) {
+                html += `
+                    <div class="flex flex-col md:flex-row gap-2 items-start config-tag-row border-b border-slate-100 pb-3 last:border-0 last:pb-0">
+                        <input type="text" value="${cat}" placeholder="Nome Categoria" class="w-full md:w-1/3 border border-slate-300 rounded-md p-2 text-sm tag-key focus:border-primary outline-none font-bold text-slate-700">
+                        <textarea placeholder="palavra1, palavra2, palavra3" class="w-full border border-slate-300 rounded-md p-2 text-sm tag-values focus:border-primary outline-none" rows="1">${words.join(', ')}</textarea>
+                        <button onclick="this.parentElement.remove()" class="text-slate-400 hover:text-red-500 mt-2 bg-slate-100 p-1.5 rounded-md" title="Remover"><span class="material-symbols-outlined text-[20px]">delete</span></button>
                     </div>
                 `;
-                container.appendChild(row);
-            });
+            }
+            container.innerHTML = html;
         }
 
-        /**
-         * Handles the 3-state toggle logic.
-         */
-        window.toggleAnswer = function(btn, type) {
-            const group = btn.parentElement;
-            const buttons = group.querySelectorAll('.ans-btn');
+        window.addNewConfigTag = function() {
+            const container = document.getElementById('config-tags-container');
+            const div = document.createElement('div');
+            div.className = "flex flex-col md:flex-row gap-2 items-start config-tag-row border-b border-slate-100 pb-3 last:border-0 last:pb-0";
+            div.innerHTML = `
+                <input type="text" placeholder="Nome Categoria" class="w-full md:w-1/3 border border-slate-300 rounded-md p-2 text-sm tag-key focus:border-primary outline-none font-bold text-slate-700">
+                <textarea placeholder="palavra1, palavra2, palavra3" class="w-full border border-slate-300 rounded-md p-2 text-sm tag-values focus:border-primary outline-none" rows="1"></textarea>
+                <button onclick="this.parentElement.remove()" class="text-slate-400 hover:text-red-500 mt-2 bg-slate-100 p-1.5 rounded-md" title="Remover"><span class="material-symbols-outlined text-[20px]">delete</span></button>
+            `;
+            container.appendChild(div);
+        }
 
-            // Reset all
-            buttons.forEach(b => {
-                b.classList.remove('sel-ok', 'sel-bad', 'sel-na');
+        window.saveSettingsModal = function() {
+            appConfig.turnos = document.getElementById('config-turnos').value.split('\\n').map(s => s.trim()).filter(s => s);
+            appConfig.unidades = document.getElementById('config-unidades').value.split('\\n').map(s => s.trim()).filter(s => s);
+            appConfig.classificacoes = document.getElementById('config-classificacoes').value.split('\\n').map(s => s.trim()).filter(s => s);
+            appConfig.equipamentos = document.getElementById('config-equipamentos').value.split('\\n').map(s => s.trim()).filter(s => s);
+
+            const newTags = {};
+            document.querySelectorAll('.config-tag-row').forEach(row => {
+                const key = row.querySelector('.tag-key').value.trim();
+                const vals = row.querySelector('.tag-values').value.split(',').map(s => s.trim().toLowerCase()).filter(s => s);
+                if(key) newTags[key] = vals;
             });
+            appConfig.tagsDict = newTags;
 
-            // Set active
-            if (type === 'ok') btn.classList.add('sel-ok');
-            if (type === 'bad') btn.classList.add('sel-bad');
-            if (type === 'na') btn.classList.add('sel-na');
+            renderAppDropdowns();
+            closeSettingsModal();
+        }
 
+        // --- 4. RENDER UI PRINCIPAL ---
+        function renderTabs() {
+            const container = document.getElementById('tabs-container');
+            let html = '';
+            auditData.forEach((cat, idx) => {
+                const isActive = idx === currentActiveTab;
+                let ansCount = 0;
+                cat.questions.forEach((q, qIdx) => { if(answers[idx][qIdx] !== null) ansCount++; });
+                const done = ansCount === cat.questions.length;
+                const checkIcon = done && !isActive ? `<span class="material-symbols-outlined text-success" style="font-size:15px;vertical-align:-3px">check_circle</span>` : '';
+                html += `<button onclick="switchTab(${idx})" class="tab-btn${isActive ? ' active' : ''}">${cat.name} ${checkIcon}</button>`;
+            });
+            container.innerHTML = html;
+        }
+
+        window.switchTab = function(index) {
+            currentActiveTab = index;
+            renderTabs();
+            renderQuestions();
+        }
+
+        function renderQuestions() {
+            const container = document.getElementById('questions-container');
+            const cIdx = currentActiveTab;
+            const cat = auditData[cIdx];
+            let html = '';
+
+            cat.questions.forEach((q, qIdx) => {
+                const ans = answers[cIdx][qIdx];
+                const plan = actionPlans[cIdx][qIdx];
+                const isAnomaly = ans === q.anomalyIf;
+
+                const isSim = ans === 'SIM';
+                const isNao = ans === 'NÃO';
+                const isNa  = ans === 'NA';
+                const simBad = isSim && q.anomalyIf === 'SIM';
+                const naoBad = isNao && q.anomalyIf === 'NÃO';
+                const btnSClass = `ans-btn${isSim ? (simBad ? ' sel-bad' : ' sel-ok') : ''}`;
+                const btnNClass = `ans-btn${isNao ? (naoBad ? ' sel-bad' : ' sel-ok') : ''}`;
+                const btnAClass = `ans-btn${isNa  ? ' sel-na' : ''}`;
+
+                const alertBadge = isAnomaly ? `<span class="inline-flex items-center gap-1 bg-accent/10 text-accent text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ml-2"><span class="material-symbols-outlined" style="font-size:12px">warning</span>Alerta</span>` : '';
+                const rowBg = isAnomaly ? 'bg-orange-50/40 border-l-[3px] border-l-accent' : 'hover:bg-slate-50/60 border-l-[3px] border-l-transparent';
+
+                html += `
+                    <div class="py-4 px-1 transition-colors group ${rowBg}">
+                        <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                            <div class="flex-1 flex items-start gap-3">
+                                <span class="flex-shrink-0 flex items-center justify-center w-5 h-5 rounded-full bg-slate-100 text-slate-500 text-[10px] font-black mt-0.5">${q.id}</span>
+                                <div>
+                                    <span class="text-slate-800 font-medium text-sm leading-snug">${q.text}</span>
+                                    ${alertBadge}
+                                </div>
+                            </div>
+                            <div class="ans-group flex-shrink-0">
+                                <button onclick="setAns(${cIdx}, ${qIdx}, 'SIM')" class="${btnSClass}">SIM</button>
+                                <button onclick="setAns(${cIdx}, ${qIdx}, 'N\u00c3O')" class="${btnNClass}">N\u00c3O</button>
+                                <button onclick="setAns(${cIdx}, ${qIdx}, 'NA')" class="${btnAClass}">NA</button>
+                            </div>
+                        </div>
+                        ${isAnomaly ? `
+                        <div class="sbar-panel grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div class="md:col-span-2 flex justify-between items-center border-b border-orange-200 pb-2">
+                                <span class="text-xs font-black text-orange-800 uppercase tracking-wider">Metodologia SBAR</span>
+                                <select onchange="updatePlan(${cIdx}, ${qIdx}, 'type', this.value)" class="text-xs bg-white border border-orange-200 rounded-lg text-orange-800 p-1.5 font-bold cursor-pointer outline-none focus:ring-1 focus:ring-accent">
+                                    <option value="" ${plan.type === '' ? 'selected' : ''}>Classificar Origem...</option>
+                                    ${Object.keys(appConfig.tagsDict).map(k => `<option value="${k}" ${plan.type === k ? 'selected' : ''}>${k}</option>`).join('')}
+                                    <option value="Outros" ${plan.type === 'Outros' ? 'selected' : ''}>Outros</option>
+                                </select>
+                            </div>
+                            <div class="space-y-1">
+                                <label class="text-[10px] font-bold text-orange-700 uppercase tracking-wider">[S] Situação</label>
+                                <textarea oninput="updatePlan(${cIdx}, ${qIdx}, 's', this.value)" class="w-full text-sm rounded-lg border border-slate-200 bg-white focus:ring-1 focus:ring-primary focus:border-primary resize-none h-14 p-2 outline-none" placeholder="Descreva o problema imediato...">${plan.s}</textarea>
+                            </div>
+                        </div>` : ''}
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+        }
+
+        window.setAns = function(cIdx, qIdx, val) {
+            answers[cIdx][qIdx] = val;
             updateKPI();
-        };
+            renderQuestions(); // Re-render to show/hide SBAR
+            renderTabs(); // Update check icon
+        }
 
-        /**
-         * Updates the KPI Gauge based on "OK" answers.
-         */
+        window.updatePlan = function(cIdx, qIdx, field, val) {
+            actionPlans[cIdx][qIdx][field] = val;
+        }
+
         function updateKPI() {
-            const allGroups = document.querySelectorAll('.ans-group');
-            let totalApplicable = 0;
             let totalOk = 0;
+            let totalApplicable = 0;
 
-            allGroups.forEach(group => {
-                const okBtn = group.querySelector('.sel-ok');
-                const naBtn = group.querySelector('.sel-na');
-
-                if (!naBtn) { // If NA is NOT selected (meaning it IS applicable)
-                    totalApplicable++;
-                    if (okBtn) totalOk++;
-                }
+            auditData.forEach((cat, cIdx) => {
+                cat.questions.forEach((q, qIdx) => {
+                    const ans = answers[cIdx][qIdx];
+                    if (ans !== null && ans !== 'NA') {
+                        totalApplicable++;
+                        if (ans !== q.anomalyIf) {
+                            totalOk++;
+                        }
+                    }
+                });
             });
-
-            // Default to 100% if nothing is applicable to avoid 0/0
-            // But if there are buttons (initially NA is default), we count them as NA
-            // Actually, in the render function I set default as NA (`sel-na`).
-            // So initially totalApplicable is 0.
 
             let percentage = 0;
             if (totalApplicable > 0) {
                 percentage = Math.round((totalOk / totalApplicable) * 100);
-            } else {
-                percentage = 0; // Or 100? Let's say 0 for "Pending"
             }
 
-            // Update UI
             document.getElementById('kpi-value').textContent = `${percentage}%`;
             document.getElementById('kpi-badge').textContent = percentage === 100 ? 'Concluído' : 'Pendente';
 
-            // Update Gauge Stroke
             const gaugePath = document.getElementById('kpi-gauge-path');
             if (gaugePath) {
                 gaugePath.style.strokeDasharray = `${percentage}, 100`;
@@ -576,49 +671,13 @@
             }
         }
 
-        /**
-         * Binds click events to UI controls.
-         * Replaces inline 'onclick' attributes for cleaner separation of concerns.
-         */
-        function initializeEventListeners() {
-            // Settings Listeners
-            const settingsButtons = ['btn-settings-sidebar', 'btn-settings-mobile'];
-            settingsButtons.forEach(id => {
-                const btn = document.getElementById(id);
-                if (btn) btn.addEventListener('click', openSettingsModal);
-            });
-
-            // Action Listeners
-            document.getElementById('btn-whatsapp')?.addEventListener('click', sendWhatsApp);
-            document.getElementById('btn-print')?.addEventListener('click', prepararImpressao);
-        }
-
-        /**
-         * Opens the global settings modal.
-         * Currently displays a placeholder alert.
-         */
-        function openSettingsModal() {
-            // Logic to open modal would go here
-            console.log('Opening settings modal...');
-            alert('Settings modal placeholder');
-        }
-
-        /**
-         * Triggers the WhatsApp sharing flow.
-         * Constructs a deep link with the current report status.
-         */
         function sendWhatsApp() {
-            // Logic to construct wa.me link would go here
+            // Placeholder
             console.log('Sending via WhatsApp...');
             alert('WhatsApp share placeholder');
         }
 
-        /**
-         * Prepares the document for printing.
-         * Triggers the browser's native print dialog.
-         */
         function prepararImpressao() {
-            console.log('Printing document...');
             window.print();
         }
     </script>
