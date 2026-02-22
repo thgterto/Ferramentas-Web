@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8"/>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <title>ATA Digital - Dashboard Operacional Atvos</title>
+    <meta name="description" content="Dashboard operacional de handover de turno - Laboratórios e Balanças Rodoviárias Atvos"/>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+
+    <!-- Google Fonts: Plus Jakarta Sans -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800&display=swap" rel="stylesheet"/>
+
+    <!-- Material Symbols -->
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+
+    <script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary":      "#005a7e",
+                        "primary-dark": "#004466",
+                        "primary-light":"#e0f0f7",
+                        "accent":       "#f97316",
+                        "accent-dark":  "#ea6308",
+                        "success":      "#22c55e",
+                        "warn":         "#eab308",
+                        "danger":       "#ef4444",
+                        "surface":      "#ffffff",
+                        "bg":           "#f0f4f8",
+                        "sidebar":      "#0f172a",
+                        "sidebar-hover":"#1e293b",
+                    },
+                    fontFamily: {
+                        "display": ["Plus Jakarta Sans", "sans-serif"],
+                        "sans":    ["Plus Jakarta Sans", "sans-serif"]
+                    },
+                    boxShadow: {
+                        "card":  "0 1px 3px 0 rgba(0,0,0,.06), 0 4px 16px 0 rgba(0,0,0,.04)",
+                        "card-hover": "0 4px 24px 0 rgba(0,0,0,.10)",
+                        "glow-primary": "0 0 20px 0 rgba(0,90,126,.25)",
+                        "glow-accent":  "0 0 20px 0 rgba(249,115,22,.25)",
+                    },
+                    borderRadius: { "DEFAULT": "0.375rem", "lg": "0.625rem", "xl": "0.875rem", "2xl": "1.25rem", "3xl": "1.5rem", "full": "9999px" },
+                    keyframes: {
+                        "fade-up": { "0%": { opacity:"0", transform:"translateY(8px)" }, "100%": { opacity:"1", transform:"translateY(0)" } },
+                        "scale-in": { "0%": { opacity:"0", transform:"scale(.96)" }, "100%": { opacity:"1", transform:"scale(1)" } },
+                    },
+                    animation: {
+                        "fade-up":  "fade-up .3s ease both",
+                        "scale-in": "scale-in .25s ease both",
+                    }
+                },
+            },
+        }
+    </script>
+
+    <style>
+        /* ── Icon variants ── */
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .icon-filled { font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+
+        /* ── Reset / Base ── */
+        *, *::before, *::after { box-sizing: border-box; }
+        body { -webkit-tap-highlight-color: transparent; background: #f0f4f8; }
+
+        /* ── Custom scrollbar ── */
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 99px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        /* ── Sidebar ── */
+        #app-sidebar {
+            background: linear-gradient(160deg, #0f172a 0%, #1a2744 100%);
+        }
+        .nav-link {
+            display: flex; align-items: center; gap: 10px;
+            padding: 9px 14px; border-radius: 10px;
+            font-size: .875rem; font-weight: 600;
+            color: #94a3b8; transition: all .2s ease;
+            cursor: pointer; border: none; background: none; width: 100%; text-align: left;
+        }
+        .nav-link:hover { background: rgba(255,255,255,.07); color: #e2e8f0; }
+        .nav-link.active { background: rgba(0, 90, 126, .7); color: #fff; box-shadow: 0 2px 12px rgba(0,90,126,.4); }
+        .nav-link .material-symbols-outlined { font-size: 20px; }
+
+        /* ── Card surface ── */
+        .card {
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 14px;
+            box-shadow: 0 1px 3px rgba(0,0,0,.05), 0 4px 20px rgba(0,0,0,.04);
+            transition: box-shadow .2s ease, transform .2s ease;
+        }
+        .card:hover { box-shadow: 0 4px 28px rgba(0,0,0,.09); }
+
+        /* ── Info card seamless input ── */
+        .seamless-select, .seamless-input {
+            appearance: none; -webkit-appearance: none;
+            background: transparent; border: none;
+            padding: 0; width: 100%;
+            font-family: inherit; outline: none;
+        }
+
+        /* ── Answer toggle ── */
+        .ans-group { display: flex; background: #f1f5f9; border-radius: 10px; padding: 4px; gap: 2px; }
+        .ans-btn {
+            padding: 5px 18px; border-radius: 7px; font-size: .8125rem;
+            font-weight: 700; border: none; cursor: pointer;
+            transition: all .18s ease; color: #64748b; background: transparent;
+        }
+        .ans-btn:hover { background: rgba(255,255,255,.7); color: #334155; }
+        .ans-btn.sel-ok  { background: #fff; color: #16a34a; box-shadow: 0 1px 4px rgba(0,0,0,.1); }
+        .ans-btn.sel-bad { background: #fef2f2; color: #dc2626; box-shadow: 0 1px 4px rgba(220,38,38,.15); }
+        .ans-btn.sel-na  { background: #fff; color: #475569; box-shadow: 0 1px 4px rgba(0,0,0,.1); }
+
+        /* ── Tab active underline ── */
+        .tab-btn { position: relative; padding: 14px 16px 12px; border: none; background: none;
+            font-size: .8125rem; font-weight: 700; color: #94a3b8;
+            cursor: pointer; transition: color .2s; white-space: nowrap; }
+        .tab-btn::after { content:''; position:absolute; bottom:0; left:16px; right:16px;
+            height:3px; border-radius:3px 3px 0 0; background:transparent; transition: background .2s; }
+        .tab-btn.active { color: #005a7e; }
+        .tab-btn.active::after { background: #005a7e; }
+        .tab-btn:hover:not(.active) { color: #475569; }
+
+        /* ── SBAR panel ── */
+        .sbar-panel {
+            margin-top: 12px; padding: 16px;
+            background: #fff7f5; border: 1px solid #fed7aa;
+            border-radius: 12px;
+            animation: fade-up .25s ease both;
+        }
+
+        /* ── Log items ── */
+        .log-section {
+            background: linear-gradient(135deg, #e8eff4 0%, #dde6ed 100%);
+            border: 1px solid #cbd5e1; border-radius: 16px;
+        }
+
+        /* ── Occurrence badge colors ── */
+        .badge-occ { display:inline-block; padding:1px 8px; border-radius:6px;
+            font-size:.6875rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em;
+            background:#e2e8f0; color:#475569; }
+
+        /* ── Crit badge ── */
+        .crit-alta, .crit-media, .crit-baixa {
+            display:inline-block; padding:2px 9px; border-radius:99px;
+            font-size:.6875rem; font-weight:800;
+            text-transform:uppercase; letter-spacing:.05em;
+        }
+        .crit-alta  { background:#fef2f2; color:#dc2626; }
+        .crit-media { background:#fffbeb; color:#d97706; }
+        .crit-baixa { background:#f0fdf4; color:#16a34a; }
+
+        /* ── Gauge animation ── */
+        #kpi-gauge-path { transition: stroke-dasharray 1s cubic-bezier(.4,0,.2,1), stroke .6s ease; }
+
+        /* ── Header glass ── */
+        #main-header {
+            background: rgba(255,255,255,.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(226,232,240,.8);
+        }
+
+        /* ── Print ── */
+        @media print {
+            body { background: white !important; }
+            #app-wrapper { display: none !important; }
+            #settings-modal { display: none !important; }
+            #print-container { display: block !important; }
+            * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+        }
+
+        /* ── Reduced motion ── */
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+        }
+    </style>
+</head>
+<body class="text-slate-900 font-display antialiased">
+
+    <!-- APP WRAPPER -->
+    <div id="app-wrapper" class="flex min-h-screen w-full flex-row overflow-hidden">
+
+        <!-- SIDEBAR -->
+        <aside id="app-sidebar" class="w-64 flex-shrink-0 hidden md:flex flex-col justify-between h-screen fixed left-0 top-0 z-50">
+            <div class="flex flex-col gap-7 p-5">
+                <!-- Logo -->
+                <div class="flex items-center gap-3 px-1 pt-2">
+                    <div class="flex items-center justify-center rounded-xl size-10 bg-primary shadow-glow-primary">
+                        <span class="material-symbols-outlined icon-filled text-white" style="font-size:22px">eco</span>
+                    </div>
+                    <div>
+                        <h1 class="text-white text-sm font-bold leading-none">ATA Digital</h1>
+                        <p class="text-slate-400 text-[10px] font-semibold uppercase tracking-widest mt-1">ATV-OPE-QUA-DA-003</p>
+                    </div>
+                </div>
+
+                <!-- Divider -->
+                <div class="h-px bg-white/10 mx-1"></div>
+
+                <!-- Nav -->
+                <nav class="flex flex-col gap-1">
+                    <p class="text-slate-500 text-[10px] font-bold uppercase tracking-widest px-3 mb-1">Menu</p>
+                    <button class="nav-link active">
+                        <span class="material-symbols-outlined icon-filled">dashboard</span>
+                        Painel de Turno
+                    </button>
+                    <button onclick="openSettingsModal()" class="nav-link">
+                        <span class="material-symbols-outlined">settings</span>
+                        Configurações
+                    </button>
+                </nav>
+            </div>
+
+            <div class="p-5 border-t border-white/10">
+                <div class="flex items-center gap-3">
+                    <div class="size-8 rounded-full bg-primary/40 flex items-center justify-center">
+                        <span class="material-symbols-outlined text-slate-200" style="font-size:16px">support_agent</span>
+                    </div>
+                    <div>
+                        <p class="text-slate-300 text-xs font-semibold">Controle de Qualidade</p>
+                        <p class="text-slate-500 text-[10px] font-medium">v3.1 &mdash; Atvos UMV</p>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- MAIN CONTENT AREA -->
+        <main class="flex-1 flex flex-col min-h-screen md:ml-64 overflow-y-auto overflow-x-hidden" style="background:#f0f4f8">
+
+            <!-- HEADER -->
+            <header id="main-header" class="sticky top-0 z-40 flex items-center justify-between px-6 py-3.5">
+                <div class="flex items-center gap-3">
+                    <!-- Mobile menu hint -->
+                    <div class="md:hidden p-2 rounded-xl bg-primary/10 text-primary">
+                        <span class="material-symbols-outlined" style="font-size:20px">menu</span>
+                    </div>
+                    <div class="p-2 rounded-xl bg-primary/10 text-primary hidden sm:flex">
+                        <span class="material-symbols-outlined" style="font-size:20px">sync_alt</span>
+                    </div>
+                    <div>
+                        <h2 class="text-slate-900 text-lg font-bold leading-tight">Handover Operacional</h2>
+                        <p class="text-xs font-medium text-slate-400 hidden sm:block">Laboratórios &amp; Balanças Rodoviárias</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button onclick="openSettingsModal()" class="md:hidden flex items-center justify-center h-9 w-9 text-slate-500 hover:text-primary hover:bg-slate-100 rounded-full transition-colors cursor-pointer" title="Configurações">
+                        <span class="material-symbols-outlined" style="font-size:20px">settings</span>
+                    </button>
+                    <button onclick="sendWhatsApp()" class="flex items-center gap-1.5 h-9 px-3.5 bg-white border border-slate-200 text-slate-700 hover:bg-emerald-50 hover:border-emerald-200 hover:text-emerald-700 rounded-xl text-sm font-bold transition-all shadow-sm cursor-pointer">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 fill-current" viewBox="0 0 24 24"><path d="M12.031 21.402c-1.346 0-2.656-.346-3.834-.997l-4.227 1.11 1.13-4.116c-.714-1.22-1.09-2.614-1.09-4.043 0-4.42 3.594-8.016 8.016-8.016 4.422 0 8.018 3.596 8.018 8.016s-3.596 8.016-8.013 8.016h-.002v.03zm0-17.755c-5.362 0-9.734 4.372-9.734 9.734 0 1.713.447 3.385 1.294 4.86l-1.486 5.414 5.533-1.45c1.428.784 3.033 1.196 4.673 1.196h.003c5.36 0 9.73-4.373 9.73-9.735 0-5.36-4.37-9.732-9.73-9.732h-.003v.013zm5.337 13.238c-.293-.146-1.73-.854-2-.953-.267-.097-.466-.146-.666.146-.2.293-.766.953-.933 1.146-.17.195-.34.22-.633.073-.293-.146-1.233-.454-2.35-1.27-.867-.63-1.45-1.407-1.62-1.7-.17-.293-.018-.452.128-.598.133-.133.293-.34.44-.512.146-.17.194-.293.293-.488.098-.195.048-.366-.024-.512-.074-.146-.667-1.608-.914-2.202-.24-.582-.486-.503-.666-.512l-.568-.01c-.2 0-.522.073-.796.365-.275.292-1.047 1.024-1.047 2.498s1.072 2.894 1.22 3.09c.148.195 2.11 3.223 5.113 4.517 2.11.908 2.87.828 3.96.698 1.22-.146 2.57-1.05 2.93-2.074.36-1.024.36-1.902.253-2.085-.107-.183-.396-.293-.69-.44z"/></svg>
+                        <span class="hidden sm:inline">WhatsApp</span>
+                    </button>
+                    <button onclick="prepararImpressao()" class="flex items-center gap-1.5 h-9 px-3.5 bg-primary text-white hover:bg-primary-dark rounded-xl text-sm font-bold transition-all shadow-sm cursor-pointer" style="box-shadow:0 2px 12px rgba(0,90,126,.3)">
+                        <span class="material-symbols-outlined" style="font-size:17px">picture_as_pdf</span>
+                        <span>Export PDF</span>
+                    </button>
+                </div>
+            </header>
+
+            <div class="p-4 md:p-6 max-w-[1440px] w-full mx-auto flex flex-col gap-5">
+
+                <!-- SECTION 1: INFO CARDS & KPI GAUGE -->
+                <div class="grid grid-cols-1 lg:grid-cols-4 gap-4">
+
+                    <!-- 4 Info Cards -->
+                    <div class="lg:col-span-3 grid grid-cols-2 xl:grid-cols-4 gap-4">
+
+                        <!-- Data -->
+                        <div class="card p-5 flex flex-col gap-3 cursor-pointer group focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-1">
+                            <div class="flex items-center gap-2">
+                                <div class="p-1.5 rounded-lg bg-primary/10">
+                                    <span class="material-symbols-outlined text-primary" style="font-size:16px">calendar_today</span>
+                                </div>
+                                <p class="text-slate-400 text-[10px] font-bold uppercase tracking-widest">Data do Turno</p>
+                            </div>
+                            <input id="date-input" type="date" class="seamless-input text-slate-900 text-lg font-extrabold focus:ring-0 cursor-pointer w-full">
+                        </div>
+
+                        <!-- Turno -->
+                        <div class="card p-5 flex flex-col gap-3 cursor-pointer group focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-1">
+                            <div class="flex items-center gap-2">
+                                <div class="p-1.5 rounded-lg bg-accent/10">
+                                    <span class="material-symbols-outlined text-accent" style="font-size:16px">schedule</span>
+                                </div>
+                                <p class="text-slate-400 text-[10px] font-bold uppercase tracking-widest">Turno</p>
+                            </div>
+                            <select id="shift-input" class="seamless-select text-slate-900 text-base font-extrabold cursor-pointer w-full">
+                                <!-- JS -->
+                            </select>
+                        </div>
+
+                        <!-- Unidade -->
+                        <div class="card p-5 flex flex-col gap-3 cursor-pointer group focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-1">
+                            <div class="flex items-center gap-2">
+                                <div class="p-1.5 rounded-lg bg-success/10">
+                                    <span class="material-symbols-outlined text-success" style="font-size:16px">factory</span>
+                                </div>
+                                <p class="text-slate-400 text-[10px] font-bold uppercase tracking-widest">Unidade</p>
+                            </div>
+                            <select id="unit-input" class="seamless-select text-slate-900 text-base font-extrabold cursor-pointer w-full">
+                                <!-- JS -->
+                            </select>
+                        </div>
+
+                        <!-- Responsável -->
+                        <div class="card p-5 flex flex-col gap-3 group focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-1">
+                            <div class="flex items-center gap-2">
+                                <div class="p-1.5 rounded-lg bg-slate-100">
+                                    <span class="material-symbols-outlined text-slate-500" style="font-size:16px">badge</span>
+                                </div>
+                                <p class="text-slate-400 text-[10px] font-bold uppercase tracking-widest">Responsável</p>
+                            </div>
+                            <input id="resp-input" type="text" placeholder="Nome / Matrícula" class="seamless-input text-slate-900 text-base font-extrabold placeholder:text-slate-300 w-full">
+                        </div>
+
+                    </div>
+
+                    <!-- KPI Gauge Card -->
+                    <div class="card p-5 flex flex-col">
+                        <div class="flex justify-between items-start">
+                            <p class="text-slate-400 text-[10px] font-bold uppercase tracking-widest">Aderência KPI</p>
+                            <span id="kpi-badge" class="text-slate-400 bg-slate-100 text-[10px] px-2 py-0.5 rounded-full font-bold">Pendente</span>
+                        </div>
+                        <div class="flex-1 flex flex-col items-center justify-center gap-1 mt-2">
+                            <div class="relative">
+                                <svg class="size-24 transform -rotate-90" viewBox="0 0 36 36">
+                                    <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#f1f5f9" stroke-width="3"></path>
