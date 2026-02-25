@@ -1,113 +1,116 @@
-# Specification (Spec) - Excel CRUD API
+# Specification (Spec) - Ata Digital API
 
 ## 1. Arquitetura e Estrutura de Arquivos
 
 ### Novos Arquivos
-*   `backend/app/api/v1/endpoints/datasets.py`: Router para endpoints de dataset.
-*   `backend/app/schemas/dataset.py`: Modelos Pydantic para validação.
-*   `backend/app/services/excel_processor.py`: Lógica de processamento de arquivos.
+*   `backend/app/api/v1/endpoints/atas.py`: Router para endpoints de Atas.
+*   `backend/app/schemas/ata.py`: Modelos Pydantic para validação (Request/Response).
+*   `backend/app/services/ata_excel_service.py`: Lógica de exportação Excel.
 
 ### Arquivos Modificados
 *   `backend/app/main.py`: Incluir router `api_router`.
+*   `backend/requirements.txt`: Adicionar `openpyxl`.
 
 ## 2. Modelagem de Dados (Schemas)
 
-### `backend/app/schemas/dataset.py`
+### `backend/app/schemas/ata.py`
 
 ```python
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
-from datetime import datetime
+from datetime import date
 import uuid
 
-class DatasetBase(BaseModel):
-    name: str
-    description: Optional[str] = None
+# Action Plan per Question
+class ActionPlan(BaseModel):
+    type: str = "" # "Manutenção", "5S", etc.
+    s: str = ""
+    b: str = ""
+    a: str = ""
+    r: str = ""
 
-class DatasetCreate(DatasetBase):
-    pass # File is handled via UploadFile
+# Nested Dicts: { category_idx: { question_idx: VALUE } }
+# Using Dict[int, Dict[int, ...]] for compatibility with JS indices
+class AtaBase(BaseModel):
+    date: date
+    shift: str
+    unit: str
+    responsible: Optional[str] = None
+    kpi_score: int
+    answers: Dict[int, Dict[int, Optional[str]]] # "SIM", "NÃO", "NA", null
+    action_plans: Dict[int, Dict[int, ActionPlan]]
 
-class Dataset(DatasetBase):
+class AtaCreate(AtaBase):
+    pass
+
+class Ata(AtaBase):
     id: uuid.UUID
-    filename: str
-    created_at: datetime
-    rows: int
-    columns: int
-    column_names: List[str]
+    created_at: date
 
     class Config:
         from_attributes = True
-
-class DatasetData(BaseModel):
-    id: uuid.UUID
-    data: List[Dict[str, Any]]
 ```
 
 ## 3. Serviços (Logic)
 
-### `backend/app/services/excel_processor.py`
+### `backend/app/services/ata_excel_service.py`
 
-#### Classe `ExcelProcessor`
-*   **Método `process_file(file: UploadFile) -> pd.DataFrame`**
-    1.  Ler conteúdo do arquivo em memória (`await file.read()`).
-    2.  Identificar extensão (`.xlsx`, `.xls` ou `.csv`).
-    3.  Carregar DataFrame usando `pandas`.
-        -   CSV: `pd.read_csv(io.BytesIO(content))`
-        -   Excel: `pd.read_excel(io.BytesIO(content))`
-    4.  **Limpeza ("Script"):**
-        -   Normalizar nomes das colunas: `strip()`, `lower()`, substituir espaços por `_`.
-        -   Tratar `NaN`: Substituir por `None` (para JSON valid).
-    5.  Retornar DataFrame.
-
-*   **Método `get_metadata(df: pd.DataFrame) -> dict`**
-    -   Retorna: `{ "rows": len(df), "columns": len(df.columns), "column_names": list(df.columns) }`
+#### Classe `AtaExcelService`
+*   **Método `generate_report(ata: Ata) -> BytesIO`**
+    1.  Criar Workbook `openpyxl`.
+    2.  **Aba "Capa":**
+        -   Preencher células com metadados (Data, Turno, Unidade, KPI).
+        -   Formatar com estilos básicos (negrito, bordas).
+    3.  **Abas de Checklist ("Balanças", "PCTS", "Industrial"):**
+        -   Iterar sobre `auditData` (hardcoded no serviço para espelhar frontend ou passado como config).
+        -   Listar perguntas.
+        -   Preencher respostas ("SIM", "NÃO", "NA").
+        -   Se houver anomalia, preencher colunas SBAR (Situação, Background, Assessment, Recommendation).
+    4.  Retornar stream do arquivo.
 
 ## 4. API Endpoints
 
-### `backend/app/api/v1/endpoints/datasets.py`
+### `backend/app/api/v1/endpoints/atas.py`
 
 #### Armazenamento (Simulado em Memória para MVP)
--   Variável global `DATASETS_DB: Dict[uuid.UUID, dict]` (Metadados + DataFrame).
+-   Variável global `ATAS_DB: Dict[uuid.UUID, Ata]`.
 
 #### Endpoints
 
-1.  **POST `/datasets/upload`**
-    -   **Input:** `file: UploadFile`, `name: str` (Form), `description: str` (Form).
-    -   **Processo:**
-        1.  Validar extensão.
-        2.  Chamar `ExcelProcessor.process_file`.
-        3.  Extrair metadados via `ExcelProcessor.get_metadata`.
-        4.  Gerar ID (UUID4).
-        5.  Salvar em `DATASETS_DB`.
-    -   **Output:** Schema `Dataset`.
+1.  **POST `/atas`**
+    -   **Input:** `body: AtaCreate`.
+    -   **Processo:** Gerar ID, salvar no `ATAS_DB`.
+    -   **Output:** `Ata` (201 Created).
 
-2.  **GET `/datasets`**
-    -   **Processo:** Listar valores de `DATASETS_DB`.
-    -   **Output:** `List[Dataset]`.
+2.  **GET `/atas`**
+    -   **Processo:** Listar valores de `ATAS_DB`.
+    -   **Output:** `List[Ata]`.
 
-3.  **GET `/datasets/{id}`**
-    -   **Processo:** Buscar ID em `DATASETS_DB`. Se não existir, 404.
-    -   **Output:** Schema `Dataset`.
+3.  **GET `/atas/{id}`**
+    -   **Processo:** Buscar ID. 404 se não achar.
+    -   **Output:** `Ata`.
 
-4.  **GET `/datasets/{id}/data`**
-    -   **Processo:**
-        1.  Buscar DataFrame em `DATASETS_DB`.
-        2.  Converter para JSON (`df.to_dict(orient='records')`).
-    -   **Output:** Schema `DatasetData`.
+4.  **PUT `/atas/{id}`**
+    -   **Input:** `body: AtaCreate`.
+    -   **Processo:** Atualizar campos no `ATAS_DB`.
+    -   **Output:** `Ata`.
 
-5.  **DELETE `/datasets/{id}`**
-    -   **Processo:** Remover chave de `DATASETS_DB`.
+5.  **DELETE `/atas/{id}`**
+    -   **Processo:** Remover do `ATAS_DB`.
     -   **Output:** 204 No Content.
 
-## 5. Fluxo Lógico
-1.  Usuário envia arquivo via POST.
-2.  Backend recebe stream, converte para DataFrame.
-3.  Dados são limpos e estruturados.
-4.  ID é retornado.
-5.  Frontend usa ID para buscar metadados (visualização rápida) ou dados completos (plotagem).
+6.  **GET `/atas/{id}/export`**
+    -   **Processo:**
+        1.  Buscar Ata.
+        2.  Chamar `AtaExcelService.generate_report(ata)`.
+        3.  Retornar `StreamingResponse` com content-type `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`.
+
+## 5. Fluxo Lógico (Frontend "Office Script" Integration)
+*   Frontend (`ata.html` ou Office Script) faz `POST /atas` com o JSON atual.
+*   Backend valida e salva.
+*   Usuário clica em "Exportar Excel".
+*   Frontend chama `GET /atas/{id}/export` e baixa o blob.
 
 ## 6. Edge Cases
-*   Arquivo vazio ou corrompido -> `HTTPException 400`.
-*   Formato não suportado -> `HTTPException 400`.
-*   Colunas duplicadas -> Pandas trata automaticamente (sufixo .1), aceitável.
-*   Arquivo muito grande -> Limite de tamanho configurado no Nginx/FastAPI (fora do escopo deste código, mas bom notar).
+*   **Dados Incompletos:** `Optional` fields no schema, `None` nas respostas.
+*   **Índices Ausentes:** Dicionários esparsos (usuário não preencheu tudo). O serviço de Excel deve tratar `KeyError` ou usar `.get()`.
