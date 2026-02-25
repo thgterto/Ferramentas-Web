@@ -355,6 +355,44 @@
         </div>
     </div>
 
+    <!-- WHATSAPP MODAL -->
+    <div id="whatsapp-modal" class="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm hidden opacity-0 transition-opacity duration-300">
+        <div id="whatsapp-modal-content" class="bg-white w-full max-w-2xl rounded-2xl shadow-2xl flex flex-col scale-95 transition-transform duration-300">
+            <div class="flex items-center justify-between p-6 border-b border-slate-100">
+                <div class="flex items-center gap-3">
+                    <div class="p-2 rounded-xl bg-emerald-50 text-emerald-600">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 fill-current" viewBox="0 0 24 24"><path d="M12.031 21.402c-1.346 0-2.656-.346-3.834-.997l-4.227 1.11 1.13-4.116c-.714-1.22-1.09-2.614-1.09-4.043 0-4.42 3.594-8.016 8.016-8.016 4.422 0 8.018 3.596 8.018 8.016s-3.596 8.016-8.013 8.016h-.002v.03zm0-17.755c-5.362 0-9.734 4.372-9.734 9.734 0 1.713.447 3.385 1.294 4.86l-1.486 5.414 5.533-1.45c1.428.784 3.033 1.196 4.673 1.196h.003c5.36 0 9.73-4.373 9.73-9.735 0-5.36-4.37-9.732-9.73-9.732h-.003v.013zm5.337 13.238c-.293-.146-1.73-.854-2-.953-.267-.097-.466-.146-.666.146-.2.293-.766.953-.933 1.146-.17.195-.34.22-.633.073-.293-.146-1.233-.454-2.35-1.27-.867-.63-1.45-1.407-1.62-1.7-.17-.293-.018-.452.128-.598.133-.133.293-.34.44-.512.146-.17.194-.293.293-.488.098-.195.048-.366-.024-.512-.074-.146-.667-1.608-.914-2.202-.24-.582-.486-.503-.666-.512l-.568-.01c-.2 0-.522.073-.796.365-.275.292-1.047 1.024-1.047 2.498s1.072 2.894 1.22 3.09c.148.195 2.11 3.223 5.113 4.517 2.11.908 2.87.828 3.96.698 1.22-.146 2.57-1.05 2.93-2.074.36-1.024.36-1.902.253-2.085-.107-.183-.396-.293-.69-.44z"/></svg>
+                    </div>
+                    <h2 class="text-xl font-bold text-slate-800">Enviar Relatório via WhatsApp</h2>
+                </div>
+                <button onclick="closeWhatsAppModal()" class="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-500">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+            <div class="flex-1 overflow-y-auto p-6 space-y-6">
+                <div class="space-y-2">
+                    <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">Pré-visualização da Mensagem</label>
+                    <textarea id="whatsapp-message" class="w-full h-64 border border-slate-200 rounded-xl p-4 text-sm font-mono text-slate-700 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none resize-none bg-slate-50"></textarea>
+                    <p class="text-[10px] text-slate-400">Você pode editar a mensagem antes de enviar.</p>
+                </div>
+                <div class="space-y-2">
+                     <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">Número de Telefone (Opcional)</label>
+                     <div class="relative">
+                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 select-none material-symbols-outlined text-lg">call</span>
+                        <input id="whatsapp-phone" type="text" placeholder="5511999999999" class="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none">
+                     </div>
+                     <p class="text-[10px] text-slate-400">Deixe em branco para selecionar o contato no WhatsApp.</p>
+                </div>
+            </div>
+            <div class="p-6 border-t border-slate-100 flex justify-end gap-3 bg-slate-50 rounded-b-2xl">
+                <button onclick="closeWhatsAppModal()" class="px-5 py-2.5 rounded-xl font-bold text-slate-500 hover:bg-slate-200 transition-colors">Cancelar</button>
+                <button onclick="sendWhatsAppMessage()" class="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold bg-emerald-600 text-white hover:bg-emerald-700 shadow-lg shadow-emerald-600/30 transition-all transform hover:scale-105">
+                    <span class="material-symbols-outlined" style="font-size:20px">send</span> Enviar
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- ============================================================================== -->
     <!-- 5. APPLICATION LOGIC                                                           -->
     <!-- ============================================================================== -->
@@ -462,7 +500,7 @@
             // Event Listeners
             document.getElementById('btn-settings-sidebar').addEventListener('click', openSettingsModal);
             document.getElementById('btn-settings-mobile').addEventListener('click', openSettingsModal);
-            document.getElementById('btn-whatsapp').addEventListener('click', sendWhatsApp);
+            document.getElementById('btn-whatsapp').addEventListener('click', openWhatsAppModal);
             document.getElementById('btn-print').addEventListener('click', prepararImpressao);
         });
 
@@ -671,10 +709,94 @@
             }
         }
 
-        function sendWhatsApp() {
-            // Placeholder
-            console.log('Sending via WhatsApp...');
-            alert('WhatsApp share placeholder');
+        // --- GESTÃO DO MODAL DE WHATSAPP ---
+        window.openWhatsAppModal = function() {
+            const reportText = generateReportText();
+            document.getElementById('whatsapp-message').value = reportText;
+            document.getElementById('whatsapp-phone').value = ""; // Clear previous
+
+            const modal = document.getElementById('whatsapp-modal');
+            const content = document.getElementById('whatsapp-modal-content');
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                content.classList.remove('scale-95');
+            }, 10);
+        }
+
+        window.closeWhatsAppModal = function() {
+            const modal = document.getElementById('whatsapp-modal');
+            const content = document.getElementById('whatsapp-modal-content');
+            modal.classList.add('opacity-0');
+            content.classList.add('scale-95');
+            setTimeout(() => modal.classList.add('hidden'), 300);
+        }
+
+        window.sendWhatsAppMessage = function() {
+            const message = document.getElementById('whatsapp-message').value;
+            const phone = document.getElementById('whatsapp-phone').value.replace(/\D/g, '');
+
+            let url = "https://wa.me/";
+            if (phone) {
+                url += phone;
+            }
+            url += "?text=" + encodeURIComponent(message);
+
+            window.open(url, '_blank');
+            closeWhatsAppModal();
+        }
+
+        function generateReportText() {
+            const date = document.getElementById('date-input').value;
+            const formattedDate = date ? date.split('-').reverse().join('/') : "[Data]";
+            const shift = document.getElementById('shift-input').value || "[Turno]";
+            const unit = document.getElementById('unit-input').value || "[Unidade]";
+            const resp = document.getElementById('resp-input').value || "[Responsável]";
+            const kpi = document.getElementById('kpi-value').textContent;
+
+            let text = `*Relatório de Handover - Ata Digital*\n`;
+            text += `📅 Data: ${formattedDate}\n`;
+            text += `🕒 ${shift}\n`;
+            text += `🏭 ${unit}\n`;
+            text += `👤 ${resp}\n\n`;
+            text += `📊 KPI: ${kpi}\n\n`;
+
+            let hasAnomalies = false;
+            let anomaliesText = "";
+
+            auditData.forEach((cat, cIdx) => {
+                let catAnomalies = [];
+                cat.questions.forEach((q, qIdx) => {
+                    const ans = answers[cIdx][qIdx];
+                    if (ans === q.anomalyIf) {
+                        const plan = actionPlans[cIdx][qIdx];
+                        catAnomalies.push({
+                            q: q.text,
+                            type: plan.type || "Não classificado",
+                            s: plan.s || "Não informado"
+                        });
+                    }
+                });
+
+                if (catAnomalies.length > 0) {
+                    hasAnomalies = true;
+                    anomaliesText += `*⚠️ ${cat.name}*\n`;
+                    catAnomalies.forEach(a => {
+                        anomaliesText += `- ${a.q}\n`;
+                        anomaliesText += `  SBAR: [${a.type}] ${a.s}\n`;
+                    });
+                    anomaliesText += "\n";
+                }
+            });
+
+            if (hasAnomalies) {
+                text += `*Anomalias Identificadas:*\n${anomaliesText}`;
+            } else {
+                text += "✅ Nenhuma anomalia registrada.\n";
+            }
+
+            text += "\n_Gerado via Ata Digital Atvos_";
+            return text;
         }
 
         function prepararImpressao() {
