@@ -1,50 +1,48 @@
-# Product Requirements Document (PRD) - Excel CRUD API
+# Product Requirements Document (PRD) - Ata Digital API & Excel Integration
 
 ## 1. Contexto Técnico
-O projeto ChemFlow visa integrar Design of Experiments (DOE) e Quimiometria em uma plataforma web. Atualmente, o backend possui apenas a estrutura básica (`main.py`). É necessário implementar o **Módulo 2: Gerenciamento de Dados**, permitindo que usuários façam upload de arquivos Excel com resultados experimentais para processamento posterior (PCA/PLS).
+O `ata.html` é um dashboard operacional ("single-page application") utilizado para registrar handovers de turno e checklists de qualidade ("Balanças", "Laboratório PCTS", "Laboratório Industrial"). Atualmente, a persistência é local ou manual via arquivos JSON. O objetivo é criar uma API Backend para centralizar o armazenamento (CRUD) e integrar funcionalidades de geração/leitura de Excel ("Excel Script").
 
 ## 2. Problema a Resolver
-Não existe mecanismo para persistir ou processar dados experimentais no backend. O sistema precisa de uma API RESTful para realizar operações CRUD (Create, Read, Update, Delete) sobre datasets, com foco específico no parsing e validação de arquivos Excel/CSV ("Excel Script").
+*   **Falta de Persistência Centralizada:** Dados são perdidos ao recarregar ou dependem de arquivos locais.
+*   **Necessidade de Relatórios:** Gestores precisam dos dados em formato Excel para análise, não apenas na tela.
+*   **Integração:** O frontend (`ata.html`) precisa de endpoints para Salvar/Carregar os dados.
 
 ## 3. Escopo da Implementação
-Implementar um conjunto de endpoints e serviços para gerenciar o ciclo de vida de um dataset.
+Desenvolver um conjunto de endpoints RESTful (`/atas`) para gerenciar o ciclo de vida dos registros da Ata Digital.
 
 ### Funcionalidades (CRUD)
-1.  **Create (Upload):** Endpoint para upload de arquivos `.xlsx` ou `.csv`.
-    *   Deve validar o formato do arquivo.
-    *   Deve processar o arquivo usando `pandas` (limpeza básica, validação de colunas).
-    *   Deve retornar um ID único e metadados do dataset.
-2.  **Read (List/Get):**
-    *   Listar todos os datasets disponíveis (metadados).
-    *   Recuperar os dados processados de um dataset específico (formato JSON para o frontend).
-    *   (Opcional para MVP) Download do arquivo original ou processado.
-3.  **Update:**
-    *   Atualizar metadados (nome, descrição).
-    *   (Opcional) Re-upload de arquivo para substituir dados.
-4.  **Delete:**
-    *   Remover um dataset e seus dados associados.
+1.  **Create (POST /atas):** Receber o estado completo da Ata (Data, Turno, Unidade, Respostas, Planos de Ação) e salvar.
+2.  **Read (GET /atas):** Listar todas as Atas salvas (resumo).
+3.  **Read One (GET /atas/{id}):** Obter detalhes de uma Ata específica.
+4.  **Update (PUT /atas/{id}):** Atualizar os dados de uma Ata.
+5.  **Delete (DELETE /atas/{id}):** Remover uma Ata.
 
-### "Excel Script" (Processamento)
-Lógica encapsulada para:
-*   Ler o arquivo (Pandas `read_excel`/`read_csv`).
-*   Tratar valores nulos (NaN) e infinitos.
-*   Normalizar cabeçalhos (remover espaços, caracteres especiais).
-*   Extrair metadados (número de linhas, colunas, tipos de dados).
+### Funcionalidades "Excel Script" (Processamento)
+1.  **Export to Excel (GET /atas/{id}/export):** Gerar um arquivo `.xlsx` formatado contendo:
+    *   Capa com metadados (Responsável, Unidade, KPI).
+    *   Abas separadas para cada checklist (Balanças, PCTS, Industrial) com as respostas e desvios.
+2.  **Import from Excel (POST /atas/import):** (Opcional/Futuro) Ler um Excel padrão e preencher a Ata. *Foco inicial na Exportação conforme necessidade de relatório.*
 
 ## 4. Arquivos Afetados / A Criar
+*   `backend/app/api/v1/endpoints/atas.py`: Router para endpoints da Ata.
+*   `backend/app/schemas/ata.py`: Modelos Pydantic (Request/Response) refletindo a estrutura do `ata.html`.
+*   `backend/app/services/ata_excel_service.py`: Lógica de geração do relatório Excel (`openpyxl` ou `pandas`).
+*   `backend/app/models/ata.py`: (Simulado em memória `ATAS_DB`).
 *   `backend/app/main.py`: Registro das novas rotas.
-*   `backend/app/api/v1/endpoints/datasets.py`: Controladores da API.
-*   `backend/app/schemas/dataset.py`: Modelos Pydantic para validação (Request/Response).
-*   `backend/app/services/excel_processor.py`: Lógica de manipulação de Excel (o "Script").
-*   `backend/app/models/dataset.py`: Modelo de dados (em memória ou DB simples para este MVP).
 
-## 5. Referências Técnicas
-*   **FastAPI:** Framework web.
-*   **Pandas:** Manipulação de dados (`read_excel`, `DataFrame`).
-*   **Python-Multipart:** Para upload de arquivos.
-*   **Pydantic:** Validação de esquemas.
+## 5. Estrutura de Dados (Espelho do Frontend)
+*   **Metadata:** `date`, `shift`, `unit`, `responsible`, `kpi_score`.
+*   **Answers:** Dicionário aninhado `{ category_idx: { question_idx: "SIM"|"NÃO"|"NA" } }`.
+*   **ActionPlans:** Dicionário `{ category_idx: { question_idx: { type, s, b, a, r } } }`.
 
-## 6. Restrições
-*   Manter a implementação "Stateless" onde possível, ou usar armazenamento em memória/disco temporário se banco de dados não estiver configurado. (Assumiremos armazenamento em memória `dict` para simplicidade do MVP, conforme estrutura atual, ou SQLite se `sqlalchemy` estiver pronto).
-*   Seguir estritamente o `chemflow_development_prompt.yaml`.
-*   Código deve ser assíncrono (`async def`) onde envolver I/O.
+## 6. Referências Técnicas
+*   **FastAPI:** Backend framework.
+*   **Pydantic:** Validação de dados complexos (JSON aninhado).
+*   **OpenPyXL / Pandas:** Geração de arquivos `.xlsx`.
+*   **Memory Storage:** Dicionário global para persistência MVP.
+
+## 7. Restrições
+*   Manter compatibilidade com a estrutura de dados existente no `ata.html` (arrays `auditData`, índices numéricos).
+*   A solução deve ser "Online" (REST API).
+*   Seguir o padrão SDD (Spec-Driven Development).
