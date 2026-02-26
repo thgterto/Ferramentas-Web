@@ -292,8 +292,15 @@ self.onmessage = function(e) {
     if (rules.r2 && means.length >= 9) {
       const cl = lBar.cl;
       for (let i = 8; i < means.length; i++) {
-        const slice = means.slice(i-8, i+1);
-        if (slice.every(v => v > cl) || slice.every(v => v < cl)) add('XBAR', i, means[i], '9 ptos mesmo lado', 'warn');
+        let allAbove = true;
+        let allBelow = true;
+        for (let j = i - 8; j <= i; j++) {
+          const v = means[j];
+          if (!(v > cl)) allAbove = false;
+          if (!(v < cl)) allBelow = false;
+          if (!allAbove && !allBelow) break;
+        }
+        if (allAbove || allBelow) add('XBAR', i, means[i], '9 ptos mesmo lado', 'warn');
       }
     }
     if (rules.r3 && means.length >= 3) {
