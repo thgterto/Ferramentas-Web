@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Graficário — Gerador de Gráficos</title>
+  <meta name="description" content="Gerador de gráficos com Apache ECharts e uma biblioteca de modelos de storytelling com dados: títulos-conclusão, destaque, anotações, paletas validadas para daltonismo e exportação.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230b0b0b'/%3E%3Crect x='7' y='16' width='4' height='9' rx='1' fill='%23bebdb5'/%3E%3Crect x='14' y='8' width='4' height='17' rx='1' fill='%232a78d6'/%3E%3Crect x='21' y='12' width='4' height='13' rx='1' fill='%23bebdb5'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/app.css">
+  <script>
+    // Tema salvo antes da pintura (evita piscar)
+    try { var t = localStorage.getItem('gg:theme'); if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t); } catch (e) {}
+  </script>
+</head>
+<body data-view="stage">
+  <!-- Ícones -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/><path d="m20 20-3.5-3.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+      <symbol id="i-down" viewBox="0 0 24 24"><path d="M12 4v11m0 0-4-4m4 4 4-4M5 20h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+      <symbol id="i-save" viewBox="0 0 24 24"><path d="M5 4h11l3 3v13H5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M8 4v5h7V4M8 20v-6h8v6" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
+      <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
+      <symbol id="i-theme" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/></symbol>
+      <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 7 4 12l5 5M4 12h11a5 5 0 0 1 0 10h-3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+      <symbol id="i-redo" viewBox="0 0 24 24"><path d="m15 7 5 5-5 5m5-5H9a5 5 0 0 0 0 10h3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+      <symbol id="i-table" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="1.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3 10h18M3 14.5h18M9 5v14" stroke="currentColor" stroke-width="1.6"/></symbol>
+      <symbol id="i-expand" viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+      <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="1.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+      <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+      <symbol id="i-x" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+      <symbol id="i-up" viewBox="0 0 24 24"><path d="M12 20V9m0 0-4 4m4-4 4 4M5 4h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+      <symbol id="i-chart" viewBox="0 0 24 24"><path d="M4 20V4M4 20h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><rect x="7" y="12" width="3" height="5" rx=".5" fill="currentColor"/><rect x="12" y="7" width="3" height="10" rx=".5" fill="currentColor"/><rect x="17" y="10" width="3" height="7" rx=".5" fill="currentColor"/></symbol>
+      <symbol id="i-lib" viewBox="0 0 24 24"><rect x="3" y="4" width="7" height="7" rx="1" fill="none" stroke="currentColor" stroke-width="2"/><rect x="14" y="4" width="7" height="7" rx="1" fill="none" stroke="currentColor" stroke-width="2"/><rect x="3" y="14" width="7" height="7" rx="1" fill="none" stroke="currentColor" stroke-width="2"/><rect x="14" y="14" width="7" height="7" rx="1" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+      <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h4M12 17h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="16" cy="7" r="2" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="10" cy="17" r="2" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+      <symbol id="i-data" viewBox="0 0 24 24"><ellipse cx="12" cy="6" rx="7" ry="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M5 6v12c0 1.7 3.1 3 7 3s7-1.3 7-3V6M5 12c0 1.7 3.1 3 7 3s7-1.3 7-3" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+      <symbol id="i-chev" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    </defs>
+  </svg>
+
+  <header class="topbar">
+    <a class="brand" href="#" id="brandLink" aria-label="Graficário — início">
+      <svg width="28" height="28" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="6" fill="currentColor"/><rect x="7" y="16" width="4" height="9" rx="1" fill="#bebdb5"/><rect x="14" y="8" width="4" height="17" rx="1" fill="#2a78d6"/><rect x="21" y="12" width="4" height="13" rx="1" fill="#bebdb5"/></svg>
+      <span class="brand-name">Graficário</span>
+      <span class="brand-sub">gerador de gráficos · ECharts</span>
+    </a>
+    <div class="spacer"></div>
+    <div class="topbar-actions">
+      <div class="menu-wrap">
+        <button class="btn btn-ghost" id="openBtn" aria-haspopup="true" aria-expanded="false"><svg><use href="#i-folder"/></svg><span class="btn-label">Meus gráficos</span></button>
+        <div class="menu" id="openMenu" role="menu" hidden></div>
+      </div>
+      <button class="btn btn-ghost" id="saveBtn" title="Salvar no navegador (Ctrl+S)"><svg><use href="#i-save"/></svg><span class="btn-label">Salvar</span></button>
+      <button class="btn btn-ghost btn-icon" id="themeBtn" title="Alternar tema claro/escuro" aria-label="Alternar tema claro/escuro"><svg><use href="#i-theme"/></svg></button>
+      <div class="menu-wrap">
+        <button class="btn btn-primary" id="exportBtn" aria-haspopup="true" aria-expanded="false"><svg><use href="#i-down"/></svg><span class="btn-label">Exportar</span></button>
+        <div class="menu" id="exportMenu" role="menu" hidden>
+          <div class="menu-label">Imagem</div>
+          <button role="menuitem" data-export="png">PNG em alta resolução <small>2×</small></button>
+          <button role="menuitem" data-export="png3">PNG para impressão <small>3×</small></button>
+          <button role="menuitem" data-export="svg">SVG vetorial <small>.svg</small></button>
+          <button role="menuitem" data-export="clip">Copiar imagem <small>área de transf.</small></button>
+          <button role="menuitem" data-export="print">Imprimir / PDF <small>Ctrl+P</small></button>
+          <hr>
+          <div class="menu-label">Interativo e código</div>
+          <button role="menuitem" data-export="html">HTML autônomo (interativo) <small>.html</small></button>
+          <button role="menuitem" data-export="json">Option do ECharts <small>.json</small></button>
+          <hr>
+          <div class="menu-label">Dados e projeto</div>
+          <button role="menuitem" data-export="csv">Dados em CSV <small>.csv</small></button>
+          <button role="menuitem" data-export="project">Arquivo do projeto <small>.json</small></button>
+          <button role="menuitem" data-export="import">Abrir arquivo de projeto… <small>.json</small></button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="workspace">
+    <!-- BIBLIOTECA -->
+    <aside class="panel library" aria-label="Biblioteca de modelos">
+      <div class="panel-head">
+        <div class="field-row" style="justify-content:space-between">
+          <span class="eyebrow">Biblioteca de modelos</span>
+          <span class="lib-count" id="libCount"></span>
+        </div>
+        <label class="search"><svg><use href="#i-search"/></svg><span class="sr-only">Buscar modelo</span>
+          <input class="input" id="libSearch" type="search" placeholder="Buscar: pareto, meta, funil, CEP…" autocomplete="off"></label>
+        <label class="sr-only" for="libCat">Situação</label>
+        <select class="select" id="libCat"></select>
+      </div>
+      <div class="lib-list" id="libList" role="list"></div>
+    </aside>
+
+    <!-- PALCO -->
+    <section class="stage" aria-label="Gráfico">
+      <div class="stage-bar">
+        <button class="btn btn-sm btn-ghost btn-icon" id="undoBtn" title="Desfazer (Ctrl+Z)" aria-label="Desfazer"><svg><use href="#i-undo"/></svg></button>
+        <button class="btn btn-sm btn-ghost btn-icon" id="redoBtn" title="Refazer (Ctrl+Shift+Z)" aria-label="Refazer"><svg><use href="#i-redo"/></svg></button>
+        <span class="sep"></span>
+        <label class="sr-only" for="frameSel">Tamanho</label>
+        <select class="select" id="frameSel" title="Tamanho do gráfico (também usado na exportação)">
+          <option value="fit">Ajustar à área</option>
+          <option value="1280x720">Slide 16:9 · 1280×720</option>
+          <option value="1024x768">Slide 4:3 · 1024×768</option>
+          <option value="960x540">Relatório · 960×540</option>
+          <option value="800x500">Web · 800×500</option>
+          <option value="1080x1080">Post quadrado · 1080×1080</option>
+          <option value="1080x1350">Post retrato 4:5 · 1080×1350</option>
+          <option value="720x1280">Story 9:16 · 720×1280</option>
+          <option value="1123x794">A4 paisagem · 1123×794</option>
+          <option value="794x1123">A4 retrato · 794×1123</option>
+          <option value="custom">Personalizado…</option>
+        </select>
+        <span id="customSize" hidden class="field-row">
+          <input class="input" id="customW" type="number" min="240" max="4000" step="10" aria-label="Largura em pixels">
+          <span class="kbd">×</span>
+          <input class="input" id="customH" type="number" min="200" max="4000" step="10" aria-label="Altura em pixels">
+        </span>
+        <span class="zoom hide-xs" id="zoomLbl"></span>
+        <span style="flex:1"></span>
+        <button class="btn btn-sm btn-ghost" id="tableBtn" title="Ver os dados como tabela acessível"><svg><use href="#i-table"/></svg><span class="hide-xs">Tabela</span></button>
+        <button class="btn btn-sm btn-ghost" id="copyImgBtn" title="Copiar imagem para colar no PowerPoint, Docs, e-mail"><svg><use href="#i-copy"/></svg><span class="hide-xs">Copiar</span></button>
+        <button class="btn btn-sm btn-ghost btn-icon" id="fullBtn" title="Tela cheia (apresentar)" aria-label="Tela cheia"><svg><use href="#i-expand"/></svg></button>
+      </div>
+      <div class="canvas-wrap fit" id="canvasWrap">
+        <figure class="frame" id="frame" style="margin:0">
+          <div id="chart" role="img" aria-label="Gráfico"></div>
+          <div class="chart-error" id="chartError" hidden></div>
+          <span class="frame-size" id="frameSize"></span>
+        </figure>
+      </div>
+      <div class="dock" id="dock">
+        <div class="dock-resize" id="dockResize" title="Arraste para redimensionar" aria-hidden="true"></div>
+        <div class="tabs" role="tablist" aria-label="Painéis">
+          <button class="tab" role="tab" data-tab="data" aria-selected="true" id="tab-data">Dados <span class="badge" id="dataBadge"></span></button>
+          <button class="tab" role="tab" data-tab="table" aria-selected="false" id="tab-table">Tabela acessível</button>
+          <button class="tab" role="tab" data-tab="review" aria-selected="false" id="tab-review">Revisão <span class="badge" id="reviewBadge"></span></button>
+          <button class="tab" role="tab" data-tab="code" aria-selected="false" id="tab-code">Código</button>
+          <span class="spacer"></span>
+          <button class="btn btn-sm btn-ghost btn-icon" id="dockToggle" aria-label="Recolher painel" title="Recolher/expandir"><svg><use href="#i-chev"/></svg></button>
+        </div>
+        <div class="dock-body" id="dockBody" role="tabpanel"></div>
+      </div>
+    </section>
+
+    <!-- INSPETOR -->
+    <aside class="panel inspector" aria-label="Ajustes do gráfico">
+      <div class="insp-scroll" id="inspector"></div>
+    </aside>
+  </main>
+
+  <nav class="mobile-nav" aria-label="Seções">
+    <button data-view="library"><svg><use href="#i-lib"/></svg>Modelos</button>
+    <button data-view="stage" aria-current="true"><svg><use href="#i-chart"/></svg>Gráfico</button>
+    <button data-view="data"><svg><use href="#i-data"/></svg>Dados</button>
+    <button data-view="inspector"><svg><use href="#i-sliders"/></svg>Ajustes</button>
+  </nav>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <input type="file" id="fileInput" accept=".csv,.tsv,.txt,.json" hidden>
+
+  <dialog class="modal" id="pasteModal" aria-labelledby="pasteTitle">
+    <div class="modal-head"><h3 id="pasteTitle">Colar tabela</h3><button class="btn btn-sm btn-ghost btn-icon" data-close aria-label="Fechar"><svg><use href="#i-x"/></svg></button></div>
+    <div class="modal-body">
+      <p style="margin:0;color:var(--ink-2);font-size:13px">Cole do Excel, Google Planilhas ou um CSV. A primeira linha vira o cabeçalho. Separadores aceitos: tabulação, ponto e vírgula, vírgula e barra vertical. Números em 1.234,56 ou 1,234.56.</p>
+      <textarea class="textarea" id="pasteArea" rows="12" style="font-family:var(--mono);font-size:12.5px" placeholder="Região&#9;Vendas&#10;Sudeste&#9;412&#10;Sul&#9;238"></textarea>
+    </div>
+    <div class="modal-foot"><button class="btn" data-close>Cancelar</button><button class="btn btn-primary" id="pasteApply">Usar estes dados</button></div>
+  </dialog>
+
+  <script>
+    // Carrega o Apache ECharts com alternativas (CDNs e, por último, uma cópia local em vendor/).
+    (function () {
+      var V = '6.1.0';
+      var srcs = [
+        'https://cdn.jsdelivr.net/npm/echarts@' + V + '/dist/echarts.min.js',
+        'https://unpkg.com/echarts@' + V + '/dist/echarts.min.js',
+        'https://cdnjs.cloudflare.com/ajax/libs/echarts/' + V + '/echarts.min.js',
+        'vendor/echarts.min.js'
+      ];
+      var i = 0;
+      window.GG_ECHARTS_SRC = srcs[0];
+      function next() {
+        if (window.echarts) { document.dispatchEvent(new Event('gg:echarts')); return; }
+        if (i >= srcs.length) { document.dispatchEvent(new Event('gg:echarts-failed')); return; }
+        var s = document.createElement('script');
+        window.GG_ECHARTS_SRC = srcs[i];
+        s.src = srcs[i++];
+        s.onload = function () { document.dispatchEvent(new Event('gg:echarts')); };
+        s.onerror = next;
+        document.head.appendChild(s);
+      }
+      next();
+    })();
+  </script>
+  <script src="js/core/tokens.js"></script>
+  <script src="js/core/runtime.js"></script>
+  <script src="js/core/data.js"></script>
+  <script src="js/builders/base.js"></script>
+  <script src="js/builders/cartesian.js"></script>
+  <script src="js/builders/part.js"></script>
+  <script src="js/builders/dist.js"></script>
+  <script src="js/builders/special.js"></script>
+  <script src="js/presets/registry.js"></script>
+  <script src="js/presets/presets-a.js"></script>
+  <script src="js/presets/presets-b.js"></script>
+  <script src="js/presets/presets-c.js"></script>
+  <script src="js/app/lint.js"></script>
+  <script src="js/app/export.js"></script>
+  <script src="js/app/grid.js"></script>
+  <script src="js/app/inspector.js"></script>
+  <script src="js/app/app.js"></script>
+</body>
+</html>
