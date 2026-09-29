@@ -4,6 +4,11 @@ Gerador de gráficos em HTML + [Apache ECharts 6](https://echarts.apache.org/) c
 
 Cada modelo já vem com dados de exemplo realistas, **um título que é a conclusão** (e não o assunto), subtítulo com contexto e unidade, destaque e anotações — é só trocar os dados.
 
+## Documentação
+
+- [Guia do usuário](docs/guia-do-usuario.md): criar, ajustar, revisar e exportar gráficos.
+- [Guia de desenvolvimento](docs/desenvolvimento.md): arquitetura e como adicionar modelos e tipos.
+
 ## Como usar
 
 1. Abra `gerador-graficos/index.html` no navegador (duplo clique funciona; não precisa de servidor nem de build).
