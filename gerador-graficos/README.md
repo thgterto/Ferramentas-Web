@@ -101,14 +101,19 @@ gerador-graficos/
   css/app.css                estilos (tokens claro/escuro)
   js/core/tokens.js          cores, rampas, temas e validador de paleta
   js/core/runtime.js         formatadores/tooltips/renderItem serializáveis (embutido no HTML exportado)
+  js/manifest.js             lista (e ordem) de todos os módulos carregados
   js/core/data.js            CSV/TSV, números pt-BR, estatística, geradores de exemplo
-  js/builders/*.js           45 construtores (dados + ajustes → option do ECharts)
-  js/presets/*.js            127 modelos
+  js/builders/base.js        registro e peças comuns dos construtores
+  js/builders/lib/*.js       utilidades compartilhadas entre tipos
+  js/builders/types/<id>.js  um arquivo por tipo de gráfico (45)
+  js/presets/registry.js     categorias e registro de modelos
+  js/presets/catalog/*.js    um arquivo por categoria (127 modelos)
   js/app/*.js                aplicação, editor de dados, inspetor, revisão e exportação
+  tools/check.js             verificação em Node de todos os tipos e modelos
 ```
 
-**Adicionar um modelo:** em `js/presets/presets-*.js`, chame `P.add({ id, cat, type, name, desc, tags, data, settings })`. `data` pode ser uma tabela `{ columns, rows }` ou uma função que a gera.
+**Adicionar um modelo:** em `js/presets/catalog/<categoria>.js`, chame `P.add({ id, cat, type, name, desc, tags, data, settings })`. `data` pode ser uma tabela `{ columns, rows }` ou uma função que a gera.
 
-**Adicionar um tipo de gráfico:** registre com `GG.builders.register({ id, name, group, shape, roles, hint, hl, annot, settings, build(ctx) })`. Toda função que entra no option deve ser criada por `ctx.fn(tipo, cfg)` (definida em `runtime.js`) para que a exportação em HTML continue funcionando.
+**Adicionar um tipo de gráfico:** crie `js/builders/types/<id>.js` registrando com `GG.builders.register({ id, name, group, shape, family, cartesian, roles, hint, hl, annot, settings, build(ctx) })` e acrescente o id em `js/manifest.js`. Rode `node tools/check.js`. Toda função que entra no option deve ser criada por `ctx.fn(tipo, cfg)` (definida em `runtime.js`) para que a exportação em HTML continue funcionando.
 
 Apache ECharts é licenciado sob Apache-2.0.

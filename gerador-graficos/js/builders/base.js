@@ -15,11 +15,28 @@
   const REG = {};
   const ORDER = [];
 
+  const REQUIRED = ['id', 'name', 'group', 'shape', 'family', 'build'];
+  const CONTROL_TYPES = ['select', 'seg', 'toggle', 'number', 'text', 'column'];
+
+  /**
+   * Registra um tipo de gráfico. Cada tipo vive em js/builders/types/<id>.js e
+   * declara tudo o que a aplicação precisa saber dele (inclusive `family`, que
+   * define com quais tipos ele troca dados, e `cartesian`, se tem eixos x/y).
+   */
   function register(def) {
+    const miss = REQUIRED.filter((k) => def[k] === undefined || def[k] === '');
+    if (miss.length) throw new Error('Tipo de gráfico ' + (def.id || '?') + ' sem: ' + miss.join(', '));
+    if (REG[def.id]) throw new Error('Tipo de gráfico duplicado: ' + def.id);
     def.settings = def.settings || [];
+    def.settings.forEach((x) => {
+      if (!x.k || CONTROL_TYPES.indexOf(x.t) < 0) throw new Error('Ajuste inválido em ' + def.id + ': ' + JSON.stringify(x.k) + ' (' + x.t + ')');
+    });
+    def.cartesian = !!def.cartesian;
     REG[def.id] = def;
     ORDER.push(def.id);
   }
+  /** Tipos da mesma família trocam dados sem conversão. */
+  const compatible = (a, b) => !!REG[a] && !!REG[b] && REG[a].family === REG[b].family;
 
   // --- Ajustes comuns (padrões) ---------------------------------------------------
   const COMMON_DEFAULTS = {
@@ -458,7 +475,10 @@
 
   GG.FONT = FONT;
   GG.builders = {
-    REG, ORDER, register, makeCtx, settingsFor, compose, serialize, deepMerge,
+    REG, ORDER, register, compatible, CONTROL_TYPES, makeCtx,
+    /** Utilidades compartilhadas entre tipos (preenchido por js/builders/lib/*.js). */
+    lib: {},
+    settingsFor, compose, serialize, deepMerge,
     valueAxis, catAxis, applyValueRange, grid, tooltip, tipAxis, tipItem, dataLabel, barRadius, ring,
     legend, legendNeeded, reserveRight, wide, columnsSamples, sortIdx, smartIdx, textLines, wrap, measure, axisF, COMMON_DEFAULTS,
     /** Constrói o option completo para (tipo, dados, ajustes). */

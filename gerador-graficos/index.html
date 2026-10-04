@@ -184,7 +184,7 @@
       window.GG_ECHARTS_SRC = srcs[0];
       function next() {
         if (window.echarts) { document.dispatchEvent(new Event('gg:echarts')); return; }
-        if (i >= srcs.length) { document.dispatchEvent(new Event('gg:echarts-failed')); return; }
+        if (i >= srcs.length) { window.GG_ECHARTS_FAILED = true; document.dispatchEvent(new Event('gg:echarts-failed')); return; }
         var s = document.createElement('script');
         window.GG_ECHARTS_SRC = srcs[i];
         s.src = srcs[i++];
@@ -195,22 +195,27 @@
       next();
     })();
   </script>
-  <script src="js/core/tokens.js"></script>
-  <script src="js/core/runtime.js"></script>
-  <script src="js/core/data.js"></script>
-  <script src="js/builders/base.js"></script>
-  <script src="js/builders/cartesian.js"></script>
-  <script src="js/builders/part.js"></script>
-  <script src="js/builders/dist.js"></script>
-  <script src="js/builders/special.js"></script>
-  <script src="js/presets/registry.js"></script>
-  <script src="js/presets/presets-a.js"></script>
-  <script src="js/presets/presets-b.js"></script>
-  <script src="js/presets/presets-c.js"></script>
-  <script src="js/app/lint.js"></script>
-  <script src="js/app/export.js"></script>
-  <script src="js/app/grid.js"></script>
-  <script src="js/app/inspector.js"></script>
-  <script src="js/app/app.js"></script>
+  <script src="js/manifest.js"></script>
+  <script>
+    // Carrega os módulos do manifesto em ordem. Scripts clássicos (não ES modules)
+    // para continuar funcionando ao abrir o arquivo direto (file://), sem servidor.
+    (function () {
+      var files = window.GG_MANIFEST || [];
+      var i = 0;
+      function fail(src) {
+        var e = document.getElementById('chartError');
+        if (e) { e.hidden = false; e.textContent = 'Não consegui carregar o módulo ' + src + '.'; }
+      }
+      function next() {
+        if (i >= files.length) return;
+        var s = document.createElement('script');
+        s.src = files[i++];
+        s.onload = next;
+        s.onerror = function () { fail(s.getAttribute('src')); };
+        document.body.appendChild(s);
+      }
+      next();
+    })();
+  </script>
 </body>
 </html>

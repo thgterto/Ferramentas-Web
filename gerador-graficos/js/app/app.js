@@ -14,23 +14,15 @@
   const norm = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
   const debounce = (fn, ms) => { let t; return function () { const a = arguments; clearTimeout(t); t = setTimeout(() => fn.apply(null, a), ms); }; };
 
-  // Famílias de formato de dados — para saber se dá para trocar de tipo mantendo os dados
-  const FAMILY = {
-    bar: 'tab', line: 'tab', lollipop: 'tab', dumbbell: 'tab', slope: 'tab', bump: 'tab', range: 'tab', forecast: 'tab', multiples: 'tab',
-    pareto: 'tab', waterfall: 'tab', diverging: 'tab', bullet: 'tab', meter: 'tab', likert: 'tab', pyramid: 'tab', marimekko: 'tab',
-    control: 'tab', pie: 'tab', waffle: 'tab', funnel: 'tab', heatmap: 'tab', stripes: 'tab', parallel: 'tab', radar: 'tab', kpi: 'tab',
-    hero: 'tab', gauge: 'tab', tilemap: 'tab',
-    treemap: 'tree', sunburst: 'tree', tree: 'tree',
-    sankey: 'flow', chord: 'flow', graph: 'flow',
-    histogram: 'samples', boxplot: 'samples', strip: 'samples', violin: 'samples', ecdf: 'samples',
-    scatter: 'xy', calendar: 'dates', candlestick: 'ohlc', timeline: 'events', gantt: 'tasks'
-  };
-  const CARTESIAN = new Set(['bar', 'line', 'lollipop', 'dumbbell', 'range', 'forecast', 'pareto', 'waterfall', 'diverging', 'boxplot', 'strip', 'violin', 'ecdf', 'scatter', 'control', 'candlestick', 'histogram', 'pyramid']);
+  // Família e eixos vêm da declaração de cada tipo (js/builders/types/<id>.js).
+  const FAMILY = {};
+  const CARTESIAN = new Set();
+  Object.keys(REG()).forEach((id) => { FAMILY[id] = REG()[id].family; if (REG()[id].cartesian) CARTESIAN.add(id); });
 
   const A = GG.app = {
     FAMILY, CARTESIAN, store, clone, $, $$, norm, debounce,
     state: null, chart: null, lastOption: null, lastCtxMeta: null, tab: 'data',
-    compatible(a, b) { return FAMILY[a] === FAMILY[b]; }
+    compatible: (a, b) => GG.builders.compatible(a, b)
   };
 
   // ================================================================ ESTADO
@@ -624,6 +616,9 @@
     e.hidden = false;
     e.innerHTML = '<b>Não consegui carregar a biblioteca Apache ECharts.</b><span>Verifique a conexão com a internet (jsDelivr, unpkg ou cdnjs) ou coloque uma cópia em <code>vendor/echarts.min.js</code>.</span>';
   }
+  const bad = GG.presets.validate();
+  if (bad.length) console.error('Graficário: problemas no registro de modelos:\n' + bad.join('\n'));
   if (window.echarts) setTimeout(boot, 0);
+  else if (window.GG_ECHARTS_FAILED) failed();
   else { document.addEventListener('gg:echarts', boot, { once: true }); document.addEventListener('gg:echarts-failed', failed, { once: true }); }
 })(window.GG = window.GG || {});

@@ -31,10 +31,22 @@
     CATS, list, byId,
     add(...ps) {
       ps.forEach((p) => {
+        if (!p.id || !p.type || !p.cat || !p.name || !p.data) throw new Error('Modelo incompleto: ' + (p.id || p.name || '?') + ' (precisa de id, cat, type, name e data)');
+        if (byId[p.id]) throw new Error('Modelo duplicado: ' + p.id);
         if (!p.settings) p.settings = {};
         if (p.settings.source === undefined) p.settings.source = 'dados fictícios para demonstração';
         list.push(p); byId[p.id] = p;
       });
+    },
+    /** Confere referências que só existem depois de tudo carregado. Devolve a lista de problemas. */
+    validate() {
+      const cats = new Set(CATS.map((c) => c.id));
+      const out = [];
+      list.forEach((p) => {
+        if (!cats.has(p.cat)) out.push('modelo ' + p.id + ': categoria desconhecida "' + p.cat + '"');
+        if (!GG.builders.REG[p.type]) out.push('modelo ' + p.id + ': tipo desconhecido "' + p.type + '"');
+      });
+      return out;
     },
     /** Dados concretos de um modelo (gera se for função). */
     dataOf(p) {

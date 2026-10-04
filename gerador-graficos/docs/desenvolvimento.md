@@ -1,9 +1,12 @@
 # Guia de desenvolvimento
 
 Este guia explica a arquitetura do Graficário e como adicionar modelos e tipos
-de gráfico. O projeto usa JavaScript puro, sem build: cada arquivo é um
-`<script>` clássico carregado por `index.html` e registra suas partes no objeto
-global `GG`.
+de gráfico. O projeto usa JavaScript puro, sem build, e é modular: cada tipo de gráfico e
+cada categoria de modelos é um arquivo próprio que se registra no objeto global
+`GG`. A lista de arquivos fica num único lugar, `js/manifest.js`, que o
+`index.html` carrega em ordem. Os arquivos são `<script>` clássicos (não ES
+modules) para que o `index.html` continue abrindo com duplo clique, sem
+servidor.
 
 ## Arquitetura
 
@@ -18,19 +21,45 @@ O fluxo de um gráfico tem três etapas:
 | `js/core/tokens.js` | Cores, temas, rampas e validador de paleta (`GG.tokens`, `GG.color`) |
 | `js/core/runtime.js` | Formatadores, tooltips e `renderItem` serializáveis (`GG_RUNTIME`) |
 | `js/core/data.js` | Leitura de CSV, números pt-BR, estatística e geradores (`GG.data`, `GG.stats`, `GG.gen`) |
+| `js/manifest.js` | Lista e ordem de carregamento de todos os módulos (`GG_MANIFEST`) |
 | `js/builders/base.js` | Registro, contexto, layout, eixos, legenda, anotações (`GG.builders`) |
-| `js/builders/*.js` | Os 45 construtores |
-| `js/presets/*.js` | Os 127 modelos (`GG.presets`) |
+| `js/builders/lib/*.js` | Utilidades compartilhadas entre tipos (`GG.builders.lib`) |
+| `js/builders/types/<id>.js` | Um arquivo por tipo de gráfico (45) |
+| `js/presets/registry.js` | Categorias da biblioteca e registro de modelos (`GG.presets`) |
+| `js/presets/catalog/<categoria>.js` | Os modelos de uma categoria (127 no total) |
 | `js/app/app.js` | Estado, biblioteca, palco, histórico e persistência (`GG.app`) |
 | `js/app/grid.js` | Editor de dados |
 | `js/app/inspector.js` | Painel de ajustes |
 | `js/app/lint.js` | Aba Revisão |
 | `js/app/export.js` | Exportações |
+| `tools/check.js` | Verificação em Node: registro, manifesto e construção de todos os modelos |
+
+### Módulos
+
+Cada módulo segue o mesmo formato:
+
+```js
+(function (GG) {
+  'use strict';
+  const B = GG.builders;
+  const { SORT, ORIENT } = B.lib;   // só o que o módulo usa
+  B.register({ /* … */ });
+})(window.GG = window.GG || {});
+```
+
+- Um módulo só depende do que vem **antes** dele no manifesto.
+- Código usado por mais de um tipo vai para `js/builders/lib/` e é exposto em
+  `B.lib`. Código usado por um só tipo fica no arquivo do tipo.
+- O registro valida o que recebe: `B.register()` recusa tipos sem `id`, `name`,
+  `group`, `shape`, `family` ou `build`, ids repetidos e ajustes com controle
+  desconhecido; `P.add()` recusa modelos incompletos ou repetidos. Ao iniciar,
+  a aplicação confere se cada modelo aponta para um tipo e uma categoria que
+  existem e mostra os problemas no console.
 
 ## Adicionar um modelo
 
-Para adicionar um modelo, chame `P.add()` em um dos arquivos
-`js/presets/presets-*.js`:
+Para adicionar um modelo, chame `P.add()` no arquivo da categoria,
+`js/presets/catalog/<categoria>.js`:
 
 ```js
 P.add({
@@ -62,8 +91,16 @@ demonstração”.
 
 ## Adicionar um tipo de gráfico
 
-Para adicionar um tipo, registre um construtor com
-`GG.builders.register()`:
+Para adicionar um tipo:
+
+1. Crie `js/builders/types/meu-tipo.js` (copie um tipo parecido como ponto de
+   partida).
+2. Acrescente `'meu-tipo'` em `types`, no `js/manifest.js`. A posição na lista
+   é a posição no seletor de tipos.
+3. Crie ao menos um modelo de exemplo para ele (o verificador exige).
+4. Rode `node tools/check.js`.
+
+O arquivo registra o construtor com `GG.builders.register()`:
 
 ```js
 B.register({
@@ -71,6 +108,8 @@ B.register({
   name: 'Meu tipo',
   group: 'Comparação',
   shape: 'wide',                       // 'wide' ou 'columns'
+  family: 'tab',                       // formato dos dados (ver abaixo)
+  cartesian: true,                     // tem eixos x/y (mostra a seção Eixos)
   roles: ['Categoria', 'Valor'],       // papéis mostrados na grade
   hint: 'Quando usar este tipo.',
   hl: 'categories',                    // o que o destaque seleciona
@@ -103,8 +142,10 @@ No `build`, use o contexto `ctx`:
 Chame `B.legend()` antes de `B.grid()`, porque a legenda reserva espaço no
 layout.
 
-Depois de criar o construtor, adicione o id ao mapa `FAMILY` em
-`js/app/app.js` para que a troca de tipo saiba quais dados são compatíveis.
+`family` diz com quais tipos este troca dados sem conversão: `tab` (tabela
+larga), `tree` (níveis + valor), `flow` (origem, destino, valor), `samples`
+(medições por grupo), `xy`, `dates`, `ohlc`, `events` ou `tasks`. Tipos da
+mesma família mantêm os dados quando o usuário troca de tipo.
 
 ### Regra das funções
 
@@ -132,10 +173,35 @@ Para criar um tema novo, adicione uma ordem das oito cores em `THEMES`, em
 `js/core/tokens.js`, e confirme que ela passa em `GG.color.validate()` nos
 modos claro e escuro.
 
+## Adicionar uma categoria de modelos
+
+1. Acrescente a categoria em `CATS`, em `js/presets/registry.js`.
+2. Crie `js/presets/catalog/<id>.js` com os modelos dela.
+3. Acrescente o id em `presets`, no `js/manifest.js`.
+
 ## Testar
 
-O projeto não tem testes automatizados no repositório. Antes de enviar uma
-mudança:
+Rode o verificador (Node 18+, sem dependências):
+
+```sh
+node tools/check.js
+```
+
+Ele carrega todos os módulos do manifesto (menos a interface), confere o
+registro (manifesto × arquivos no disco, tipos sem modelo, referências
+quebradas) e constrói o `option` de todos os modelos nos temas claro e escuro.
+Para refatorações que não deveriam mudar nenhum gráfico, grave um retrato antes
+e compare depois:
+
+```sh
+node tools/check.js --snapshot /tmp/antes.json
+# … mudanças …
+node tools/check.js --compare /tmp/antes.json
+```
+
+Depois, no navegador:
+
+
 
 1. Abra `index.html` e selecione os modelos afetados nos temas claro e escuro.
 2. Passe o mouse sobre o gráfico para verificar os tooltips.
