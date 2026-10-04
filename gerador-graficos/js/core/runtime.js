@@ -113,7 +113,10 @@ function GG_RUNTIME(echarts) {
   function head(txt, c) {
     return '<div style="font-weight:600;font-size:12px;color:' + c.ink2 + ';margin:0 0 6px;max-width:280px;white-space:normal">' + esc(txt) + '</div>';
   }
+  // A cor entra num atributo style do HTML do tooltip: só formatos de cor conhecidos.
+  var SAFE_COLOR = /^(#[0-9a-f]{3,8}|rgba?\(\s*[\d.]+%?\s*,\s*[\d.]+%?\s*,\s*[\d.]+%?\s*(,\s*[\d.]+\s*)?\)|[a-z]{3,20})$/i;
   function row(color, value, label, c, strong) {
+    if (color && !SAFE_COLOR.test(String(color))) color = '';
     var key = color ? '<span style="display:inline-block;width:12px;height:3px;border-radius:2px;background:' + color + ';flex:none"></span>' : '';
     return '<div style="display:flex;align-items:center;gap:8px;line-height:1.55;font-size:12px">' + key +
       '<span style="font-weight:' + (strong === false ? 400 : 600) + ';color:' + c.ink + ';font-variant-numeric:tabular-nums">' + esc(value) + '</span>' +

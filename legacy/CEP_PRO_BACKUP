@@ -9,7 +9,7 @@
   <script src="https://cdn.plot.ly/plotly-2.27.0.min.js" charset="utf-8"></script>
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
   <!-- jStat para funções de distribuição probabilística -->
-  <script src="https://cdn.jsdelivr.net/npm/jstat@latest/dist/jstat.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jstat@1.9.6/dist/jstat.min.js" integrity="sha384-7uGOMhLhjroTamet5l69PR8EGxKUyWZlZOFFDRymtVqIfsh4Hj7uZRctW67ZCdkD" crossorigin="anonymous"></script>
 
   <!-- IBM Plex Sans (Tipografia Moderna) -->
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
@@ -962,7 +962,9 @@
             const opt1 = document.createElement('option'); opt1.value = k; opt1.text = k; sel.add(opt1);
             const opt2 = document.createElement('option'); opt2.value = k; opt2.text = k; selStrat.add(opt2);
           });
-          document.getElementById('file-info').innerHTML = `<span class="material-icons" style="font-size:14px; color:var(--col-success)">check_circle</span> ${file.name} (${json.length} linhas)`;
+          const info = document.getElementById('file-info');
+          info.innerHTML = '<span class="material-icons" style="font-size:14px; color:var(--col-success)">check_circle</span> ';
+          info.appendChild(document.createTextNode(`${file.name} (${json.length} linhas)`));
         }
       };
       reader.readAsArrayBuffer(file);

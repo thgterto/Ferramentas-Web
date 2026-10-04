@@ -1,0 +1,6 @@
+# Dependências mínimas para os testes de segurança da API (CI).
+fastapi
+pydantic>=2
+openpyxl
+httpx
+pytest

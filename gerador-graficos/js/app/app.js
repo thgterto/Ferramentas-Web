@@ -170,7 +170,10 @@
     const S = A.state.settings;
     $('#chart').setAttribute('aria-label', [S.title, S.subtitle].filter(Boolean).join(' — ') || REG()[A.state.type].name);
     const ta = $('.inspector .override-err');
-    if (ta) ta.textContent = option.__overrideError ? 'JSON inválido: ' + option.__overrideError : '';
+    if (ta) {
+      ta.textContent = option.__overrideError ? 'JSON inválido: ' + option.__overrideError
+        : option.__overrideRemoved ? 'Ignorado por segurança (HTML, links ou funções não são aceitos): ' + option.__overrideRemoved.join(', ') : '';
+    }
   }
   A.render = render;
 

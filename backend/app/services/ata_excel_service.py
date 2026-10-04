@@ -1,7 +1,24 @@
 import io
 from openpyxl import Workbook
+from openpyxl.cell.cell import Cell
 from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
 from app.schemas.ata import Ata
+
+# Caracteres que fazem uma planilha interpretar o texto como fórmula (OWASP: CSV/Formula Injection).
+FORMULA_PREFIXES = ("=", "+", "-", "@", "\t", "\r")
+
+
+def _texto(cell: Cell, value) -> Cell:
+    """Grava um valor vindo do usuário sempre como texto, nunca como fórmula.
+
+    O openpyxl transforma qualquer string que comece com "=" em fórmula; um
+    campo como =HYPERLINK(...) ou =cmd|... viraria código executável no Excel.
+    """
+    cell.value = value
+    if isinstance(value, str) and value.startswith(FORMULA_PREFIXES):
+        cell.data_type = "s"
+    return cell
+
 
 class AtaExcelService:
     # Hardcoded questions to mirror frontend (since they are static in JS)
@@ -96,11 +113,11 @@ class AtaExcelService:
         ws_capa['A3'] = "Data do Turno:"
         ws_capa['B3'] = str(ata.date)
         ws_capa['A4'] = "Turno:"
-        ws_capa['B4'] = ata.shift
+        _texto(ws_capa['B4'], ata.shift)
         ws_capa['A5'] = "Unidade:"
-        ws_capa['B5'] = ata.unit
+        _texto(ws_capa['B5'], ata.unit)
         ws_capa['A6'] = "Responsável:"
-        ws_capa['B6'] = ata.responsible or "N/A"
+        _texto(ws_capa['B6'], ata.responsible or "N/A")
         ws_capa['A7'] = "KPI Score:"
         ws_capa['B7'] = f"{ata.kpi_score}%"
 
@@ -141,14 +158,11 @@ class AtaExcelService:
                 # Write Row
                 ws.cell(row=row_idx, column=1, value=q_idx + 1)
                 ws.cell(row=row_idx, column=2, value=q_text)
-                ws.cell(row=row_idx, column=3, value=ans if ans else "-")
+                _texto(ws.cell(row=row_idx, column=3), ans if ans else "-")
 
                 if plan:
-                    ws.cell(row=row_idx, column=4, value=plan.type)
-                    ws.cell(row=row_idx, column=5, value=plan.s)
-                    ws.cell(row=row_idx, column=6, value=plan.b)
-                    ws.cell(row=row_idx, column=7, value=plan.a)
-                    ws.cell(row=row_idx, column=8, value=plan.r)
+                    for col_idx, value in enumerate((plan.type, plan.s, plan.b, plan.a, plan.r), start=4):
+                        _texto(ws.cell(row=row_idx, column=col_idx), value)
 
             # Adjust Widths
             ws.column_dimensions['B'].width = 60

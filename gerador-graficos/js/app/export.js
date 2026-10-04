@@ -86,7 +86,7 @@
       '<style>\n  html,body{margin:0;background:' + T.page + ';color:' + T.ink + ';font:14px/1.5 "IBM Plex Sans",system-ui,sans-serif}\n' +
       '  .wrap{max-width:' + W + 'px;margin:24px auto;padding:0 16px}\n  #chart{width:' + W + 'px;max-width:100%;height:' + H + 'px;background:' + T.surface + ';border:1px solid ' + T.grid + ';border-radius:6px}\n' +
       '  details{margin-top:12px;color:' + T.ink2 + '} summary{cursor:pointer} table{border-collapse:collapse;margin-top:8px;font-size:13px} th,td{padding:4px 10px;border-bottom:1px solid ' + T.grid + ';text-align:left} td{font-variant-numeric:tabular-nums}\n</style>\n' +
-      '<script src="' + src + '"><\/script>\n</head>\n<body>\n<div class="wrap">\n  <div id="chart" role="img" aria-label="' + esc([title, st.settings.subtitle].filter(Boolean).join(' — ')) + '"></div>\n' +
+      '<script src="' + src + '" integrity="' + (window.GG_ECHARTS_SRI || 'sha384-C2iskrW/uPW46KzOjrvJIQo4YkV8lkD+QS0CrDN18IIPIpT/g2USu8bTP3nvmIAD') + '" crossorigin="anonymous"><\/script>\n</head>\n<body>\n<div class="wrap">\n  <div id="chart" role="img" aria-label="' + esc([title, st.settings.subtitle].filter(Boolean).join(' — ')) + '"></div>\n' +
       '  <details><summary>Ver os dados em tabela</summary>\n  <table><caption style="text-align:left;font-weight:600;padding-bottom:6px">' + esc(title) + '</caption><thead><tr>' + t.columns.map((c) => '<th scope="col">' + esc(c) + '</th>').join('') + '</tr></thead>\n  <tbody>\n' + rows + '\n  </tbody></table></details>\n</div>\n' +
       '<script>\n/* Runtime do Graficário: reconstrói formatadores e renderItem a partir do JSON. */\n' + GG_RUNTIME.toString() + '\n' +
       'var RT = GG_RUNTIME(echarts);\nvar option = RT.revive(' + json + ');\n' +

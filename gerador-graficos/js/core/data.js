@@ -91,6 +91,7 @@
   }
   function cellValue(s) {
     if (s === '') return '';
+    if (/^'[=+\-@\t\r]/.test(s)) return s.slice(1); // desfaz a neutralização de fórmulas do CSV exportado
     const n = toNum(s);
     return n === null || /^0\d/.test(s) || /^\d{4}-\d{2}/.test(s) || /\d\/\d/.test(s) ? s : n;
   }
@@ -98,6 +99,8 @@
     delim = delim || ';';
     const q = (v) => {
       let s = v === null || v === undefined ? '' : typeof v === 'number' && delim === ';' ? String(v).replace('.', ',') : String(v);
+      // Texto que o Excel leria como fórmula (=, +, -, @, tab, CR) ganha um apóstrofo (OWASP CSV Injection)
+      if (typeof v !== 'number' && /^[=+\-@\t\r]/.test(s)) s = "'" + s;
       return /["\n;,\t]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
     };
     return [table.columns.map(q).join(delim)].concat(table.rows.map((r) => r.map(q).join(delim))).join('\n');

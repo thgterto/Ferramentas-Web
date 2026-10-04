@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException, Response
 from typing import List, Dict
+import re
 import uuid
 from datetime import datetime, date
 
@@ -10,12 +11,23 @@ router = APIRouter()
 
 # In-memory database for MVP
 ATAS_DB: Dict[uuid.UUID, Ata] = {}
+# Teto do banco em memória: sem ele, criações em série esgotam a RAM do servidor.
+MAX_ATAS = 5000
+
+
+def _nome_arquivo(*partes) -> str:
+    """Nome de arquivo seguro para o cabeçalho Content-Disposition (só [A-Za-z0-9._-])."""
+    nome = "_".join(str(p) for p in partes)
+    nome = re.sub(r"[^A-Za-z0-9._-]+", "_", nome).strip("._")[:120]
+    return (nome or "ata") + ".xlsx"
 
 @router.post("/", response_model=Ata, status_code=201)
 def create_ata(ata_in: AtaCreate):
     """
     Create a new Ata Digital record.
     """
+    if len(ATAS_DB) >= MAX_ATAS:
+        raise HTTPException(status_code=507, detail="Limite de atas em memória atingido")
     ata_id = uuid.uuid4()
 
     # Create DB Object
@@ -84,10 +96,13 @@ def export_ata_excel(ata_id: uuid.UUID):
     excel_file = AtaExcelService.generate_report(ata)
 
     # Filename
-    filename = f"Ata_{ata.unit}_{ata.date}_{ata.shift}.xlsx".replace(" ", "_")
+    filename = _nome_arquivo("Ata", ata.unit, ata.date, ata.shift)
 
     return Response(
         content=excel_file.getvalue(),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": f"attachment; filename={filename}"}
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Cache-Control": "no-store",
+        }
     )

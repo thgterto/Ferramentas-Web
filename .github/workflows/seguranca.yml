@@ -1,0 +1,78 @@
+# Regras de segurança do repositório (ver SECURITY.md).
+# Bloqueiam o merge: "regras" e "backend-testes". As auditorias de dependências
+# são informativas enquanto houver achados conhecidos registrados em SECURITY.md.
+name: Segurança
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "17 6 * * 1" # toda segunda: pega vulnerabilidades novas em dependências antigas
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: seguranca-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  regras:
+    name: Regras (segredos, CDN/SRI, HTML dinâmico)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: node scripts/security-check.mjs
+
+  backend-testes:
+    name: API — testes de segurança
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements-test.txt
+      - run: python -m pytest -q tests
+        env:
+          PYTHONPATH: .
+          PYTHONDONTWRITEBYTECODE: "1"
+
+  auditoria-dependencias:
+    name: Auditoria de dependências (informativa)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: npm audit (frontend)
+        working-directory: frontend
+        run: npm audit --omit=dev --audit-level=high
+      - uses: actions/setup-python@v5
+        if: always()
+        with:
+          python-version: "3.12"
+      - name: pip-audit (backend)
+        if: always()
+        run: |
+          pip install pip-audit
+          pip-audit -r backend/requirements.txt

@@ -135,7 +135,10 @@ function loadFile(e) {
         const opt1 = document.createElement('option'); opt1.value = k; opt1.text = k; sel.add(opt1);
         const opt2 = document.createElement('option'); opt2.value = k; opt2.text = k; selStrat.add(opt2);
       });
-      document.getElementById('file-info').innerHTML = `<span class="material-icons" style="font-size:14px; color:var(--col-success)">check_circle</span> ${file.name} (${json.length} linhas)`;
+      // O nome do arquivo vem do usuário/sistema de arquivos: entra como texto, nunca como HTML.
+      const info = document.getElementById('file-info');
+      info.innerHTML = '<span class="material-icons" style="font-size:14px; color:var(--col-success)">check_circle</span> ';
+      info.appendChild(document.createTextNode(`${file.name} (${json.length} linhas)`));
     }
   };
   reader.readAsArrayBuffer(file);

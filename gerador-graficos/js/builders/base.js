@@ -354,10 +354,39 @@
     if (meta.annot !== false) annotate(ctx, out, meta);
 
     if (S.override && typeof S.override === 'string' && S.override.trim()) {
-      try { deepMerge(out, JSON.parse(S.override)); } catch (e) { out.__overrideError = e.message; }
+      try {
+        const removed = [];
+        deepMerge(out, sanitizeOverride(JSON.parse(S.override), '', removed));
+        if (removed.length) out.__overrideRemoved = removed;
+      } catch (e) { out.__overrideError = e.message; }
     }
     if (ctx.thumb) thumbify(out, ctx);
     return out;
+  }
+
+  /**
+   * O JSON de "Avançado" pode chegar de um arquivo de projeto de terceiros. O ECharts
+   * interpreta alguns textos como HTML (tooltip.formatter) ou como navegação (title.link),
+   * e o HTML exportado reconstrói objetos {"__ggfn": …}. Por isso: nada de marcação, de
+   * URLs executáveis, de links nem de funções do runtime vindas daqui.
+   */
+  const BLOCKED_KEYS = new Set(['link', 'sublink', '__ggfn', '__proto__', 'constructor', 'prototype']);
+  const UNSAFE_TEXT = /[<>]|javascript:|vbscript:|data:\s*text\/html/i;
+  function sanitizeOverride(v, path, removed) {
+    if (Array.isArray(v)) return v.map((x, i) => sanitizeOverride(x, path + '[' + i + ']', removed)).filter((x) => x !== undefined);
+    if (v && typeof v === 'object') {
+      if ('__ggfn' in v) { removed.push(path || '(raiz)'); return undefined; }
+      const o = {};
+      Object.keys(v).forEach((k) => {
+        const p = path ? path + '.' + k : k;
+        if (BLOCKED_KEYS.has(k)) { removed.push(p); return; }
+        const w = sanitizeOverride(v[k], p, removed);
+        if (w !== undefined) o[k] = w;
+      });
+      return o;
+    }
+    if (typeof v === 'string' && UNSAFE_TEXT.test(v)) { removed.push(path); return undefined; }
+    return v;
   }
 
   function deepMerge(a, b) {
