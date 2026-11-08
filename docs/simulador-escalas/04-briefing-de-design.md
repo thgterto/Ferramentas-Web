@@ -1,8 +1,10 @@
 # 04 — Briefing de Design · Simulador Operacional de Cobertura 24/7
 
-> Documento para o(a) designer de produto. Base: `01-PRD.md` (PRD v3.2, IDs FR-xx) e `03-fluxo-do-app.md` (telas T0–T9, rotas e passos do wizard). **Posicionamento:** simulador **operacional** — a tela-herói é o heatmap de cobertura; viabilidade CLT aparece como restrição; custos são módulo P2. Stack-alvo: React 19 + Tailwind (`frontend/`, hoje com `tailwind.config.js` sem extensões — este briefing propõe os tokens).
+> Documento para o(a) designer de produto. Base: `01-PRD.md` (PRD v3.3, IDs FR-xx; MVP de 4 sprints) e `03-fluxo-do-app.md` (telas T0–T9, rotas e passos do wizard). **Posicionamento:** simulador **operacional** — a tela-herói é o heatmap de cobertura; viabilidade CLT aparece como restrição; custos são módulo P2. Stack-alvo: React 19 + Tailwind (`frontend/`, hoje com `tailwind.config.js` sem extensões — este briefing propõe os tokens).
 
 ---
+
+> **Corte do MVP (v3.3, 4 sprints — `06` §3.4):** componentes e wireframes marcados **[MVP]**, **[MVP parcial]**, **[Fase 2]** ou **[P2]**. Interface mínima do MVP: wizard (8.7, 8.8), heatmap 7×24 com filtro por cargo (8.1), cards de KPI (8.3), calendário de turmas (8.2) e painel de achados (8.4), com os tokens da §14. Componentes ricos (8.9–8.11, 8.13 completo) e comparador (8.6) são Fase 2. Desktop ≥ 1280 px no MVP (NFR-07).
 
 ## 1. Objetivos de design
 
@@ -152,7 +154,7 @@ Validadas com `dataviz/scripts/validate_palette.js` (claro: todos PASS; escuro: 
 
 ## 8. Componentes-chave
 
-### 8.1 Heatmap de cobertura 7×24
+### 8.1 Heatmap de cobertura 7×24 [MVP — com filtro por cargo]
 - Linhas = dias (seg→dom), colunas = horas 00–23; célula ≥ 28×24 px desktop, gap de 2 px na cor da superfície.
 - Faixa noturna 22:00–05:00 sinalizada por sombreado leve no cabeçalho + ícone lua.
 - Hover/focus: tooltip "Ter 03:00 · Necessário 6 · Escalados 4 · Déficit −2 · Turmas C, D · ocorre em 3 de 8 semanas". Alvo de hover = célula inteira. Clique em déficit abre a T5 filtrada.
@@ -160,43 +162,43 @@ Validadas com `dataviz/scripts/validate_palette.js` (claro: todos PASS; escuro: 
 - Alternativa acessível: botão "Ver como tabela" e navegação por setas (roving tabindex, `role="grid"`).
 - Resumo acima: "97,6% das horas-posto cobertas · 4 horas com déficit (todas na madrugada de domingo) · pico −2 dom 03:00". Ao lado, card **"Como fechar o déficit"** com 1–3 sugestões do motor (FR-08, FR-13).
 
-### 8.2 Calendário cíclico de turmas
+### 8.2 Calendário cíclico de turmas [MVP]
 - Linhas = turmas A–F + linhas de folguistas (FL1…); colunas = dias do ciclo calendário completo `mmc(L,7)` (12x36: 14 · 6x2: 56 · 4x2: 42 · 5 turmas: 70 · 6x1: 7), agrupados por semana com zoom semana/ciclo.
 - Célula mostra código do turno (M/T/N/D12/N12/F) com fundo da cor da turma (turnos) e neutro hachurado (folga). Domingos e feriados destacados.
 - Marcadores de violação inline (ícone de severidade no canto da célula).
 - Controles: "Rotacionar", "Deslocar início", zoom semana/ciclo, ver por colaborador.
 
-### 8.3 Card de KPI
+### 8.3 Card de KPI [MVP]
 - Rótulo (caption) → número-herói (display, tabular) → unidade → delta vs. cenário-base (seta + texto "▲ 3 turmas a mais", nunca só cor) → sparkline opcional → link "Como calculamos?".
 - KPIs padrão (FR-14): **% horas-posto cobertas** (herói), Horas-posto em déficit, Pico de subcobertura (com dia/hora), Turmas (atual/necessárias), Headcount (atual/mínimo), Furos no intervalo, Violações (Erro/Alerta). Custo mensal/anual só com o Módulo 6 (P2).
 
-### 8.4 Painel de alertas com severidade
+### 8.4 Painel de alertas com severidade [MVP — painel de achados]
 - Lista agrupada por severidade com contadores; filtros por regra, turma, severidade.
 - Item: ícone + rótulo de severidade, título, corpo, fundamento legal (link para trecho), "Ir para" (destaca célula no heatmap/calendário), ação de correção, "Justificar/aceitar risco" (com campo obrigatório, entra na auditoria).
 - Região `aria-live="polite"` anuncia mudanças no total ao recalcular.
 
-### 8.5 Tabela de extrato financeiro — P2 (fase futura)
+### 8.5 Tabela de extrato financeiro — P2 (fase futura) [P2]
 - Não faz parte do MVP visual; desenhar apenas como variante futura (aba `custos` da T4).
 - Colunas: Rubrica · Base de cálculo · Qtd. (h) · Valor unitário · Total mensal · Total anual · % do total.
 - Rubricas: Salário base, Adicional noturno (20%), Hora noturna reduzida, DSR, DSR s/ AN, HE 50%/100%, Encargos.
 - Números alinhados à direita, tabulares; totais em negrito com borda superior; linhas expansíveis mostrando a fórmula. Export CSV/XLSX/PDF.
 
-### 8.6 Comparador de cenários
+### 8.6 Comparador de cenários [Fase 2]
 - Até 5 colunas (FR-22; ex.: 6x1 · 12x36 · 6x2 4T · 4x2 5T · 5 turmas), cenário-base fixado à esquerda.
 - Linhas: turmas, headcount (sem/com reserva), h/sem média, % horas-posto cobertas, horas-posto em déficit, pico de subcobertura, excesso, furos no intervalo, violações; diferença absoluta e % por célula; melhor valor marcado com ícone ★ + texto. Linhas de custo só na P2.
 - Gráfico de barras horizontais de horas-posto em déficit e de headcount (eixo único, começa em zero, rótulos diretos) — **nunca eixo duplo**.
 
-### 8.7 Wizard stepper
+### 8.7 Wizard stepper [MVP]
 - Etapas (iguais a `03-fluxo-do-app.md` T3): 1 Operação e regras (CCT/ACT) → 2 Demanda (postos fixos ou grade 168 h) → 3 Shrinkage e reserva → 4 Modelo de escala e turmas → 5 Revisão e simular. Parâmetros de custo: seção recolhida "Fase 2" no passo 5.
 - v3.2: passo 2 ganha "Demanda por cargo + mínimos"; passo 4 ganha blocos "Turmas (K)", "Composição por cargo" e "Camadas", e o botão "Personalizar" abre o construtor (T9) em tela cheia, voltando ao passo 4 ao salvar. O nº de passos não muda.
 - Stepper horizontal no desktop, vertical/compacto no tablet; estado por etapa (pendente, atual, completa, com erro). Salvamento automático; "Voltar" nunca perde dados.
 
-### 8.8 Grid editável 168 h
+### 8.8 Grid editável 168 h [MVP]
 - 7×24 de inputs numéricos (pessoas por posto/hora). Seleção por arraste/shift, preencher série, copiar dia → dias, colar do Excel, atalhos (Ctrl+Z, Ctrl+D).
 - Pré-sets: "24/7 constante", "pico comercial", "noite reduzida".
 - Validação inline (inteiro ≥ 0) com mensagem textual; totais por linha/coluna fixos.
 
-### 8.9 Editor de sequência do ciclo (construtor, T9 — FR-29)
+### 8.9 Editor de sequência do ciclo (construtor, T9 — FR-29) [Fase 2 — no MVP, campo de sequência em texto/tabela no passo 3.4]
 - **Trilha horizontal de chips** (um por dia do ciclo, 40×40 px, rolagem horizontal acima de 28 posições, contador `L = 9` fixo à direita). Chip = código do turno (M/T/N/D12/N12/INT/F/R) com cor **do turno** (neutros + ícone: ☀ M, ◐ T, ☾ N, F hachurado) — **nunca** a cor da turma (§5.4) nem de severidade.
 - **Arrastar** para reordenar, **paleta** de turnos à esquerda para soltar, `Alt+arrastar` duplica, seleção múltipla com Shift. Teclado: setas movem o foco, `Ctrl+←/→` move o chip, letras M/T/N/F trocam o código, `Del` remove, `Insert` adiciona. Anúncio `aria-live`: "Posição 5 alterada para Noite. K necessário 4,5 — não exato."
 - **Gerador rápido** acima da trilha: "Bloco de [2] dias por turno · ordem [M→T→N | N→T→M] · [3] folgas" → preenche a trilha.
@@ -204,24 +206,24 @@ Validadas com `dataviz/scripts/validate_palette.js` (claro: todos PASS; escuro: 
 - **Mini-calendário de turmas** abaixo (turmas × `mmc(L,7)` dias, células 12 px) atualizado ao vivo; linha de turma arrastável para mudar o **offset**.
 - **Painel de validação ao vivo** (lado direito, fixo): K\* (com "exato ✓" ou "não exato — 5 turmas (+11%) ou 9 meias-turmas"), h/sem, maior sequência trabalhada, menor interjornada, maior descanso em 7 dias, domingos de folga no ciclo; cada linha com ícone ok/alerta/erro + texto.
 
-### 8.10 Régua de turnos (construtor, T9)
+### 8.10 Régua de turnos (construtor, T9) [Fase 2]
 - Linha do tempo 00–24 h (estende a 36 h para turnos que cruzam a meia-noite); cada turno é uma barra arrastável (início) com alças (duração, passo 15 min); **sobreposições** empilham em faixas e mostram o total de pessoas na faixa sobreposta.
 - Intervalo intrajornada como recorte na barra; política (rendição / não computado / volante / escalonado) em ícone + rótulo; "escalonado" mostra subgrupos defasados.
 
-### 8.11 Matriz cargo × cargo (T8.2 — FR-35)
+### 8.11 Matriz cargo × cargo (T8.2 — FR-35) [Fase 2 — no MVP, tabela simples "A pode cobrir B" no passo 3.3]
 - Grade quadrada: linhas = **quem cobre**, colunas = **quem é coberto**; cabeçalho de linha com nível hierárquico (badge "N3"). Rótulos explícitos nos eixos ("pode cobrir →", "↓ cargo que cobre") — a direção é a informação mais importante.
 - Célula: vazio = "não cobre" (traço cinza, `—`); ✓ = cobre 100%; fração ("0,5") = parcial (P1); número pequeno = prioridade; ícone escudo = vale para mínimo. Diagonal travada e hachurada.
 - Clique/Enter abre popover (fator, prioridade, vale para mínimo, limite de horas fora do cargo — P1). Atalho "Nível superior cobre inferior" preenche o triângulo e destaca as células alteradas antes de confirmar.
 - Painel de leitura em linguagem natural (lista sincronizada): "Enfermeiro → Técnico de enfermagem · 100% · prioridade 2". Assimetria A→B sem B→A é mostrada com seta ↗ na célula espelho vazia (tooltip "Técnico não cobre Enfermeiro").
 - Acessível como `role="grid"` com `aria-label` por célula ("Enfermeiro cobre Técnico: sim, 100%, prioridade 2").
 
-### 8.12 Visualização de cobertura por cargo (T4 `cobertura`)
+### 8.12 Visualização de cobertura por cargo (T4 `cobertura`) [MVP parcial: filtro por cargo no heatmap; tabela cargo × KPI e glifo ↺ Fase 2]
 - Seletor segmentado acima do heatmap: **Todos · Enfermeiro · Técnico · Supervisor · Só substituições**. Com um cargo selecionado, o heatmap usa a mesma semântica déficit/exato/excesso (§5.2) **daquele cargo**; células cobertas por substituição recebem o glifo ↺ e textura pontilhada (não muda a cor — continua "exato").
 - **Barra empilhada por hora** (variante compacta abaixo do heatmap): próprio cargo (sólido) + por substituição (pontilhado) + déficit (contorno vermelho tracejado, só contorno — não compete com a semântica do heatmap).
 - **Tabela cargo × KPI**: demanda (h-posto), coberto pelo próprio cargo, por substituição, déficit, horas sem qualificado (ERRO em destaque).
 - Cores de cargo: **não** usar as cores de turma; cargo é identificado por **rótulo + ícone** (estetoscópio, chave, escudo) e, quando precisar de cor, pela escala neutra/primária com padrão.
 
-### 8.13 Controle de turmas (K) e tamanho (T2.2, passo 3.4)
+### 8.13 Controle de turmas (K) e tamanho (T2.2, passo 3.4) [MVP parcial: campo numérico K + modo fixo/mínimo; slider, faixa e tamanho Fase 2]
 - Segmented **Fixo | Faixa | Livre**; Fixo = stepper numérico; Faixa = slider de dois polegares 1–12 com marca vertical em **K\*** do modelo ("K\* = 4,5"); Livre = texto "o motor sugere o menor K".
 - Abaixo, "cobertura alcançável com K = 4: 88,9% · déficit 56 h-posto/sem" (atualiza ao mover). Tamanho por turma: par de inputs mín./máx. + toggle "permitir meias-turmas" (mostra A1/A2 nos badges).
 - Turmas com tamanhos diferentes: tabela turma × cargo (composição), totais por turma e alerta inline `COB_TURMA_ABAIXO_MINIMO`.
@@ -233,7 +235,7 @@ Botões (primário, secundário, fantasma, destrutivo), inputs com máscara pt-B
 
 Para cada componente documentar: **padrão, hover, foco (visível), ativo, desabilitado, carregando (skeleton / "Calculando cobertura…" com progresso por módulo M1→M4), vazio (com CTA), erro (com recuperação), sucesso, desatualizado** ("Premissas mudaram — recalcular"), **somente leitura** (cenário homologado, com cadeado) e **comparação** (diff destacado).
 
-## 10. Acessibilidade — WCAG 2.2 AA
+## 10. Acessibilidade — WCAG 2.2 AA [MVP: teclado, contraste e heatmap sem depender de cor; auditoria completa Fase 2]
 
 - Alvo: **WCAG 2.2 AA** (NFR-06 do `01-PRD.md`).
 - Contraste: texto ≥ 4.5:1, texto grande e componentes/gráficos ≥ 3:1 (1.4.3, 1.4.11), em ambos os temas.
@@ -250,7 +252,7 @@ Para cada componente documentar: **padrão, hover, foco (visível), ativo, desab
 
 ## 11. Wireframes ASCII
 
-### 11.1 Resultado do cenário (T4, aba `cobertura`)
+### 11.1 Resultado do cenário (T4, aba `cobertura`) [MVP]
 ```
 ┌──────────┬───────────────────────────────────────────────────────────────────────┐
 │ ◧ Logo   │ Cenário: CD Cajamar · 5 turmas · v3 · salvo 14:02   [Comparar][Exportar▾]│
@@ -277,7 +279,7 @@ Para cada componente documentar: **padrão, hover, foco (visível), ativo, desab
 └──────────┴───────────────────────────────────────────────────────────────────────┘
 ```
 
-### 11.2 Wizard — etapa 2 (grid 168 h)
+### 11.2 Wizard — etapa 2 (grid 168 h) [MVP]
 ```
  ① Operação e regras ── ② Demanda ── ③ Shrinkage e reserva ── ④ Modelo e turmas ── ⑤ Revisão
                         ━━━━━━━━━━
@@ -292,7 +294,7 @@ Para cada componente documentar: **padrão, hover, foco (visível), ativo, desab
                                             [Voltar]  [Continuar →]
 ```
 
-### 11.3 Comparador de cenários (T6)
+### 11.3 Comparador de cenários (T6) [Fase 2]
 ```
  Comparar cenários                                        [+ Adicionar] [Exportar XLSX]
  ┌────────────────────┬───────────┬───────────┬───────────┬───────────┬───────────┐
@@ -312,7 +314,7 @@ Para cada componente documentar: **padrão, hover, foco (visível), ativo, desab
  6x2     ▏ 0
 ```
 
-### 11.4 Extrato financeiro — P2 (fase futura, fora do MVP visual)
+### 11.4 Extrato financeiro — P2 (fase futura, fora do MVP visual) [P2]
 ```
  Extrato · 5 turmas · mensal          [Mensal|Anual] [CSV][XLSX][PDF]
  Rubrica               Base       Qtd (h)    Valor/h     Total/mês     %
@@ -323,7 +325,7 @@ Para cada componente documentar: **padrão, hover, foco (visível), ativo, desab
  Total                                                 R$ 820.400  100,0
 ```
 
-### 11.5 Construtor de escala (T9)
+### 11.5 Construtor de escala (T9) [Fase 2]
 
 ```
 ┌─ Construtor · "6x2 UTI" (derivado de 6x2) ───────────────────────── [Salvar template] [Usar no cenário] ┐
@@ -340,7 +342,7 @@ Para cada componente documentar: **padrão, hover, foco (visível), ativo, desab
 └──────────────────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 11.6 Matriz de substituição (T8.2)
+### 11.6 Matriz de substituição (T8.2) [Fase 2]
 
 ```
 ┌─ Quem pode cobrir quem ───────────────────── [Nível superior cobre inferior] [Salvar] ┐

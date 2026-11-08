@@ -1,6 +1,8 @@
 # 05 — Esquema de Backend: Simulador de Escalas 24/7 (CLT Brasil)
 
-> Base: `01-PRD.md` (PRD v3.2 — simulador operacional de cobertura; IDs FR-xx canônicos) e `02-TRD.md` (módulos M1–M6). **Este documento é a fonte da verdade de tabelas e endpoints.** Backend alvo: o FastAPI existente em `backend/` (hoje `app/main.py`, `app/api/v1/escalas/endpoints/atas.py`, `app/schemas/ata.py`, `app/services/ata_excel_service.py`). O simulador entra como um **novo módulo** sob o prefixo **`/api/v1/escalas`**, sem quebrar o router `atas` (`/api/v1/atas`).
+> Base: `01-PRD.md` (PRD v3.3 — MVP enxuto em 4 sprints; v3.2 — simulador operacional de cobertura; IDs FR-xx canônicos) e `02-TRD.md` (módulos M1–M6). **Este documento é a fonte da verdade de tabelas e endpoints.** Backend alvo: o FastAPI existente em `backend/` (hoje `app/main.py`, `app/api/v1/escalas/endpoints/atas.py`, `app/schemas/ata.py`, `app/services/ata_excel_service.py`). O simulador entra como um **novo módulo** sob o prefixo **`/api/v1/escalas`**, sem quebrar o router `atas` (`/api/v1/atas`).
+
+> **Corte do MVP (v3.3 — `06` §3.3):** cada `CREATE TABLE` traz o comentário `-- [MVP]` ou `-- [Fase 2]`, e cada endpoint da §5.4 começa com **MVP** ou *Fase 2*/*P2*. Tabelas **MVP:** `organizations`, `users`, `memberships`, `labor_agreements` (mínima), `operations`, `positions`, `demand_curves`, `demand_slots`, `shrinkage_profiles`, `shift_templates`, `schedule_models` (seeds só dos 10 modelos essenciais), `rotation_patterns`, `scenarios`, `scenario_shift_templates`, `teams`, `assignments` (por turma), `coverage_results`, `compliance_rules`, `compliance_findings`, `custom_schedule_patterns`, `roles`, `team_constraints` (modos `fixo`/`minimo` por operação), `substitution_rules` (fator 1,0), `role_coverage_requirements` (mínimo por cargo), `team_role_composition`, `coverage_role_results`. RLS em todas. Simulação **síncrona** (§7 Celery = Fase 2). Colunas existentes que só servem à Fase 2 (folguistas, feriados, camadas, versões) permanecem no DDL com default neutro.
 
 ## Sumário
 1. Princípios de modelagem
@@ -122,7 +124,7 @@ CREATE TYPE sunday_rule_basis AS ENUM ('lei_10101_comercio','lei_605_1949','port
 ### 3.2 Núcleo: organizações, usuários, papéis
 
 ```sql
-CREATE TABLE organizations (
+CREATE TABLE organizations (   -- [MVP]
   id           bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   public_id    uuid NOT NULL DEFAULT gen_random_uuid() UNIQUE,
   name         text NOT NULL CHECK (length(name) BETWEEN 2 AND 200),
@@ -134,7 +136,7 @@ CREATE TABLE organizations (
   deleted_at   timestamptz
 );
 
-CREATE TABLE users (
+CREATE TABLE users (   -- [MVP]
   id            bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   public_id     uuid NOT NULL DEFAULT gen_random_uuid() UNIQUE,
   email         citext NOT NULL UNIQUE,
@@ -147,7 +149,7 @@ CREATE TABLE users (
   deleted_at    timestamptz
 );
 
-CREATE TABLE memberships (
+CREATE TABLE memberships (   -- [MVP]
   id              bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   organization_id bigint NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
   user_id         bigint NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -162,7 +164,7 @@ CREATE INDEX ix_memberships_user ON memberships (user_id);
 ### 3.3 Acordos coletivos (CCT/ACT)
 
 ```sql
-CREATE TABLE labor_agreements (
+CREATE TABLE labor_agreements (   -- [MVP]
   id                        bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   public_id                 uuid NOT NULL DEFAULT gen_random_uuid() UNIQUE,
   organization_id           bigint NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
@@ -208,7 +210,7 @@ CREATE INDEX ix_labor_agreements_org ON labor_agreements (organization_id) WHERE
 ### 3.4 Operações, postos, demanda, shrinkage
 
 ```sql
-CREATE TABLE operations (
+CREATE TABLE operations (   -- [MVP]
   id                   bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   public_id            uuid NOT NULL DEFAULT gen_random_uuid() UNIQUE,
   organization_id      bigint NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
@@ -225,7 +227,7 @@ CREATE TABLE operations (
 );
 CREATE INDEX ix_operations_agreement ON operations (default_agreement_id);
 
-CREATE TABLE positions (                                   -- postos de trabalho
+CREATE TABLE positions (                                   -- [MVP] postos de trabalho
   id                 bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   public_id          uuid NOT NULL DEFAULT gen_random_uuid() UNIQUE,
   organization_id    bigint NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
@@ -244,7 +246,7 @@ CREATE TABLE positions (                                   -- postos de trabalho
 );
 CREATE INDEX ix_positions_org_op ON positions (organization_id, operation_id);
 
-CREATE TABLE demand_curves (
+CREATE TABLE demand_curves (   -- [MVP]
   id               bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   public_id        uuid NOT NULL DEFAULT gen_random_uuid() UNIQUE,
   organization_id  bigint NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
@@ -264,7 +266,7 @@ CREATE TABLE demand_curves (
 );
 CREATE INDEX ix_demand_curves_position ON demand_curves (organization_id, position_id);
 
-CREATE TABLE demand_slots (
+CREATE TABLE demand_slots (   -- [MVP]
   organization_id  bigint NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
   demand_curve_id  bigint NOT NULL REFERENCES demand_curves(id) ON DELETE CASCADE,
   slot_index       smallint NOT NULL CHECK (slot_index BETWEEN 0 AND 335),  -- 0 = seg 00:00
@@ -276,7 +278,7 @@ CREATE TABLE demand_slots (
 );
 -- Coerência slot ↔ granularidade é validada por trigger (slot_index < 168 quando granularity='60').
 
-CREATE TABLE shrinkage_profiles (                         -- FR-03, FR-11
+CREATE TABLE shrinkage_profiles (                         -- [MVP] FR-03, FR-11
   id               bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   public_id        uuid NOT NULL DEFAULT gen_random_uuid() UNIQUE,
   organization_id  bigint NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
@@ -294,7 +296,7 @@ CREATE TABLE shrinkage_profiles (                         -- FR-03, FR-11
 ### 3.5 Catálogos: turnos, modelos de escala, padrões de rotação
 
 ```sql
-CREATE TABLE shift_templates (
+CREATE TABLE shift_templates (   -- [MVP]
   id                 bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   public_id          uuid NOT NULL DEFAULT gen_random_uuid() UNIQUE,
   organization_id    bigint REFERENCES organizations(id) ON DELETE CASCADE, -- NULL = catálogo global
@@ -324,7 +326,7 @@ INSERT INTO shift_templates (organization_id, code, name, start_time, duration_m
  (NULL,'N12','Noturno 19-07','19:00',720,60,420),
  (NULL,'INT','Intermediário 10-18','10:00',480,60,0);
 
-CREATE TABLE schedule_models (                            -- MVP (v3.2): catálogo ampliado do 01 §6.1 (colunas extras e seeds em §3.12)
+CREATE TABLE schedule_models (                            -- [MVP] v3.3: seeds MVP só dos 10 modelos essenciais; demais Fase 2 (catálogo ampliado do 01 §6.1 (colunas extras e seeds em §3.12)
   id                 bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   code               text NOT NULL UNIQUE CHECK (code ~ '^[A-Z0-9_]{2,24}$'),  -- '12X36','6X2','4X2','5T','6X1_BASE'
   name               text NOT NULL,
@@ -343,7 +345,7 @@ CREATE TABLE schedule_models (                            -- MVP (v3.2): catálo
   is_active          boolean NOT NULL DEFAULT true
 );
 
-CREATE TABLE rotation_patterns (
+CREATE TABLE rotation_patterns (   -- [MVP]
   id                 bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   public_id          uuid NOT NULL DEFAULT gen_random_uuid() UNIQUE,
   organization_id    bigint REFERENCES organizations(id) ON DELETE CASCADE, -- NULL = padrão de catálogo
@@ -366,7 +368,7 @@ CREATE INDEX ix_rotation_patterns_org   ON rotation_patterns (organization_id);
 
 ```sql
 -- Fase 2 (alocação nominal, NFR-08): no MVP a tabela existe mas não é usada; o motor trabalha por turma.
-CREATE TABLE employees (
+CREATE TABLE employees (   -- [Fase 2]
   id               bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   public_id        uuid NOT NULL DEFAULT gen_random_uuid() UNIQUE,
   organization_id  bigint NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
@@ -394,7 +396,7 @@ CREATE INDEX ix_employees_position ON employees (position_id);
 ### 3.7 Cenários e versionamento
 
 ```sql
-CREATE TABLE scenarios (
+CREATE TABLE scenarios (   -- [MVP]
   id                  bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   public_id           uuid NOT NULL DEFAULT gen_random_uuid() UNIQUE,
   organization_id     bigint NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
@@ -449,14 +451,14 @@ CREATE INDEX ix_scenarios_fks ON scenarios (schedule_model_id, labor_agreement_i
 -- Só um homologado vigente por linhagem
 CREATE UNIQUE INDEX ux_scenarios_one_approved ON scenarios (lineage_id) WHERE status = 'homologado';
 
-CREATE TABLE scenario_shift_templates (
+CREATE TABLE scenario_shift_templates (   -- [MVP]
   scenario_id       bigint NOT NULL REFERENCES scenarios(id) ON DELETE CASCADE,
   shift_template_id bigint NOT NULL REFERENCES shift_templates(id),
   organization_id   bigint NOT NULL REFERENCES organizations(id),
   PRIMARY KEY (scenario_id, shift_template_id)
 );
 
-CREATE TABLE teams (                                     -- turmas
+CREATE TABLE teams (                                     -- [MVP] turmas
   id               bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   organization_id  bigint NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
   scenario_id      bigint NOT NULL REFERENCES scenarios(id) ON DELETE CASCADE,
@@ -469,7 +471,7 @@ CREATE TABLE teams (                                     -- turmas
   UNIQUE (scenario_id, code)
 );
 
-CREATE TABLE team_members (
+CREATE TABLE team_members (   -- [Fase 2]
   organization_id bigint NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
   team_id         bigint NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
   employee_id     bigint NOT NULL REFERENCES employees(id),
@@ -483,7 +485,7 @@ CREATE INDEX ix_team_members_employee ON team_members (employee_id);
 Volume: 1.000 colaboradores × 8 semanas × 7 dias = 56 mil linhas/cenário. Particionamento por `HASH (scenario_id)` mantém consultas de um cenário em uma partição.
 
 ```sql
-CREATE TABLE assignments (
+CREATE TABLE assignments (   -- [MVP]
   id                bigint GENERATED ALWAYS AS IDENTITY,
   organization_id   bigint NOT NULL,
   scenario_id       bigint NOT NULL,
@@ -531,7 +533,7 @@ ALTER TABLE assignments ADD CONSTRAINT ex_assign_no_overlap
 ### 3.9 Resultados: cobertura, compliance, financeiro, comparação
 
 ```sql
-CREATE TABLE coverage_results (                          -- heatmap 7×24 agregado do horizonte (FR-09–FR-12)
+CREATE TABLE coverage_results (                          -- [MVP] heatmap 7×24 agregado do horizonte (FR-09–FR-12)
   organization_id  bigint NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
   scenario_id      bigint NOT NULL REFERENCES scenarios(id) ON DELETE CASCADE,
   slot_index       smallint NOT NULL CHECK (slot_index BETWEEN 0 AND 335),
@@ -547,7 +549,7 @@ CREATE TABLE coverage_results (                          -- heatmap 7×24 agrega
   PRIMARY KEY (scenario_id, slot_index)
 );
 
-CREATE TABLE compliance_rules (                          -- catálogo versionado de regras
+CREATE TABLE compliance_rules (                          -- [MVP] catálogo versionado de regras
   code            text PRIMARY KEY CHECK (code ~ '^[A-Z0-9_]{3,64}$'),
   default_severity finding_severity NOT NULL,
   title           text NOT NULL,
@@ -576,7 +578,7 @@ INSERT INTO compliance_rules VALUES
  ('INFO_DIVERGENCIA_59A_SUMULA60','info','Divergência art. 59-A × Súmula 60 em 12x36','CLT art. 59-A; Súmula 60, II TST','compliance-2026.11',false);
 -- is_blocking = true apenas para severidade padrão 'erro'; regras com severidade dinâmica (CLT_REVEZAMENTO_6H, CLT_JORNADA_DIARIA) gravam severity no finding.
 
-CREATE TABLE compliance_findings (
+CREATE TABLE compliance_findings (   -- [MVP]
   id               bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   organization_id  bigint NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
   scenario_id      bigint NOT NULL REFERENCES scenarios(id) ON DELETE CASCADE,
@@ -600,7 +602,7 @@ CREATE INDEX ix_findings_employee ON compliance_findings (employee_id);
 CREATE INDEX ix_findings_details ON compliance_findings USING gin (details jsonb_path_ops);
 
 -- P2 (M6 financeiro, FR-25–FR-27): tabela criada só na migração da Fase 2.
-CREATE TABLE financial_results (
+CREATE TABLE financial_results (   -- [P2]
   scenario_id            bigint PRIMARY KEY REFERENCES scenarios(id) ON DELETE CASCADE,
   organization_id        bigint NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
   reference_month        date NOT NULL,                -- 1º dia do mês-base
@@ -623,7 +625,7 @@ CREATE TABLE financial_results (
   CHECK (total_cost >= 0)
 );
 
-CREATE TABLE scenario_comparisons (
+CREATE TABLE scenario_comparisons (   -- [Fase 2]
   id                 bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   public_id          uuid NOT NULL DEFAULT gen_random_uuid() UNIQUE,
   organization_id    bigint NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
@@ -633,7 +635,7 @@ CREATE TABLE scenario_comparisons (
   created_by         bigint REFERENCES users(id),
   created_at         timestamptz NOT NULL DEFAULT now()
 );
-CREATE TABLE scenario_comparison_items (
+CREATE TABLE scenario_comparison_items (   -- [Fase 2]
   comparison_id   bigint NOT NULL REFERENCES scenario_comparisons(id) ON DELETE CASCADE,
   scenario_id     bigint NOT NULL REFERENCES scenarios(id),
   organization_id bigint NOT NULL REFERENCES organizations(id),
@@ -646,7 +648,7 @@ CREATE INDEX ix_comparison_items_scenario ON scenario_comparison_items (scenario
 ### 3.10 Jobs, exportações e auditoria
 
 ```sql
-CREATE TABLE simulation_jobs (
+CREATE TABLE simulation_jobs (   -- [Fase 2]
   id               bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   public_id        uuid NOT NULL DEFAULT gen_random_uuid() UNIQUE,
   organization_id  bigint NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
@@ -668,7 +670,7 @@ CREATE TABLE simulation_jobs (
 CREATE INDEX ix_jobs_queue ON simulation_jobs (status, queued_at) WHERE status IN ('queued','running');
 CREATE INDEX ix_jobs_scenario ON simulation_jobs (scenario_id);
 
-CREATE TABLE exports (
+CREATE TABLE exports (   -- [Fase 2]
   id               bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   public_id        uuid NOT NULL DEFAULT gen_random_uuid() UNIQUE,
   organization_id  bigint NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
@@ -684,7 +686,7 @@ CREATE TABLE exports (
 );
 CREATE INDEX ix_exports_scenario ON exports (scenario_id, created_at DESC);
 
-CREATE TABLE audit_log (
+CREATE TABLE audit_log (   -- [Fase 2]
   id               bigint GENERATED ALWAYS AS IDENTITY,
   organization_id  bigint NOT NULL,
   actor_user_id    bigint,
@@ -758,7 +760,7 @@ CREATE TRIGGER trg_demand_slots_gran BEFORE INSERT OR UPDATE ON demand_slots
 ### 3.12 Repertório de escalas, turmas como restrição e cargos (v3.2 — FR-28–FR-38)
 
 ```sql
-CREATE TYPE team_count_mode AS ENUM ('fixo','faixa','livre');                    -- FR-32
+CREATE TYPE team_count_mode AS ENUM ('fixo','minimo','faixa','livre');           -- FR-32 (MVP: fixo, minimo; Fase 2: faixa, livre)
 CREATE TYPE constraint_scope AS ENUM ('operacao','posto','cargo','camada');
 CREATE TYPE rotation_direction AS ENUM ('frente','tras','nenhuma');               -- FR-29
 CREATE TYPE cycle_unit AS ENUM ('days','hours');                                  -- 18x36 (P1)
@@ -778,7 +780,7 @@ ALTER TABLE schedule_models
   ADD COLUMN cycle_unit           cycle_unit NOT NULL DEFAULT 'days',   -- 'hours': cycle_length_days passa a guardar horas (18X36 = 54)
   ADD COLUMN phase                text NOT NULL DEFAULT 'mvp' CHECK (phase IN ('mvp','p1','fase2'));
 
-CREATE TABLE custom_schedule_patterns (                    -- templates do construtor (FR-29, FR-31)
+CREATE TABLE custom_schedule_patterns (                    -- [MVP] templates do construtor (FR-29, FR-31)
   id                 bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   public_id          uuid NOT NULL DEFAULT gen_random_uuid() UNIQUE,
   organization_id    bigint NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
@@ -793,7 +795,7 @@ CREATE TABLE custom_schedule_patterns (                    -- templates do const
   UNIQUE (organization_id, name)
 );
 
-CREATE TABLE custom_schedule_pattern_versions (            -- imutável; cenários apontam para a versão
+CREATE TABLE custom_schedule_pattern_versions (            -- [Fase 2] imutável; cenários apontam para a versão
   id                 bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   organization_id    bigint NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
   pattern_id         bigint NOT NULL REFERENCES custom_schedule_patterns(id) ON DELETE CASCADE,
@@ -812,7 +814,7 @@ CREATE TABLE custom_schedule_pattern_versions (            -- imutável; cenári
   UNIQUE (pattern_id, version)
 );
 
-CREATE TABLE scenario_layers (                             -- mix de modelos na mesma operação (FR-30)
+CREATE TABLE scenario_layers (                             -- [Fase 2] mix de modelos na mesma operação (FR-30)
   id                 bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   organization_id    bigint NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
   scenario_id        bigint NOT NULL REFERENCES scenarios(id) ON DELETE CASCADE,
@@ -829,7 +831,7 @@ ALTER TABLE teams ADD COLUMN layer_id bigint REFERENCES scenario_layers(id) ON D
                   ADD COLUMN parent_team_code text,          -- meia-turma: A1/A2 → 'A' (FR-33)
                   ADD COLUMN size_min integer, ADD COLUMN size_max integer;
 
-CREATE TABLE roles (                                       -- cargos/funções (FR-34)
+CREATE TABLE roles (                                       -- [MVP] cargos/funções (FR-34)
   id                 bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   public_id          uuid NOT NULL DEFAULT gen_random_uuid() UNIQUE,
   organization_id    bigint NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
@@ -843,7 +845,7 @@ CREATE TABLE roles (                                       -- cargos/funções (
 );
 ALTER TABLE positions ADD COLUMN required_role_id bigint REFERENCES roles(id);   -- posto exige cargo
 
-CREATE TABLE team_constraints (                            -- K e tamanho como restrição (FR-32, FR-33)
+CREATE TABLE team_constraints (                            -- [MVP] K e tamanho como restrição (FR-32, FR-33)
   id                 bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   organization_id    bigint NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
   operation_id       bigint NOT NULL REFERENCES operations(id) ON DELETE CASCADE,
@@ -866,7 +868,7 @@ CREATE UNIQUE INDEX ux_team_constraints_scope ON team_constraints
   (operation_id, scope, COALESCE(position_id,0), COALESCE(role_id,0));
 
 
-CREATE TABLE skills (                                      -- habilidades/certificações
+CREATE TABLE skills (                                      -- [Fase 2] habilidades/certificações
   id                 bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   organization_id    bigint NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
   code               text NOT NULL CHECK (code ~ '^[A-Z0-9_]{2,32}$'),  -- 'NR13_CALDEIRA','COREN_ENF'
@@ -875,14 +877,14 @@ CREATE TABLE skills (                                      -- habilidades/certif
   UNIQUE (organization_id, code)
 );
 
-CREATE TABLE role_skills (                                 -- habilidades padrão do cargo
+CREATE TABLE role_skills (                                 -- [Fase 2] habilidades padrão do cargo
   organization_id    bigint NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
   role_id            bigint NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
   skill_id           bigint NOT NULL REFERENCES skills(id) ON DELETE CASCADE,
   PRIMARY KEY (role_id, skill_id)
 );
 
-CREATE TABLE position_skills (                             -- posto exige certificação (FR-34)
+CREATE TABLE position_skills (                             -- [Fase 2] posto exige certificação (FR-34)
   organization_id    bigint NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
   position_id        bigint NOT NULL REFERENCES positions(id) ON DELETE CASCADE,
   skill_id           bigint NOT NULL REFERENCES skills(id) ON DELETE CASCADE,
@@ -890,7 +892,7 @@ CREATE TABLE position_skills (                             -- posto exige certif
   PRIMARY KEY (position_id, skill_id)
 );
 
-CREATE TABLE employee_skills (                             -- Fase 2 (alocação nominal; multi-skill FR-38)
+CREATE TABLE employee_skills (                             -- [Fase 2] Fase 2 (alocação nominal; multi-skill FR-38)
   organization_id    bigint NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
   employee_id        bigint NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
   skill_id           bigint NOT NULL REFERENCES skills(id) ON DELETE CASCADE,
@@ -899,7 +901,7 @@ CREATE TABLE employee_skills (                             -- Fase 2 (alocação
 );
 ALTER TABLE employees ADD COLUMN role_id bigint REFERENCES roles(id);            -- Fase 2
 
-CREATE TABLE substitution_rules (                          -- matriz "quem cobre quem" (FR-35)
+CREATE TABLE substitution_rules (                          -- [MVP] matriz "quem cobre quem" (FR-35)
   id                 bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   organization_id    bigint NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
   from_role_id       bigint NOT NULL REFERENCES roles(id) ON DELETE CASCADE,   -- quem cobre
@@ -913,7 +915,7 @@ CREATE TABLE substitution_rules (                          -- matriz "quem cobre
   UNIQUE (from_role_id, to_role_id)
 );
 
-CREATE TABLE role_coverage_requirements (                  -- mínimos por turno e proporções (FR-36, FR-37)
+CREATE TABLE role_coverage_requirements (                  -- [MVP] mínimos por turno e proporções (FR-36, FR-37)
   id                 bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   organization_id    bigint NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
   operation_id       bigint NOT NULL REFERENCES operations(id) ON DELETE CASCADE,
@@ -933,7 +935,7 @@ CREATE TABLE role_coverage_requirements (                  -- mínimos por turno
   CHECK ((kind = 'proporcao') = (ratio_per_role_id IS NOT NULL AND ratio_denominator IS NOT NULL))
 );
 
-CREATE TABLE team_role_composition (                       -- pessoas por cargo em cada turma (FR-34)
+CREATE TABLE team_role_composition (                       -- [MVP] pessoas por cargo em cada turma (FR-34)
   organization_id    bigint NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
   team_id            bigint NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
   role_id            bigint NOT NULL REFERENCES roles(id),
@@ -941,7 +943,7 @@ CREATE TABLE team_role_composition (                       -- pessoas por cargo 
   PRIMARY KEY (team_id, role_id)
 );
 
-CREATE TABLE coverage_role_results (                       -- heatmap por cargo (FR-09 + FR-35)
+CREATE TABLE coverage_role_results (                       -- [MVP] heatmap por cargo (FR-09 + FR-35)
   organization_id    bigint NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
   scenario_id        bigint NOT NULL REFERENCES scenarios(id) ON DELETE CASCADE,
   role_id            bigint NOT NULL REFERENCES roles(id),
@@ -961,20 +963,20 @@ ALTER TABLE scenarios ADD COLUMN substitution_post_hours numeric(18,6),   -- KPI
 -- RLS: todas as tabelas acima recebem a mesma política tenant_isolation do §4.
 ```
 
-Seeds do catálogo ampliado: uma linha por código da `01` §6.1 (`5X2`, `5X1`, `6X1_BASE`, `4X3`, `4X2`, `6X2`, `6X3`, `3X1`, `3X2`, `2X2_12H`, `PITMAN`, `PANAMA`, `DUPONT`, `CONTINENTAL_8H`, `12X36`, `12X60`, `24X48`, `24X72`, `18X36`, `5T`, `5T_FR`, `6T`, `6T_6H`, `SDF_12H`, `PARCIAL_20`, `PARCIAL_25`, `PARCIAL_30`, `FIXO_N`, `FIXO_D`, `ROT_FRENTE`, `ROT_TRAS`, `INT_PICO`, `ESCALONADO`, `SPLIT`), cada uma com o `rotation_patterns` canônico. Exemplo:
+**v3.3:** `phase = 'mvp'` só para `6X1_BASE`, `5X2`, `12X36`, `6X2`, `4X2`, `2X2_12H`, `5T`, `4X3`, `FIXO_D`, `FIXO_N`; todos os demais códigos recebem `phase = 'fase2'` (o seed existe, mas o wizard do MVP não os lista). Seeds do catálogo ampliado: uma linha por código da `01` §6.1 (`5X2`, `5X1`, `6X1_BASE`, `4X3`, `4X2`, `6X2`, `6X3`, `3X1`, `3X2`, `2X2_12H`, `PITMAN`, `PANAMA`, `DUPONT`, `CONTINENTAL_8H`, `12X36`, `12X60`, `24X48`, `24X72`, `18X36`, `5T`, `5T_FR`, `6T`, `6T_6H`, `SDF_12H`, `PARCIAL_20`, `PARCIAL_25`, `PARCIAL_30`, `FIXO_N`, `FIXO_D`, `ROT_FRENTE`, `ROT_TRAS`, `INT_PICO`, `ESCALONADO`, `SPLIT`), cada uma com o `rotation_patterns` canônico. Exemplo:
 
 ```sql
 INSERT INTO schedule_models (code,name,work_days,off_days,cycle_length_days,typical_teams,calendar_cycle_days,daily_hours,avg_weekly_hours,
   is_continuous_24x7,is_rotating,requires_agreement,legal_basis,catalog_group,shifts_per_day,teams_24x7,exact_24x7,exact_alternative,teams_non_continuous,legal_status,phase,cycle_unit) VALUES
- ('3X1','3x1 (M→T→N)',3,1,4,'{4}',28,8,42,true,true,true,'CF art. 7º XIV; Súmula 423','continuo',3,4,true,NULL,1.333333,'exige_cct','mvp','days'),
- ('6X3','6x3',6,3,9,'{5,9}',63,8,37.333333,true,true,true,'Súmula 423','continuo',3,4.5,false,'9_meias',1.5,'exige_cct','mvp','days'),
- ('DUPONT','DuPont 12 h',14,14,28,'{4}',28,12,42,true,true,true,'Súmula 423 (> 8 h em revezamento)','continuo',2,4,true,NULL,NULL,'inviavel_clt','mvp','days'),
+ ('3X1','3x1 (M→T→N)',3,1,4,'{4}',28,8,42,true,true,true,'CF art. 7º XIV; Súmula 423','continuo',3,4,true,NULL,1.333333,'exige_cct','fase2','days'),
+ ('6X3','6x3',6,3,9,'{5,9}',63,8,37.333333,true,true,true,'Súmula 423','continuo',3,4.5,false,'9_meias',1.5,'exige_cct','fase2','days'),
+ ('DUPONT','DuPont 12 h',14,14,28,'{4}',28,12,42,true,true,true,'Súmula 423 (> 8 h em revezamento)','continuo',2,4,true,NULL,NULL,'inviavel_clt','fase2','days'),
  ('18X36','18x36',1,0,54,'{3}',63,18,56,true,false,true,'CLT arts. 58/59','continuo',1,3,true,NULL,NULL,'inviavel_clt','p1','hours');
 ```
 
 ---
 
-## 4. Multi-tenancy com RLS
+## 4. Multi-tenancy com RLS [MVP]
 
 Estratégia: **pool compartilhado** com `organization_id` + RLS. A aplicação conecta como `app_user` (sem `BYPASSRLS`), e a cada transação executa `SET LOCAL app.org_id = '<id>'` e `SET LOCAL app.user_id = '<id>'` (dependência FastAPI `get_tenant_session`). Workers de jobs fazem o mesmo com o `organization_id` do job.
 
@@ -1096,91 +1098,91 @@ Notas:
 
 | Método | Rota | Descrição |
 |---|---|---|
-| POST | `/auth/login` | e-mail/senha → JWT + refresh |
-| POST | `/auth/refresh` | renova token |
-| GET | `/me` | usuário + memberships |
-| GET/PATCH | `/organization` | organização corrente |
-| GET/POST | `/organization/members` | lista/convida membros |
-| PATCH/DELETE | `/organization/members/{user_id}` | altera papel / remove |
+| POST | `/auth/login` | **MVP** e-mail/senha → JWT de acesso (refresh *Fase 2*) |
+| POST | `/auth/refresh` | *Fase 2* renova token |
+| GET | `/me` | **MVP** usuário + memberships |
+| GET/PATCH | `/organization` | *Fase 2* organização corrente |
+| GET/POST | `/organization/members` | *Fase 2* lista/convida membros |
+| PATCH/DELETE | `/organization/members/{user_id}` | *Fase 2* altera papel / remove |
 
 **Cadastros** (CRUD padrão: `GET` lista, `POST` cria → 201 + `Location`, `GET /{id}`, `PATCH /{id}`, `DELETE /{id}` → 204 soft delete)
 
 | Recurso | Rota |
 |---|---|
-| Acordos CCT/ACT | `/labor-agreements` |
-| Operações | `/operations` |
-| Postos | `/operations/{operation_id}/positions` |
-| Curvas de demanda | `/positions/{position_id}/demand-curves` |
-| Slots da curva | `GET/PUT /demand-curves/{id}/slots` (PUT substitui os 168/336) |
-| Import de curva | `POST /demand-curves/{id}/slots:import` (multipart CSV/XLSX → 202 job) |
-| Shrinkage | `/shrinkage-profiles` |
-| Turnos | `/shift-templates` (globais aparecem com `"scope":"global"`, somente leitura) |
-| Modelos de escala | `GET /schedule-models`, `GET /schedule-models/{code}` (catálogo, leitura) |
-| Padrões de rotação | `/rotation-patterns`, `POST /rotation-patterns:preview` |
-| Colaboradores (Fase 2) | `/employees`, `POST /employees:bulk` (até 5.000) |
-| Regras de compliance | `GET /compliance-rules` |
+| Acordos CCT/ACT | **MVP** `/labor-agreements` |
+| Operações | **MVP** `/operations` |
+| Postos | **MVP** `/operations/{operation_id}/positions` |
+| Curvas de demanda | **MVP** `/positions/{position_id}/demand-curves` |
+| Slots da curva | **MVP** `GET/PUT /demand-curves/{id}/slots` (PUT substitui os 168/336) |
+| Import de curva | **MVP** `POST /demand-curves/{id}/slots:import` (multipart CSV/XLSX; síncrono no MVP, 202 job *Fase 2*) |
+| Shrinkage | **MVP** `/shrinkage-profiles` |
+| Turnos | **MVP** `/shift-templates` (globais aparecem com `"scope":"global"`, somente leitura) |
+| Modelos de escala | **MVP** `GET /schedule-models`, `GET /schedule-models/{code}` (catálogo, leitura) |
+| Padrões de rotação | *Fase 2* `/rotation-patterns`, `POST /rotation-patterns:preview` |
+| Colaboradores (Fase 2) | *Fase 2* `/employees`, `POST /employees:bulk` (até 5.000) |
+| Regras de compliance | **MVP** `GET /compliance-rules` |
 
 **Cenários**
 
 | Método | Rota | Descrição |
 |---|---|---|
-| GET | `/scenarios` | lista (filtros `operation_id`, `status`, `lineage_id`, `is_baseline`) |
-| POST | `/scenarios` | cria rascunho |
-| GET | `/scenarios/{id}` | detalhe + KPIs |
-| PATCH | `/scenarios/{id}` | edita (só `rascunho`/`erro`; `If-Match`) |
-| DELETE | `/scenarios/{id}` | arquiva |
-| POST | `/scenarios/{id}/versions` | nova versão (clona como rascunho, `version+1`) |
-| GET | `/scenarios/{id}/versions` | histórico da linhagem |
-| POST | `/scenarios/{id}/simulate` | dispara cálculo; síncrono se pequeno (200), senão 202 + job |
-| POST | `/scenarios/{id}/submit-review` | `calculado → em_revisao` |
-| POST | `/scenarios/{id}/approve` | homologa (`legal_reviewer`/`admin`) |
-| POST | `/scenarios/{id}/reject` | `em_revisao → calculado` com comentário |
-| GET | `/scenarios/{id}/teams` | turmas e tamanhos |
-| PUT | `/scenarios/{id}/teams/{code}/members` | define colaboradores da turma (Fase 2) |
-| GET | `/scenarios/{id}/assignments` | cursor; filtros `employee_id`, `team`, `date[gte]`, `date[lte]` |
-| PATCH | `/scenarios/{id}/assignments/{assignment_id}` | ajuste manual turma × dia (só rascunho; recalcula cobertura e viabilidade) — T5 |
-| POST | `/scenarios/{id}/sizing` | dimensionamento: K*, headcount mínimo, folguistas mínimos (FR-08, FR-13) |
-| GET | `/scenarios/{id}/coverage` | KPIs (FR-14) + heatmap 7×24 (`?view=postos|reserva&agg=pior|media`) — aba `cobertura` da T4 |
-| GET | `/scenarios/{id}/compliance-findings` | cursor; filtros `severity`, `rule_code` (`COB_*`, `CLT_*`) — aba `viabilidade` |
-| POST | `/scenarios/{id}/compliance-findings/{fid}/waive` | dispensa com justificativa |
-| GET | `/scenarios/{id}/financials` | extrato de custos — **P2** (FR-26) |
-| POST | `/scenarios/{id}/exports` | gera exportação (202 + job) |
-| GET | `/exports/{id}` | status + URL assinada (expira em 15 min) |
+| GET | `/scenarios` | **MVP** lista (filtros `operation_id`, `status`, `lineage_id`, `is_baseline`) |
+| POST | `/scenarios` | **MVP** cria rascunho |
+| GET | `/scenarios/{id}` | **MVP** detalhe + KPIs |
+| PATCH | `/scenarios/{id}` | **MVP** edita (só `rascunho`/`erro`; `If-Match`) |
+| DELETE | `/scenarios/{id}` | **MVP** arquiva |
+| POST | `/scenarios/{id}/versions` | *Fase 2* nova versão (clona como rascunho, `version+1`) |
+| GET | `/scenarios/{id}/versions` | *Fase 2* histórico da linhagem |
+| POST | `/scenarios/{id}/simulate` | **MVP** dispara cálculo; síncrono (200) no MVP; 202 + job *Fase 2* |
+| POST | `/scenarios/{id}/submit-review` | *Fase 2* `calculado → em_revisao` |
+| POST | `/scenarios/{id}/approve` | *Fase 2* homologa (`legal_reviewer`/`admin`) |
+| POST | `/scenarios/{id}/reject` | *Fase 2* `em_revisao → calculado` com comentário |
+| GET | `/scenarios/{id}/teams` | **MVP** turmas e tamanhos |
+| PUT | `/scenarios/{id}/teams/{code}/members` | *Fase 2* define colaboradores da turma (Fase 2) |
+| GET | `/scenarios/{id}/assignments` | **MVP** cursor; filtros `employee_id`, `team`, `date[gte]`, `date[lte]` |
+| PATCH | `/scenarios/{id}/assignments/{assignment_id}` | *Fase 2* ajuste manual turma × dia (só rascunho; recalcula cobertura e viabilidade) — T5 |
+| POST | `/scenarios/{id}/sizing` | **MVP** dimensionamento: K*, headcount mínimo, folguistas mínimos *Fase 2* (FR-08, FR-13) |
+| GET | `/scenarios/{id}/coverage` | **MVP** KPIs (FR-14) + heatmap 7×24 (`?view=postos|reserva&agg=pior|media`) — aba `cobertura` da T4 |
+| GET | `/scenarios/{id}/compliance-findings` | **MVP** cursor; filtros `severity`, `rule_code` (`COB_*`, `CLT_*`) — aba `viabilidade` |
+| POST | `/scenarios/{id}/compliance-findings/{fid}/waive` | *Fase 2* dispensa com justificativa |
+| GET | `/scenarios/{id}/financials` | *P2* extrato de custos — **P2** (FR-26) |
+| POST | `/scenarios/{id}/exports` | **MVP** gera exportação (síncrona no MVP; 202 + job *Fase 2*) |
+| GET | `/exports/{id}` | *Fase 2* status + URL assinada (expira em 15 min) |
 
 **Repertório, turmas e cargos (v3.2)**
 
 | Método | Rota | Descrição | FR |
 |---|---|---|---|
-| GET | `/schedule-models?group=continuo|nao_continuo|complementar|variacao&exact_24x7=true&legal_status=` | Catálogo ampliado (leitura) | FR-28 |
-| GET/POST | `/custom-schedule-patterns` | Lista/cria template da organização | FR-29, FR-31 |
-| GET/PATCH/DELETE | `/custom-schedule-patterns/{id}` | PATCH cria nova versão (`current_version+1`) | FR-31 |
-| GET | `/custom-schedule-patterns/{id}/versions` | Histórico de versões | FR-31 |
-| POST | `/custom-schedule-patterns/{id}:derive` | Duplica de um código do catálogo (`{id}` = código) ou de outro template | FR-31 |
-| POST | `/custom-schedule-patterns:validate` | Validação em tempo real (sem persistir), ≤ 300 ms | FR-29 |
-| GET/POST/PATCH/DELETE | `/operations/{operation_id}/team-constraints` | K fixo/faixa/livre e tamanho de turma por escopo | FR-32, FR-33 |
-| CRUD | `/roles`, `/skills` | Cargos e habilidades | FR-34 |
-| GET/PUT | `/roles/{id}/skills` | Habilidades padrão do cargo | FR-34 |
-| GET/PUT | `/positions/{id}/skills` | Certificações exigidas pelo posto | FR-34 |
-| GET/PUT | `/substitution-rules` | Matriz completa (PUT substitui atomicamente; `If-Match`) | FR-35 |
-| CRUD | `/operations/{operation_id}/role-requirements` | Mínimos por cargo/habilidade; proporções (P2) | FR-36, FR-37 |
-| GET/PUT | `/scenarios/{id}/layers` | Camadas do cenário (mix de modelos) | FR-30 |
-| PUT | `/scenarios/{id}/teams/{code}/composition` | Pessoas por cargo na turma | FR-34 |
-| GET | `/scenarios/{id}/coverage?role=ENF&layer=NUCLEO` | Heatmap/KPIs por cargo ou camada | FR-09, FR-35 |
+| GET | `/schedule-models?group=continuo|nao_continuo|complementar|variacao&exact_24x7=true&legal_status=` | **MVP** Catálogo (MVP: 10 modelos essenciais; restante *Fase 2*) | FR-28 |
+| GET/POST | `/custom-schedule-patterns` | **MVP** Lista/cria padrão personalizado (templates/versões *Fase 2*) | FR-29, FR-31 |
+| GET/PATCH/DELETE | `/custom-schedule-patterns/{id}` | **MVP** GET; *Fase 2* PATCH (cria nova versão `current_version+1`) e DELETE | FR-29, FR-31 |
+| GET | `/custom-schedule-patterns/{id}/versions` | *Fase 2* Histórico de versões | FR-31 |
+| POST | `/custom-schedule-patterns/{id}:derive` | *Fase 2* Duplica de um código do catálogo (`{id}` = código) ou de outro template | FR-31 |
+| POST | `/custom-schedule-patterns:validate` | **MVP** Validação em tempo real (sem persistir), ≤ 300 ms | FR-29 |
+| GET/POST/PATCH/DELETE | `/operations/{operation_id}/team-constraints` | **MVP** K fixo/mínimo por operação (faixa/livre, escopo e tamanho *Fase 2*) | FR-32, FR-33 |
+| CRUD | `/roles`, `/skills` | **MVP** `/roles` (cargo + nível); *Fase 2* `/skills` | FR-34 |
+| GET/PUT | `/roles/{id}/skills` | *Fase 2* Habilidades padrão do cargo | FR-34 |
+| GET/PUT | `/positions/{id}/skills` | *Fase 2* Certificações exigidas pelo posto | FR-34 |
+| GET/PUT | `/substitution-rules` | **MVP** Matriz completa (PUT substitui atomicamente; `If-Match`) | FR-35 |
+| CRUD | `/operations/{operation_id}/role-requirements` | **MVP** Mínimos por cargo (habilidade *Fase 2*; proporções P2) | FR-36, FR-37 |
+| GET/PUT | `/scenarios/{id}/layers` | *Fase 2* Camadas do cenário (mix de modelos) | FR-30 |
+| PUT | `/scenarios/{id}/teams/{code}/composition` | **MVP** Pessoas por cargo na turma | FR-34 |
+| GET | `/scenarios/{id}/coverage?role=ENF&layer=NUCLEO` | **MVP** Heatmap/KPIs por cargo (`layer` *Fase 2*) | FR-09, FR-35 |
 
 **Comparações, jobs e auditoria**
 
 | Método | Rota | Descrição |
 |---|---|---|
-| POST | `/scenario-comparisons` | compara baseline × até 4 cenários (5 no total, FR-22) |
-| GET | `/scenario-comparisons/{id}` | resultado |
-| GET | `/jobs/{id}` | status/progresso |
-| POST | `/jobs/{id}/cancel` | cancela |
-| GET | `/jobs/{id}/events` | SSE de progresso |
-| GET | `/audit-log` | cursor; `entity_type`, `entity_id`, `actor` (admin) |
+| POST | `/scenario-comparisons` | *Fase 2* compara baseline × até 4 cenários (5 no total, FR-22) |
+| GET | `/scenario-comparisons/{id}` | *Fase 2* resultado |
+| GET | `/jobs/{id}` | *Fase 2* status/progresso |
+| POST | `/jobs/{id}/cancel` | *Fase 2* cancela |
+| GET | `/jobs/{id}/events` | *Fase 2* SSE de progresso |
+| GET | `/audit-log` | *Fase 2* cursor; `entity_type`, `entity_id`, `actor` (admin) |
 
 ### 5.5 Exemplos de payload
 
-**POST `/api/v1/escalas/labor-agreements`**
+**POST `/api/v1/escalas/labor-agreements`** — **[MVP (mínimo)]**
 ```json
 {
   "name": "ACT Petroquímica 2026/2027",
@@ -1207,7 +1209,7 @@ Notas:
   "created_at": "2026-11-08T13:02:11Z" } }
 ```
 
-**PUT `/api/v1/escalas/demand-curves/{id}/slots`** (modo postos fixos, 168 slots)
+**PUT `/api/v1/escalas/demand-curves/{id}/slots`** (modo postos fixos, 168 slots) — **[MVP]**
 ```json
 {
   "granularity": "60",
@@ -1219,7 +1221,7 @@ Notas:
 ```
 Alternativa compacta aceita: `{ "granularity": "60", "values": ["4","4","4", "... 168 itens"] }`. Validação: exatamente 168 ou 336 itens. Resposta `200` com `{"data":{"checksum":"ab12...","slot_count":168,"night_slots":49}}`.
 
-**POST `/api/v1/escalas/scenarios`**
+**POST `/api/v1/escalas/scenarios`** — **[MVP]**
 ```json
 {
   "name": "Cenário B - 6x2 Revezamento 4 turmas",
@@ -1241,7 +1243,7 @@ Alternativa compacta aceita: `{ "granularity": "60", "values": ["4","4","4", "..
 { "data": { "id": "51e0...", "lineage_id": "e2c4...", "version": 1, "status": "rascunho", "row_version": 1 } }
 ```
 
-**POST `/api/v1/escalas/scenarios/{id}/simulate`** (header `Idempotency-Key: 7d1c...`)
+**POST `/api/v1/escalas/scenarios/{id}/simulate`** (header `Idempotency-Key: 7d1c...`) — **[MVP (síncrono)]**
 ```json
 { "mode": "auto", "stages": ["demanda","gerador","cobertura","viabilidade"], "assign_employees": false }
 ```
@@ -1251,13 +1253,13 @@ Pequeno (≤ 300 colaboradores e ≤ 12 semanas): `200` com resumo. Grande: `202
   "links": { "self": "/api/v1/escalas/jobs/8f3e...", "events": "/api/v1/escalas/jobs/8f3e.../events" } } }
 ```
 
-**GET `/api/v1/escalas/jobs/{id}`**
+**GET `/api/v1/escalas/jobs/{id}`** — **[Fase 2]**
 ```json
 { "data": { "id": "8f3e...", "kind": "simulate", "status": "running", "stage": "cobertura",
   "progress_pct": "62.500000", "queued_at": "2026-11-08T13:10:00Z", "started_at": "2026-11-08T13:10:01Z" } }
 ```
 
-**GET `/api/v1/escalas/scenarios/{id}`** (calculado)
+**GET `/api/v1/escalas/scenarios/{id}`** (calculado) — **[MVP]**
 ```json
 {
   "data": {
@@ -1277,7 +1279,7 @@ Pequeno (≤ 300 colaboradores e ≤ 12 semanas): `200` com resumo. Grande: `202
 }
 ```
 
-**GET `/api/v1/escalas/scenarios/{id}/coverage`**
+**GET `/api/v1/escalas/scenarios/{id}/coverage`** — **[MVP]**
 ```json
 { "data": { "granularity": "60", "view": "postos", "agg": "pior",
   "kpis": { "pct_hours_covered": "0.982143", "deficit_post_hours": "6.000000", "peak_undercoverage": { "value": "1.000000", "at": "2027-01-10T03:00" },
@@ -1288,7 +1290,7 @@ Pequeno (≤ 300 colaboradores e ≤ 12 semanas): `200` com resumo. Grande: `202
     "deficit_occurrences": 0, "gap": "0.000000", "status": "exata" } ] } }
 ```
 
-**GET `/api/v1/escalas/scenarios/{id}/compliance-findings?severity=erro`**
+**GET `/api/v1/escalas/scenarios/{id}/compliance-findings?severity=erro`** — **[MVP]**
 ```json
 { "data": [ {
   "id": "f01a...", "rule_code": "CLT_INTERJORNADA", "severity": "erro",
@@ -1310,13 +1312,13 @@ Pequeno (≤ 300 colaboradores e ≤ 12 semanas): `200` com resumo. Grande: `202
   "business_days": 24, "sundays_holidays": 7 } }
 ```
 
-**POST `/api/v1/escalas/scenarios/{id}/approve`** (header `If-Match: "4"`)
+**POST `/api/v1/escalas/scenarios/{id}/approve`** (header `If-Match: "4"`) — **[Fase 2]**
 ```json
 { "comment": "Validado com jurídico; ACT cláusula 12 autoriza 8h em revezamento." }
 ```
 → `200` `{"data":{"status":"homologado","approved_at":"...","approved_by":"..."}}` ou `422 blocking_findings`.
 
-**POST `/api/v1/escalas/scenario-comparisons`**
+**POST `/api/v1/escalas/scenario-comparisons`** — **[Fase 2]**
 ```json
 { "name": "6x2 4T vs 5 turmas", "baseline_scenario_id": "51e0...", "scenario_ids": ["77aa...","88bb..."] }
 ```
@@ -1327,13 +1329,13 @@ Pequeno (≤ 300 colaboradores e ≤ 12 semanas): `200` com resumo. Grande: `202
     "delta_headcount": "3.000000", "delta_avg_weekly_hours": "-8.400000", "delta_blocking_findings": 0 } ] } }
 ```
 
-**POST `/api/v1/escalas/scenarios/{id}/exports`**
+**POST `/api/v1/escalas/scenarios/{id}/exports`** — **[MVP]**
 ```json
 { "format": "xlsx", "options": { "sheets": ["Escala","Cobertura168h","KPIs","Violacoes","Parametros"], "date_range": ["2027-01-04","2027-02-28"] } }
 ```
 → `202` com `job_id` e `export_id`; `GET /exports/{id}` devolve `download_url` quando pronto.
 
-**POST `/api/v1/escalas/custom-schedule-patterns:validate`** (FR-29)
+**POST `/api/v1/escalas/custom-schedule-patterns:validate`** (FR-29) — **[MVP]**
 ```json
 {
   "sequence": ["M","M","T","T","N","N","F","F","F"],
@@ -1355,7 +1357,7 @@ Pequeno (≤ 300 colaboradores e ≤ 12 semanas): `200` com resumo. Grande: `202
 } }
 ```
 
-**PUT `/api/v1/escalas/operations/{id}/team-constraints`** (FR-32, FR-33)
+**PUT `/api/v1/escalas/operations/{id}/team-constraints`** (FR-32, FR-33) — **[MVP (fixo/mínimo)]**
 ```json
 { "items": [
   {"scope":"operacao","mode":"fixo","k_min":4,"k_max":4,"team_size_min":3,"team_size_max":6,"allow_half_teams":false,"source_note":"ACT 2026 cl. 12"},
@@ -1363,7 +1365,7 @@ Pequeno (≤ 300 colaboradores e ≤ 12 semanas): `200` com resumo. Grande: `202
 ] }
 ```
 
-**PUT `/api/v1/escalas/substitution-rules`** (FR-35)
+**PUT `/api/v1/escalas/substitution-rules`** (FR-35) — **[MVP]**
 ```json
 { "rules": [
   {"from_role":"ENF","to_role":"TEC_ENF","coverage_factor":"1.000000","priority":2,"counts_for_minimum":false},
@@ -1373,12 +1375,12 @@ Pequeno (≤ 300 colaboradores e ≤ 12 semanas): `200` com resumo. Grande: `202
 ```
 `422 validation_failed` se `from_role = to_role`, fator fora de (0, 1] ou cargo inexistente; ciclo A↔B é aceito e devolvido em `meta.warnings`.
 
-**POST `/api/v1/escalas/operations/{id}/role-requirements`** (FR-36)
+**POST `/api/v1/escalas/operations/{id}/role-requirements`** (FR-36) — **[MVP (por cargo)]**
 ```json
 {"kind":"minimo","role_code":"ENF","min_count":1,"accepts_substitute":true,"shift_codes":["D12","N12"],"severity":"erro"}
 ```
 
-**POST `/api/v1/escalas/scenarios/{id}/simulate`** — trecho v3.2 (camadas, K, composição)
+**POST `/api/v1/escalas/scenarios/{id}/simulate`** — trecho v3.2 (camadas, K, composição) — **[MVP parcial: K e composição MVP; camadas Fase 2]**
 ```json
 {
   "layers": [
@@ -1523,7 +1525,7 @@ class ScenarioCreate(BaseModel):
 
 ---
 
-## 7. Jobs assíncronos
+## 7. Jobs assíncronos [Fase 2 — MVP só síncrono]
 
 **Política de execução** (`SimulateRequest.mode = "auto"`):
 - *Síncrono* (dentro do request, timeout 5 s) quando `colaboradores ≤ 300` e `horizon_weeks ≤ 12` — atende NFR-01 (≤ 2 s para 1.000 colaboradores no motor, com folga para I/O).

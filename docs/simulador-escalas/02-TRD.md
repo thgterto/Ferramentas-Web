@@ -3,13 +3,24 @@
 | Metadado | Detalhe |
 | :--- | :--- |
 | **Documento** | Technical Requirements Document (TRD) |
-| **Base** | `01-PRD.md` (PRD v3.2 — simulador operacional de cobertura; catálogo ampliado, construtor, K e cargos como restrições; IDs FR-xx canônicos). Esquema e API detalhados: `05-esquema-backend.md` |
+| **Base** | `01-PRD.md` (PRD v3.3 — MVP enxuto em 4 sprints; v3.2 — simulador operacional de cobertura; catálogo ampliado, construtor, K e cargos como restrições; IDs FR-xx canônicos). Esquema e API detalhados: `05-esquema-backend.md` |
 | **Repositório** | `Ferramentas-Web` — `frontend/` (React 19 + TS + Vite 7 + Tailwind 4) e `backend/` (FastAPI) |
 | **Status** | Proposto |
 | **Data** | Novembro de 2026 |
 
 > **Foco técnico:** o caminho crítico do motor é **demanda → gerador de turmas → cobertura hora a hora**; as regras CLT atuam como **restrições de viabilidade** sobre a escala; o motor financeiro é módulo P2 (fase futura).
 >
+> **Corte do MVP (v3.3, 4 sprints — `06` §3):** cada seção/módulo traz a tag **[MVP]**, **[MVP parcial]** (o que fica de fora vai na própria seção como "Fase 2") ou **[Fase 2]** / **[P2]**. Resumo:
+>
+> | Módulo | MVP (P0) | Fase 2 |
+> | :--- | :--- | :--- |
+> | M1 demanda + shrinkage | tudo (FR-01–03) | Erlang-C (FR-04, P2) |
+> | M2 gerador + M2b | gerador genérico; catálogo essencial (10 modelos: `6X1_BASE`, `5X2`, `12X36`, `6X2`, `4X2`, `2X2_12H`, `5T`, `4X3`, `FIXO_D`, `FIXO_N`); `validar_padrao` básico (sequência + horários + offsets) | catálogo restante, `R`, folgas fixas, camadas, templates, ciclo em horas, split |
+> | M3 cobertura | cobertura hora a hora, 7×24, KPIs, dimensionamento, visão com reserva; K fixo/mínimo por operação; cargos com matriz direcional (f = 1,0) + mínimo por cargo por turno (`min_cost_flow`) | feriados (FR-12), furos no intervalo (FR-10), folguistas (FR-13, `folguistas.py`), K faixa/livre e tamanho de turma (FR-33), habilidades, substituição parcial (LP) |
+> | M4 viabilidade | `CLT_INTERJORNADA`, `CLT_DSR_35H`, `CLT_SETIMO_DIA`, `CLT_JORNADA_DIARIA`, `CLT_MEDIA_SEMANAL` (8/7) | domingo, revezamento, 12x36, intrajornada, tempo parcial, Súmula 60, `valida_incremental` |
+> | M5 CP-SAT / M6 financeiro | — (sem otimizador) | Fase 2 / P2 |
+> | Infra | FastAPI síncrono, Postgres 16 + RLS, JWT de acesso, NFR-01 com 200 colaboradores | Celery/Redis, refresh token, observabilidade, 1.000 colaboradores |
+
 > **Aviso jurídico:** as regras trabalhistas aqui codificadas são parametrizáveis e versionadas (ver §5.5). O motor emite **alertas e bloqueios técnicos**, não parecer jurídico. Toda regra tem fonte normativa registrada e pode ser sobrescrita por ACT/CCT cadastrada.
 
 ---
@@ -82,13 +93,14 @@ flowchart LR
 
 ```
 backend/app/services/engine/
-  demanda.py  shrinkage.py                          # M1
-  gerador.py  catalogo.py  construtor.py             # M2 (+ M2b catálogo/construtor, FR-28–31)
-  cobertura.py  dimensionamento.py  folguistas.py   # M3 (núcleo)
-  turmas_k.py  cobertura_cargos.py                  # M3 restrição de K (FR-32/33) e matriz de cargos (FR-34–38)
-  noturno.py  compliance/ (regras, registro.py)     # M4
-  otimizador.py                                     # M5 (Fase 2)
-  financeiro.py                                     # M6 (P2)
+  demanda.py  shrinkage.py                          # M1 [MVP]
+  gerador.py  catalogo.py  construtor.py             # M2 (+ M2b catálogo/construtor, FR-28–31) [MVP parcial]
+  cobertura.py  dimensionamento.py                 # M3 (núcleo) [MVP]
+  folguistas.py                                     # M3 folguistas [Fase 2]
+  turmas_k.py  cobertura_cargos.py                  # M3 restrição de K e matriz de cargos [MVP parcial]
+  noturno.py  compliance/ (regras, registro.py)     # M4 [MVP parcial]
+  otimizador.py                                     # M5 [Fase 2]
+  financeiro.py                                     # M6 [P2]
 backend/alembic/                                    # migrações
 backend/tests/engine/  unit · golden · property · perf
 frontend/src/features/escalas/
@@ -178,7 +190,7 @@ Notação: `H = 168` horas (ou `S = 336` slots de 30 min), `K` = nº de turmas, 
 | **M5** Otimizador ILP | `otimizador.py` | — (Fase 2) | Fase 2 |
 | **M6** Financeiro | `financeiro.py` | FR-25–27 | P2 |
 
-### 5.1 M1 — Demanda (FR-01, FR-02; FR-04 P2)
+### 5.1 M1 — Demanda (FR-01, FR-02; FR-04 P2) [MVP]
 
 Representação: `np.ndarray[int32]` shape `(7, 24)` (ou `(7, 48)`), reindexável para vetor circular de 168 posições (`idx = dia*24 + hora`, segunda 00h = 0). Turnos que cruzam a meia-noite de domingo fazem *wrap* para segunda (operação 24/7 é cíclica).
 
@@ -192,7 +204,7 @@ def demanda_bruta(cfg) -> np.ndarray:               # O(H)
 
 Erlang-C: busca incremental de `m` a partir de `ceil(A)+1`, usando recorrência de Erlang-B em log-espaço para estabilidade (`B(m) = A·B(m-1)/(m + A·B(m-1))`). Complexidade `O(H · m_max)`.
 
-### 5.2 M1b — Shrinkage diferenciado (FR-03; usado em FR-11)
+### 5.2 M1b — Shrinkage diferenciado (FR-03; usado em FR-11) [MVP]
 
 ```python
 S = 1 - (1 - S_int[t]) * (1 - S_ext[d, t])            # vetorizado (7,24)
@@ -201,7 +213,7 @@ N_req = np.ceil(FTE_bruto / (1 - S) - 1e-9).astype(int32)   # O(H)
 - Validação: `0 ≤ S < 0.6` (FR-03; bloqueia divisão explosiva). Epsilon evita `ceil(3.0000000001)=4` por ruído de float.
 - **Ressalva:** aplicar `ceil` hora a hora e depois somar superdimensiona; o motor guarda também `FTE_liquido` fracionário para relatórios.
 
-### 5.3 M2 — Gerador cíclico de turmas (FR-05–FR-07)
+### 5.3 M2 — Gerador cíclico de turmas (FR-05–FR-07) [MVP]
 
 Um padrão = `(sequencia: list[Turno|F], ciclo L, K turmas, offset)`. Turma `i` no dia absoluto `d` executa `seq[(d + offset_i) mod L]`.
 
@@ -229,7 +241,7 @@ Construção de offsets: `offset_i = i·L/K` quando inteiro; senão busca por ba
 
 **12x36:** usar índice de **dia absoluto** (`(data − data_ancora).days mod 2`), nunca `dia_do_mês mod 2` (o PRD usa `d mod 2` com `d ∈ 1..30`: em meses de 31 dias, dias 31 e 1 são ambos ímpares → a turma trabalharia 12x12 e outra folgaria 60h).
 
-### 5.3.1 M2b — Catálogo ampliado e construtor de padrões (FR-28–FR-31)
+### 5.3.1 M2b — Catálogo ampliado e construtor de padrões (FR-28–FR-31) [MVP parcial: catálogo essencial + `validar_padrao` básico; resto Fase 2]
 
 **Catálogo como dados.** Cada modelo da `01` §6.1 é uma linha de `schedule_models` + um `rotation_patterns` canônico; o gerador (§5.3) é o mesmo para todos. Extensões do gerador:
 - **Ciclo em horas** (`cycle_unit = 'hours'`, P1): para 18x36 o estado é indexado por `(h_abs + offset_h) mod L_h` (L = 54 h); o ciclo calendário é `mmc(L_h, 24·7)/24` dias (18x36: `mmc(54,168)` = 1.512 h = 63 dias para alinhar à semana; 9 dias para alinhar ao dia).
@@ -256,7 +268,7 @@ def validar_padrao(seq, turnos, s, offsets=None, rotacao="frente") -> RelatorioP
 
 **Templates (FR-31):** `custom_schedule_patterns` versionados; o cenário grava `pattern_version_id` + a sequência materializada em `rotation_patterns.matrix` (reprodutibilidade, NFR-03).
 
-### 5.4 M3 — Cobertura e dimensionamento (FR-08–FR-14) — núcleo
+### 5.4 M3 — Cobertura e dimensionamento (FR-08–FR-14) — núcleo [MVP parcial: FR-10, FR-12, FR-13 são Fase 2]
 
 Entrada: matriz turma × dia (M2), turnos (início, duração, política de intervalo), pessoas por turma, folguistas, `N_req`/`S` (M1), calendário do horizonte (feriados + política). Saída: vetores por hora absoluta do horizonte e agregados 7×24.
 
@@ -289,7 +301,7 @@ heat_media = gap.reshape(-1, 7, 24).mean(axis=0)
 
 Achados de cobertura: `COB_DEFICIT`, `COB_DEFICIT_POSTO_CRITICO`, `COB_EXCESSO`, `COB_FURO_INTERVALO`, `COB_DEFICIT_ESPERADO_SHRINKAGE`, `COB_TURMAS_INSUFICIENTES`, `COB_FOLGUISTA_INSUFICIENTE` e, v3.2, `COB_PADRAO_NAO_EXATO`, `COB_K_INSUFICIENTE`, `COB_K_ACIMA_NECESSARIO`, `COB_TURMA_ABAIXO_MINIMO`, `COB_TURMA_ACIMA_MAXIMO`, `COB_CARGO_SEM_QUALIFICADO`, `COB_DEFICIT_CARGO`, `COB_COBERTURA_POR_SUBSTITUICAO`, `COB_LIMITE_FORA_CARGO`, `COB_PROPORCAO_VIOLADA` (catálogo: `01-PRD.md` Apêndice A).
 
-### 5.4.1 M3 — Turmas (K) como restrição (FR-32, FR-33)
+### 5.4.1 M3 — Turmas (K) como restrição (FR-32, FR-33) [MVP parcial: K fixo/mínimo por operação; faixa/livre e FR-33 Fase 2]
 
 Entrada: `TeamConstraint{escopo: operação|posto|cargo|camada, modo: fixo|faixa|livre, k_min, k_max, k_fixo, tamanho_min, tamanho_max, permite_meias}`.
 
@@ -298,7 +310,7 @@ Entrada: `TeamConstraint{escopo: operação|posto|cargo|camada, modo: fixo|faixa
 3. **K faixa/livre:** varre `K = max(k_min, ceil(K_req)) … k_max` e para no primeiro K com déficit 0 (custo `O((k_max − k_min + 1) · custo_M3)` ≈ ≤ 12 × 20 ms). Nenhum ⇒ `COB_K_INSUFICIENTE` com o melhor K. `K > K_req` exato ⇒ `COB_K_ACIMA_NECESSARIO` (INFO, excesso).
 4. **Hierarquia:** restrição de cargo/posto ≤ restrição da operação (o mais restritivo vence); o wizard valida a faixa antes de simular.
 
-### 5.4.2 M3 — Cobertura por cargo e matriz de substituição (FR-34–FR-38)
+### 5.4.2 M3 — Cobertura por cargo e matriz de substituição (FR-34–FR-38) [MVP parcial: matriz f = 1,0 e mínimo por cargo; habilidades, parcial, FR-37/38 Fase 2]
 
 Dados: cargos `R` (≤ 20), postos com cargo exigido e habilidades exigidas, composição por cargo de cada turma `comp[k][r]`, regras `sub[a→b] = (fator, prioridade, aceita_em_minimo)`, mínimos `min_req[(cargo|habilidade), janela]`.
 
@@ -321,7 +333,7 @@ Saídas: `coverage_role_results` (por slot × cargo: demanda, próprio, por subs
 
 **Folguistas (FR-13) com cargo:** a heurística gulosa itera por cargo em ordem de déficit; candidato = folguista de cargo `a` tal que `sub[a→b]` existe para o cargo em déficit `b`, preferindo `a = b` e depois menor prioridade; o mínimo de folguistas é calculado **por cargo**.
 
-### 5.5 M4 — Viabilidade CLT: validador de restrições (FR-15–FR-20)
+### 5.5 M4 — Viabilidade CLT: validador de restrições (FR-15–FR-20) [MVP parcial: interjornada, DSR/7º dia, jornada/média; demais regras Fase 2]
 
 Entrada: para cada **turma** (não colaborador), lista ordenada de jornadas `(ini_abs, fim_abs, turno)` em minutos absolutos. Regras são plugins registrados (`@regra(codigo, severidade, fonte)`) e recebem `(jornadas, ctx_cct)`.
 
@@ -331,17 +343,17 @@ Códigos canônicos (`01-PRD.md` Apêndice A). Severidade: `ERRO` = escala invi�
 
 | Código | Severidade | Regra | Fonte | FR |
 | :--- | :--- | :--- | :--- | :--- |
-| `CLT_INTERJORNADA` | ERRO | `ini[k+1] − fim[k] < 11h` | CLT art. 66 | FR-15 |
-| `CLT_DSR_35H` | ERRO | Em toda janela de 7 dias deve existir repouso contínuo ≥ 35h (24h + 11h) | CLT art. 67 + 66; Súmula 110 TST | FR-16 |
-| `CLT_SETIMO_DIA` | ERRO | > 6 dias consecutivos de trabalho | OJ 410 SDI-1 TST | FR-16 |
-| `CLT_DOMINGO_PERIODICIDADE` | ALERTA | Intervalo entre domingos de folga > `N` (comércio: 3 semanas, Lei 10.101/2000 art. 6º p.ú.; demais: 7, Portaria MTP 671/2021) | | FR-17 |
-| `CLT_REVEZAMENTO_6H` | ALERTA (ERRO se > 8h) | Turma alterna turnos que cobrem dia e noite e jornada > 6h sem `allows_8h_rotating` | CF art. 7º, XIV; Súmula 423 TST | FR-18 |
-| `CLT_REGIME_12X36` | ERRO | Em turma 12x36: jornada > 12h, repouso < 36h após cada plantão, ou dobra | CLT art. 59-A | FR-19 |
-| `CLT_JORNADA_DIARIA` | ALERTA (ERRO se > 10h fora de 12x36) | Jornada computada (com hora noturna reduzida) > 8h | CLT arts. 58, 59, 73 | FR-20 |
-| `CLT_INTRAJORNADA` | ALERTA | Jornada > 6h com intervalo < 1h (ou < 30 min com CCT); intervalo > 2 h (split) sem acordo | CLT art. 71; 611-A, III | FR-10, FR-20, FR-28 |
-| `CLT_MEDIA_SEMANAL` | ALERTA | Média no ciclo > carga contratual (alimenta HE no M6, P2) | CF art. 7º, XIII | FR-20 |
-| `CLT_TEMPO_PARCIAL` | ALERTA | Contrato parcial > 30 h/sem, ou > 26 h com HE > 6 h | CLT art. 58-A | FR-28 |
-| `INFO_DIVERGENCIA_59A_SUMULA60` | INFO | §5.5.1 | | FR-20 |
+| `CLT_INTERJORNADA` **MVP** | ERRO | `ini[k+1] − fim[k] < 11h` | CLT art. 66 | FR-15 |
+| `CLT_DSR_35H` **MVP** | ERRO | Em toda janela de 7 dias deve existir repouso contínuo ≥ 35h (24h + 11h) | CLT art. 67 + 66; Súmula 110 TST | FR-16 |
+| `CLT_SETIMO_DIA` **MVP** | ERRO | > 6 dias consecutivos de trabalho | OJ 410 SDI-1 TST | FR-16 |
+| `CLT_DOMINGO_PERIODICIDADE` *Fase 2* | ALERTA | Intervalo entre domingos de folga > `N` (comércio: 3 semanas, Lei 10.101/2000 art. 6º p.ú.; demais: 7, Portaria MTP 671/2021) | | FR-17 |
+| `CLT_REVEZAMENTO_6H` *Fase 2* | ALERTA (ERRO se > 8h) | Turma alterna turnos que cobrem dia e noite e jornada > 6h sem `allows_8h_rotating` | CF art. 7º, XIV; Súmula 423 TST | FR-18 |
+| `CLT_REGIME_12X36` *Fase 2* | ERRO | Em turma 12x36: jornada > 12h, repouso < 36h após cada plantão, ou dobra | CLT art. 59-A | FR-19 |
+| `CLT_JORNADA_DIARIA` **MVP** | ALERTA (ERRO se > 10h fora de 12x36) | Jornada computada (com hora noturna reduzida) > 8h | CLT arts. 58, 59, 73 | FR-20 |
+| `CLT_INTRAJORNADA` *Fase 2* | ALERTA | Jornada > 6h com intervalo < 1h (ou < 30 min com CCT); intervalo > 2 h (split) sem acordo | CLT art. 71; 611-A, III | FR-10, FR-20, FR-28 |
+| `CLT_MEDIA_SEMANAL` **MVP** | ALERTA | Média no ciclo > carga contratual (alimenta HE no M6, P2) | CF art. 7º, XIII | FR-20 |
+| `CLT_TEMPO_PARCIAL` *Fase 2* | ALERTA | Contrato parcial > 30 h/sem, ou > 26 h com HE > 6 h | CLT art. 58-A | FR-28 |
+| `INFO_DIVERGENCIA_59A_SUMULA60` *Fase 2* | INFO | §5.5.1 | | FR-20 |
 
 Achados de cobertura (`COB_*`, incluindo `COB_DEFICIT_POSTO_CRITICO`) são emitidos pelo M3 (§5.4), não pelo M4.
 
@@ -383,7 +395,7 @@ Regras de aplicação da Súmula 60 (II):
 - Turno 19h–07h: 7 h de relógio (22–05) → **8,000000 h fictas**; prorrogação 05–07 (2 h) → +2,285714 h fictas se Súmula 60 ativa. Turno 22h–06h: 7 h + 1 h prorrogada → 8 h + 1,142857 h = 9,142857 h fictas.
 - **Intervalo intrajornada** que cai na janela noturna é descontado antes da conversão.
 
-### 5.6 M5 — Otimizador ILP (CP-SAT) — Fase 2
+### 5.6 M5 — Otimizador ILP (CP-SAT) — Fase 2 [Fase 2]
 
 > Fora do MVP: os modelos cíclicos fechados (M2) + heurística de folguistas (M3) resolvem a Fase 1. O ILP entra para turnos livres/intermediários e posicionamento ótimo de folguistas.
 
@@ -423,7 +435,7 @@ Complexidade: `st` tem `K_max·L_cal·J` binárias (12·56·4 ≈ 2,7 mil); `s` 
 
 Complexidade (formulação base): problema NP-difícil em geral, mas instâncias são pequenas (`J ≤ 20`, `7·J ≤ 140` variáveis inteiras, 168 restrições). CP-SAT resolve em ms–centenas de ms. Limite `max_time_in_seconds=1.5`, `num_workers=8`; se `FEASIBLE` e não `OPTIMAL`, devolve gap e achado `INFO_SOLUCAO_SUBOTIMA`. Entrada com `INFEASIBLE` → erro de API `demand_infeasible` (ver 05 §5.3).
 
-### 5.7 M6 — Motor financeiro (FR-25–FR-27) — P2, fase futura
+### 5.7 M6 — Motor financeiro (FR-25–FR-27) — P2, fase futura [P2]
 
 > Fora do MVP. Mantido como especificação para a Fase 2; o pipeline do MVP termina no M4.
 
@@ -452,7 +464,7 @@ Complexidade: `O(K · meses)` — o cálculo é por turma × nº de colaboradore
 
 ---
 
-## 6. Estratégia de performance (NFR-01: 1.000 colaboradores ≤ 2 s)
+## 6. Estratégia de performance (NFR-01: 1.000 colaboradores ≤ 2 s) [MVP: 200 colaboradores; 1.000 na Fase 2]
 
 **Ideia central:** colaboradores de uma mesma turma têm escala idêntica. Geração, cobertura, viabilidade (e financeiro, P2) são calculados para `K` turmas (+ exceções) e **expandidos** por indexação NumPy apenas para exibição/export.
 
@@ -556,27 +568,27 @@ Contrato completo em **`05-esquema-backend.md` §5** (fonte da verdade). Base: *
 
 | Método | Rota | Descrição | FR |
 | :--- | :--- | :--- | :--- |
-| `POST` | `/auth/login`, `/auth/refresh` | Login / refresh | — |
-| `GET` | `/schedule-models` | Catálogo com `K*`, média semanal, ciclo `mmc(L,7)`, flags legais | FR-05, FR-08 |
-| `CRUD` | `/operations`, `/operations/{id}/positions`, `/positions/{id}/demand-curves` | Operação, postos, curvas | FR-01, FR-02 |
-| `POST` | `/demand-curves/{id}/slots:import` | Upload CSV/XLSX 168h | FR-01 |
-| `CRUD` | `/scenarios` | Cenário (demanda, modelo, turmas, folguistas, CCT) | FR-24 |
-| `POST` | `/scenarios/{id}/simulate` | Executa M1→M4 (M6 quando P2). 200 síncrono ou 202 + `job_id` | FR-05–FR-20 |
-| `GET` | `/scenarios/{id}/coverage` | Cobertura por slot, heatmap 7×24 (pior caso/média; postos/postos+reserva), KPIs | FR-09–FR-14 |
-| `POST` | `/scenarios/{id}/sizing` | Dimensionamento: K necessário, headcount mínimo, folguistas mínimos | FR-08, FR-13 |
-| `GET` | `/scenarios/{id}/compliance-findings` | Achados de viabilidade (`CLT_*`) e cobertura (`COB_*`) | FR-15–FR-20 |
-| `PATCH` | `/scenarios/{id}/assignments/{aid}` | Ajuste manual turma × dia; revalida | FR-12, FR-13 |
-| `POST` | `/scenario-comparisons` | Até 5 cenários → KPIs de cobertura lado a lado | FR-22 |
-| `POST` | `/scenarios/{id}/exports` | XLSX/CSV (async) | FR-23 |
-| `GET` | `/scenarios/{id}/financials` | Extrato de custos (P2) | FR-26 |
-| `GET` | `/jobs/{id}` | Status do job | — |
-| `GET` | `/schedule-models?group=` | Catálogo ampliado com `exact_24x7`, `teams_24x7`, `teams_non_continuous`, `legal_status` | FR-28 |
-| `CRUD` | `/custom-schedule-patterns`, `POST …:validate`, `POST …/{id}:derive` | Construtor e templates da organização | FR-29, FR-31 |
-| `CRUD` | `/roles`, `/skills`, `/roles/{id}/skills` | Cargos e habilidades | FR-34 |
-| `GET/PUT` | `/substitution-rules` (matriz completa) | Matriz cargo × cargo | FR-35 |
-| `CRUD` | `/positions/{id}/role-requirements` | Mínimos por cargo/habilidade e proporções | FR-36, FR-37 |
-| `CRUD` | `/operations/{id}/team-constraints` | K fixo/faixa/livre e tamanho de turma | FR-32, FR-33 |
-| `GET` | `/scenarios/{id}/coverage?role=` | Cobertura/heatmap por cargo | FR-09, FR-35 |
+| `POST` | `/auth/login`, `/auth/refresh` | **MVP** login; *Fase 2* refresh | — |
+| `GET` | `/schedule-models` | **MVP** (10 modelos) Catálogo com `K*`, média semanal, ciclo `mmc(L,7)`, flags legais | FR-05, FR-08 |
+| `CRUD` | `/operations`, `/operations/{id}/positions`, `/positions/{id}/demand-curves` | **MVP** Operação, postos, curvas | FR-01, FR-02 |
+| `POST` | `/demand-curves/{id}/slots:import` | **MVP** Upload CSV/XLSX 168h | FR-01 |
+| `CRUD` | `/scenarios` | **MVP** Cenário (demanda, modelo, turmas, CCT; folguistas *Fase 2*) | FR-24 |
+| `POST` | `/scenarios/{id}/simulate` | **MVP** Executa M1→M4 síncrono (200); 202 + `job_id` *Fase 2* | FR-05–FR-20 |
+| `GET` | `/scenarios/{id}/coverage` | **MVP** Cobertura por slot, heatmap 7×24 (pior caso/média; postos/postos+reserva), KPIs | FR-09–FR-14 |
+| `POST` | `/scenarios/{id}/sizing` | **MVP** K necessário e headcount mínimo; folguistas mínimos *Fase 2* | FR-08, FR-13 |
+| `GET` | `/scenarios/{id}/compliance-findings` | **MVP** Achados de viabilidade (`CLT_*`) e cobertura (`COB_*`) | FR-15–FR-20 |
+| `PATCH` | `/scenarios/{id}/assignments/{aid}` | *Fase 2* Ajuste manual turma × dia; revalida | FR-12, FR-13 |
+| `POST` | `/scenario-comparisons` | *Fase 2* Até 5 cenários → KPIs de cobertura lado a lado | FR-22 |
+| `POST` | `/scenarios/{id}/exports` | **MVP** XLSX/CSV (síncrono no MVP; async *Fase 2*) | FR-23 |
+| `GET` | `/scenarios/{id}/financials` | *P2* Extrato de custos | FR-26 |
+| `GET` | `/jobs/{id}` | *Fase 2* Status do job | — |
+| `GET` | `/schedule-models?group=` | **MVP** (essencial; restante *Fase 2*) Catálogo com `exact_24x7`, `teams_24x7`, `teams_non_continuous`, `legal_status` | FR-28 |
+| `CRUD` | `/custom-schedule-patterns`, `POST …:validate`, `POST …/{id}:derive` | **MVP** create/get + `:validate`; `:derive`/templates *Fase 2* | FR-29, FR-31 |
+| `CRUD` | `/roles`, `/skills`, `/roles/{id}/skills` | **MVP** `/roles`; `/skills` *Fase 2* | FR-34 |
+| `GET/PUT` | `/substitution-rules` (matriz completa) | **MVP** Matriz cargo × cargo | FR-35 |
+| `CRUD` | `/positions/{id}/role-requirements` | **MVP** mínimos por cargo; habilidade/proporções *Fase 2* | FR-36, FR-37 |
+| `CRUD` | `/operations/{id}/team-constraints` | **MVP** K fixo/mínimo; faixa/livre/tamanho *Fase 2* | FR-32, FR-33 |
+| `GET` | `/scenarios/{id}/coverage?role=` | **MVP** Cobertura/heatmap por cargo | FR-09, FR-35 |
 
 Exemplo (resumido):
 ```json
@@ -615,7 +627,7 @@ POST /api/v1/escalas/scenarios/{id}/simulate
 ### ADR-005: Regras de compliance como plugins versionados com fonte normativa
 **Status:** Aceito. **Contexto:** legislação e CCTs mudam (transição do 6x1). **Decisão:** registro de regras com `codigo`, `versao`, `vigencia`, `fonte`; parâmetros vindos da CCT. Simulação grava `versao_regras`. **Consequência:** resultados antigos reprodutíveis; nova lei = nova regra com vigência, sem alterar as antigas.
 
-### ADR-006: Síncrono por padrão, Celery para exceções
+### ADR-006: Síncrono por padrão, Celery para exceções (v3.3: MVP só síncrono; Celery na Fase 2)
 **Status:** Aceito. Celery/Redis já estão no `requirements.txt`. Simulações catalogadas síncronas; horizonte > 12 semanas, comparações > 4 cenários, exports e (Fase 2) ILP via job.
 
 ### ADR-007: Estado no frontend — TanStack Query + Zustand

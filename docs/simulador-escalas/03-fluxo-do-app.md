@@ -1,7 +1,9 @@
 # 03 — Fluxo do App: Sitemap, Telas e Fluxos de Usuário
 
 > Simulador Operacional de Cobertura 24/7 — CLT Brasil
-> Fonte: `01-PRD.md` (PRD v3.2; IDs FR-xx canônicos). Este documento descreve navegação, telas, estados e fluxos (felizes, de erro e edge cases). O núcleo é **cobertura**: a tela de resultado abre no heatmap; viabilidade CLT é um painel de restrições; custos são módulo P2 (fase futura).
+> Fonte: `01-PRD.md` (PRD v3.3; IDs FR-xx canônicos). Este documento descreve navegação, telas, estados e fluxos (felizes, de erro e edge cases). O núcleo é **cobertura**: a tela de resultado abre no heatmap; viabilidade CLT é um painel de restrições; custos são módulo P2 (fase futura).
+
+> **Corte do MVP (v3.3, 4 sprints — `06` §3):** telas, rotas e fluxos estão marcados **[MVP]**, **[MVP parcial]** ou **[Fase 2]**. **MVP = interface mínima:** T0 login, T2/T2.1 (lista simples de operações e cenários), T3 wizard de 5 passos (com cargos, matriz A→B e mínimos em **tabela simples** no passo 3.3 e construtor básico no passo 3.4), T4 com abas `cobertura` (heatmap 7×24 + KPIs + filtro por cargo), `escala` (calendário de turmas) e `viabilidade` (painel de achados) e botão **Exportar CSV/XLSX**. **Fase 2:** T1 (multi-org), T2.2, T5, T6, T7, T8.1–T8.3, T9, feriados, folguistas, furos de intervalo e camadas.
 
 ---
 
@@ -38,27 +40,32 @@ flowchart TD
     RES --> CMP
     RES --> HOM["T7 · Homologação e Exportação"]
     HOM --> EXP1["Export CSV/XLSX"]
+    RES --> EXP1
     OP -. "duplicar / nova versão" .-> WIZ
+    classDef fase2 fill:#f2f4f7,stroke:#98a2b3,stroke-dasharray:4 3,color:#475467
+    class ORG,RK,CAD,C1,C2,C3,CB,EDIT,CMP,HOM,R4 fase2
 ```
+
+Legenda: nós tracejados/cinza = **Fase 2** (ou P2); demais = **MVP**. No MVP o export sai direto de T4 (sem T7) e T0 leva direto a T2 (uma organização por usuário).
 
 Navegação global (header): Organização ▸ Operação ▸ Cenário (breadcrumb), troca de organização, menu do usuário.
 
-| Rota | Tela | Endpoint principal (`05-esquema-backend.md` §5.4, base `/api/v1/escalas`) |
-|---|---|---|
-| `/login` | T0 | `POST /auth/login` |
-| `/orgs` | T1 | `GET /me` |
-| `/o/:org/operacoes` | T2 | `GET /operations` |
-| `/o/:org/operacoes/:op` | T2.1 | `GET /scenarios?operation_id=` |
-| `/o/:org/operacoes/:op/restricoes` | T2.2 | `GET/POST/PATCH /operations/{id}/team-constraints` |
-| `/o/:org/cadastros/cargos` | T8.1 | `/roles`, `/skills`, `/roles/{id}/skills` |
-| `/o/:org/cadastros/matriz-substituicao` | T8.2 | `GET/PUT /substitution-rules` |
-| `/o/:org/escalas/modelos` | T8.3 | `GET /schedule-models`, `GET /custom-schedule-patterns` |
-| `/o/:org/escalas/modelos/novo?de=:codigo` · `/o/:org/escalas/modelos/:pid/editar` | T9 | `POST /custom-schedule-patterns/{id}:derive`, `POST /custom-schedule-patterns:validate`, `PATCH /custom-schedule-patterns/{id}` |
-| `/o/:org/operacoes/:op/cenarios/novo?passo=1..5` | T3 | `POST /scenarios`, `PATCH /scenarios/{id}` |
-| `/o/:org/operacoes/:op/cenarios/:id/:aba` (aba ∈ `cobertura` (padrão), `escala`, `viabilidade`, `custos`*) | T4 | `GET /scenarios/{id}/coverage`, `/assignments`, `/compliance-findings`, `/financials`* |
-| `/o/:org/operacoes/:op/cenarios/:id/ajustar` | T5 | `PATCH /scenarios/{id}/assignments/{aid}` |
-| `/o/:org/operacoes/:op/comparar?ids=...` | T6 | `POST /scenario-comparisons` |
-| `/o/:org/operacoes/:op/cenarios/:id/homologar` | T7 | `POST /scenarios/{id}/approve`, `POST /scenarios/{id}/exports` |
+| Rota | Tela | Endpoint principal (`05-esquema-backend.md` §5.4, base `/api/v1/escalas`) | Fase |
+|---|---|---|---|
+| `/login` | T0 | `POST /auth/login` | **MVP** |
+| `/orgs` | T1 | `GET /me` | *Fase 2* |
+| `/o/:org/operacoes` | T2 | `GET /operations` | **MVP** |
+| `/o/:org/operacoes/:op` | T2.1 | `GET /scenarios?operation_id=` | **MVP** |
+| `/o/:org/operacoes/:op/restricoes` | T2.2 | `GET/POST/PATCH /operations/{id}/team-constraints` | *Fase 2* |
+| `/o/:org/cadastros/cargos` | T8.1 | `/roles`, `/skills`, `/roles/{id}/skills` | *Fase 2* |
+| `/o/:org/cadastros/matriz-substituicao` | T8.2 | `GET/PUT /substitution-rules` | *Fase 2* |
+| `/o/:org/escalas/modelos` | T8.3 | `GET /schedule-models`, `GET /custom-schedule-patterns` | *Fase 2* |
+| `/o/:org/escalas/modelos/novo?de=:codigo` · `/o/:org/escalas/modelos/:pid/editar` | T9 | `POST /custom-schedule-patterns/{id}:derive`, `POST /custom-schedule-patterns:validate`, `PATCH /custom-schedule-patterns/{id}` | *Fase 2* |
+| `/o/:org/operacoes/:op/cenarios/novo?passo=1..5` | T3 | `POST /scenarios`, `PATCH /scenarios/{id}` | **MVP** |
+| `/o/:org/operacoes/:op/cenarios/:id/:aba` (aba ∈ `cobertura` (padrão), `escala`, `viabilidade`, `custos`*) | T4 | `GET /scenarios/{id}/coverage`, `/assignments`, `/compliance-findings`, `/financials`* | **MVP (sem `custos`)** |
+| `/o/:org/operacoes/:op/cenarios/:id/ajustar` | T5 | `PATCH /scenarios/{id}/assignments/{aid}` | *Fase 2* |
+| `/o/:org/operacoes/:op/comparar?ids=...` | T6 | `POST /scenario-comparisons` | *Fase 2* |
+| `/o/:org/operacoes/:op/cenarios/:id/homologar` | T7 | `POST /scenarios/{id}/approve`, `POST /scenarios/{id}/exports` | *Fase 2 (export: MVP via T4)* |
 
 \* `custos` e `/financials` só existem quando o Módulo 6 (P2) for implementado.
 
@@ -85,62 +92,62 @@ Papéis (enum `member_role`, `05` §3.1): `owner`, `admin`, `planner` (planejado
 
 ## 3. Telas
 
-### T0 · Login
+### T0 · Login [MVP]
 - **Componentes:** e-mail, senha, "Entrar", "Esqueci a senha", SSO (opcional).
 - **Estados:** carregando (spinner, campos travados); erro (credenciais inválidas — mensagem genérica; bloqueio após N tentativas; falha de rede).
 - **Transições:** 1 organização → T2; > 1 → T1; sessão expirada → T0 com `?next=`.
 
-### T1 · Seleção de Organização
+### T1 · Seleção de Organização [Fase 2]
 - Lista de organizações com papel do usuário; "lembrar escolha". Vazio: "Você não pertence a nenhuma organização — solicite convite". → T2.
 
-### T2 · Operações
+### T2 · Operações [MVP — lista simples]
 - **Objetivo:** listar operações (planta, hospital, CD, NOC).
 - **Dados:** nome, setor, regime (24/7 ou não), nº de cenários, cenário homologado vigente, **% de cobertura do homologado**, headcount, última atualização.
 - **Ações:** criar/editar/arquivar operação; abrir T2.1.
 - **Validações:** nome único na org; setor obrigatório (define a regra de folga dominical — FR-17).
 
-### T2.1 · Detalhe da Operação
+### T2.1 · Detalhe da Operação [MVP parcial: lista de cenários + "Novo cenário"; comparar/duplicar Fase 2]
 - Lista de cenários (status §2, % cobertura, horas-posto em déficit, headcount, selo "inviável"), checkbox para comparar (2–5), "Novo cenário", "Duplicar".
 - Vazio: "Nenhum cenário. Comece pelo baseline 6x1." Comparar desabilitado com < 2 selecionados.
 - Atalho "Restrições de turmas" → T2.2 (mostra a faixa de K vigente no cabeçalho).
 
-### T2.2 · Restrições de turmas da operação (v3.2)
+### T2.2 · Restrições de turmas da operação (v3.2) [Fase 2]
 - **Objetivo:** fixar o número de turmas e o tamanho das turmas como **restrição** (FR-32, FR-33) antes de qualquer cenário.
 - **Componentes:** escopo (operação | posto | cargo | camada); modo **Fixo / Faixa / Livre** (segmented); `K_min`/`K_max` ou `K`; tamanho mín./máx. por turma; "permitir meias-turmas"; tabela de exceções por posto/cargo. Indicador: "K\* do modelo atual" ao lado do limite.
 - **Validações:** `K_min ≤ K_max ≤ 12`; restrição do posto/cargo dentro da faixa da operação; `tamanho_min ≤ tamanho_max`.
 - **Efeito:** no passo 3.4, modelos que exigem K fora da faixa aparecem com selo "excede limite de turmas" (desabilitados em modo Fixo; selecionáveis com aviso em Faixa).
 
-### T8 · Cadastros da organização: cargos, habilidades e matriz (v3.2)
+### T8 · Cadastros da organização: cargos, habilidades e matriz (v3.2) [Fase 2 — no MVP, cargos/matriz/mínimos ficam em tabela simples no passo 3.3]
 - **T8.1 Cargos e habilidades (FR-34):** tabela de cargos (nome, nível 1–9, CBO, cor, habilidades padrão) e de habilidades/certificações (código, nome, exige validade). Seeds sugeridos por setor (saúde: enfermeiro, técnico de enfermagem, supervisor; indústria: operador, operador de caldeira NR-13, operador líder, supervisor). Exclusão bloqueada se o cargo está em uso (lista onde).
 - **T8.2 Matriz de substituição (FR-35):** grade **cargo × cargo** (linhas = quem cobre, colunas = quem é coberto); cada célula: vazio (não cobre), ✓ 1,0, fração (P1), prioridade, "vale para mínimo"; diagonal travada. Atalhos: "nível superior cobre inferior" (preenche direcional pelo nível), "limpar linha". Painel lateral explica em linguagem natural: "Enfermeiro pode cobrir Técnico (prioridade 2). Técnico **não** cobre Enfermeiro." Validações: fator 0 < f ≤ 1; aviso em ciclos A↔B ("ambos se cobrem — confirme").
 - **T8.3 Modelos de escala:** catálogo ampliado (`01` §6.1) em grupos (contínuos, não contínuos, complementares, variações) com filtros "cobre 24/7 exato", "viável sem CCT", nº de turmas; aba "Da organização" com templates (FR-31). Ações: "Duplicar e editar" → T9; "Usar em cenário".
 
-### T9 · Construtor de escala (v3.2, FR-29)
+### T9 · Construtor de escala (v3.2, FR-29) [Fase 2 — no MVP, construtor básico dentro do passo 3.4]
 - **Componentes:** (1) **editor de sequência do ciclo** — trilha de chips arrastáveis M/T/N/D12/N12/INT/F/R com contador `L`; (2) **turnos** — tabela código/início/duração/intervalo/política (rendição, não computado, volante, escalonado) com régua 0–24 h mostrando sobreposições; (3) **turmas** — K, offsets por turma (arrastar a linha da turma no mini-calendário), tamanho por turma, meias-turmas; (4) **regras** — sentido da rotação, data-âncora, folgas fixas (P1), regra de feriado (P1); (5) **camadas** (P1, FR-30) — adicionar camada (ex.: reforço 5x2 INT); (6) **painel de validação ao vivo**: K\* e "exato/não exato", h/sem, maior sequência trabalhada, menor interjornada, maior descanso em 7 dias, domingos de folga, mini-heatmap de cobertura do ciclo.
 - **Estados:** inválido (sequência vazia, sem F, código inexistente) → salvar desabilitado; validando (≤ 300 ms, spinner discreto); com achados (chip vermelho/amarelo apontando a posição da sequência).
 - **Ações:** "Salvar template" (nova versão se já existe), "Usar neste cenário", "Restaurar modelo de origem".
 
 
-### T3 · Wizard de Novo Cenário
+### T3 · Wizard de Novo Cenário [MVP]
 Stepper de 5 passos com autosalvamento; "Voltar" preserva dados; "Simular" só no passo 5. Painel lateral "Resumo" mostra demanda total (horas-posto/semana) e **estimativa de turmas/headcount** (FR-08) ao vivo.
 
-#### 3.1 Operação e regras (CCT/ACT)
+#### 3.1 Operação e regras (CCT/ACT) [MVP parcial: CCT/regime e contrato; feriados, domingo e checkbox de revezamento Fase 2]
 - **Componentes:** regime (Contínuo 24/7 | janela fixa); setor; CCT/ACT (sindicato, vigência); **checkbox "ACT/CCT autoriza 8 h em turnos ininterruptos de revezamento"** (FR-18); `N` de folga dominical (FR-17); calendário de feriados + política em feriado (FR-12); data inicial do horizonte.
 - **Validações:** revezamento > 6 h sem checkbox → `CLT_REVEZAMENTO_6H` exibido como aviso (não bloqueia o avanço; o cenário sairá com ALERTA); CCT vencida → alerta.
 
-#### 3.2 Demanda
+#### 3.2 Demanda [MVP: postos fixos, grade 168 h, upload CSV/XLSX; habilidades Fase 2]
 - **Postos fixos** (FR-02): `P(d,t)=k` por faixa; atalho "igual em todas as 168 h"; marcação de **posto crítico**.
 - **Curva 168 h** (FR-01): grade 7×24 editável (colar do Excel, arrastar, copiar dia), upload CSV/XLSX com template. Erlang-C/UPH (FR-04) aparece desabilitado com selo "Fase 2".
 - **Demanda por cargo (v3.2, FR-34/36):** cada posto declara o cargo exigido e habilidades exigidas (ex.: posto "Caldeira" = Operador + `NR13_CALDEIRA`); bloco "Mínimos por turno" (ex.: ≥ 1 Enfermeiro por plantão; "aceita substituto" sim/não); proporções (FR-37) com selo "Fase 2". Sem cargos cadastrados, o passo funciona como antes (cargo único implícito).
 - **Validações:** inteiros ≥ 0; 168 células; ≥ 1 célula > 0.
 - **Erros de upload:** formato não suportado; > 5 MB; cabeçalho ausente; ≠ 168 linhas (formato longo) ou ≠ 7×24; não numérico/negativo (lista "linha X" e destaca no grid); separador decimal; XLSX com várias abas (perguntar qual).
 
-#### 3.3 Shrinkage e reserva
+#### 3.3 Shrinkage e reserva [MVP parcial: shrinkage D/N + "pessoas extras por turma"; turma de folguistas Fase 2; v3.3: inclui tabela simples de cargos, matriz A→B e mínimos por turno]
 - **Componentes:** % diurno e % noturno (FR-03), opcional por componente (absenteísmo, férias, treinamento); faixa noturna 22h–05h exibida; **estratégia de reserva** (FR-11, FR-13): "pessoas extras por turma" | "turma de folguistas" | "nenhuma (só visualizar risco)".
 - **Validações:** 0 ≤ % < 60; alerta informativo se > 40%.
 - **Dados exibidos:** demanda nominal vs. demanda bruta com reserva, ao vivo.
 
-#### 3.4 Modelo de escala e turmas
+#### 3.4 Modelo de escala e turmas [MVP parcial: catálogo essencial de 10 modelos, K fixo/mínimo, sequência personalizada básica; resto Fase 2]
 - **Componentes:** catálogo ampliado (FR-28, `01` §6.1) em grupos — *contínuos 24/7* (6x1, 12x36, 6x2, 4x2, 5 turmas, 3x1, 3x2, 6x3, 2x2, Pitman, Panamá, DuPont, Continental, 12x60, 24x48, 24x72, 5T francesa, 6 turmas), *não contínuos* (5x2, 5x1, 4x3), *complementares* (fim de semana 12 h, parcial 20/25/30 h, reforço de pico) e *variações* (fixo × rotativo, escalonado; 18x36 e split com selo P1); filtros "cobre 24/7 exato" e "viável sem CCT"; grupo "Da organização" (templates FR-31); botão **"Personalizar" → T9** (FR-29). Bloco **"Turmas"**: modo K herdado de T2.2 (editável se Livre), tamanho mín./máx., meias-turmas, **composição por cargo** de cada turma (FR-34). Bloco **"Camadas"** (P1, FR-30): "+ adicionar camada" (ex.: reforço 5x2). Cada card mostra turnos/dia, padrão, **K necessário**, h/sem média e ciclo calendário (`01` §6). Campos: nº de turmas (A, B, C…), horários dos turnos, **intervalo intrajornada** (computado com rendição | não computado sem rendição | coberto por volantes — FR-10), nº de folguistas (ou "calcular mínimo").
 - **Pré-checagem (antes de simular):**
   - `K` informado < `K` necessário → `COB_TURMAS_INSUFICIENTES` com sugestão (ex.: 4x2 → 5 turmas ou 9 meias-turmas). Permite seguir para ver o déficit.
@@ -149,7 +156,7 @@ Stepper de 5 passos com autosalvamento; "Voltar" preserva dados; "Simular" só n
   - Personalizado com transição < 11 h → `CLT_INTERJORNADA` já no editor; sem folga ≥ 35 h → `CLT_DSR_35H`.
 - **Recomendação:** selo "Recomendado" no modelo com menor headcount que zera o déficit sem `ERRO`.
 
-#### 3.5 Revisão e simular
+#### 3.5 Revisão e simular [MVP]
 - Resumo de todos os passos + seção recolhida **"Parâmetros de custo (opcional — Fase 2)"**, desabilitada no MVP.
 - **Ação:** "Simular cobertura" → processamento → T4 (aba `cobertura`).
 
@@ -171,14 +178,14 @@ flowchart TD
     S3 --> S4["Passo 4: Modelo e turmas"]
     S4 --> V4{"Pré-checagem<br/>K e restrições"}
     V4 -- "Interjornada no editor" --> S4
-    S4 -. "Personalizar" .-> T9["T9 Construtor"] -. "usar" .-> S4
+    S4 -. "Personalizar (Fase 2: T9)" .-> T9["T9 Construtor (Fase 2)"] -. "usar" .-> S4
     V4 -- "K fora da restrição" --> AK["Aviso COB_K_INSUFICIENTE<br/>+ K sugerido"] --> S4
     V4 -- "Turmas insuficientes" --> AV["Aviso + sugestão de K"] --> S5
     V4 -- OK --> S5["Passo 5: Revisão"]
     S5 --> C(("Simular")) --> R["T4 aba cobertura"]
 ```
 
-### T4 · Resultado do Cenário
+### T4 · Resultado do Cenário [MVP parcial: abas `cobertura` (com filtro por cargo), `escala` e `viabilidade` (painel de achados) + Exportar; furos de intervalo, feriados, folguistas e tabela cargo × KPI Fase 2]
 - **Objetivo:** mostrar **se a operação está coberta**, onde estão os furos e o que é preciso para fechá-los.
 - **Cabeçalho de KPIs (FR-14):** % horas-posto cobertas · horas-posto em déficit · pico de subcobertura (dia/hora) · headcount (atual / mínimo) · turmas (atual / necessárias) · furos no intervalo · violações ERRO/ALERTA. Ações: "Ajustar escala", "Comparar", "Duplicar", "Recalcular", "Homologar".
   - **Aba `cobertura` (padrão; FR-09, FR-10, FR-11, FR-12):** heatmap 7×24 de **déficit / exato / excesso**; alternância **"postos" | "postos + reserva"** e **"pior caso" | "média"** do horizonte; filtro por posto e **por cargo** ("Todos", cada cargo, "só substituições" — FR-35); camada por **camada de escala** (FR-30); camada "furos no intervalo"; tooltip com demanda, cobertura, diferença, turmas presentes e feriado; lista "Top 10 horas em déficit"; card **"Como fechar o déficit"** (ex.: "+1 turma", "+2 folguistas", "trocar para 5 turmas") (FR-08, FR-13). Clique em célula de déficit → T5 filtrado.
@@ -189,19 +196,19 @@ flowchart TD
 - **Estados:** carregando (progresso M1→M4); rascunho não calculado → "Simular agora"; inviável (sem escala sem `ERRO` para os parâmetros) → "Não há escala viável com N turmas: aumente turmas, reduza postos ou troque o modelo" + atalho para 3.4; timeout → reprocessar.
 - **Transições:** → T5, T6, T7, T3 (editar parâmetros cria nova versão).
 
-### T5 · Ajuste de Escala
+### T5 · Ajuste de Escala [Fase 2]
 - **Objetivo:** ajustar a escala gerada **por turma × dia** (MVP; por colaborador na Fase 2): trocar turno, mover folga, posicionar folguista, convocar turma de folga em feriado.
 - **Componentes:** grade Turma × Dia (arrastar ou teclado), painel ao vivo com **delta de cobertura** (horas-posto em déficit antes/depois) e restrições, desfazer/refazer, "Salvar como nova versão".
 - **Validação em tempo real (≤ 300 ms):** recalcula cobertura (M3) e restrições (M4): `CLT_INTERJORNADA`, `CLT_REGIME_12X36`, `CLT_DSR_35H`, `CLT_SETIMO_DIA`, `CLT_DOMINGO_PERIODICIDADE`, `CLT_JORNADA_DIARIA`.
 - **Estados:** conflito de edição concorrente (ETag/`If-Match`) → recarregar/mesclar; erro de salvamento mantém alterações locais.
 
-### T6 · Comparador de Cenários
+### T6 · Comparador de Cenários [Fase 2]
 - **Objetivo:** comparar até 5 cenários pela **cobertura e headcount** (FR-22), ex.: baseline 6x1 · 12x36 · 6x2 (4T) · 4x2 (5T) · 5 turmas.
 - **Linhas:** turmas; headcount sem/com reserva; h/sem média por pessoa; % horas-posto cobertas; horas-posto em déficit; pico de subcobertura; excesso (%); furos no intervalo; violações ERRO/ALERTA; delta vs. baseline; melhor valor marcado ★ + texto. Linhas de custo aparecem apenas com o Módulo 6 (P2).
 - **Validações:** mesma operação e mesma demanda (senão aviso "bases distintas"); cenários desatualizados → recalcular; inviáveis com tarja.
 - **Ações:** exportar comparativo (XLSX), abrir cenário, homologar o escolhido.
 
-### T7 · Homologação e Exportação
+### T7 · Homologação e Exportação [Fase 2 — export CSV/XLSX é MVP via botão em T4]
 - **Checklist:** 0 achados `ERRO` (ou dispensados por `legal_reviewer` com justificativa); alertas com ciência; ACT/CCT anexado se revezamento 8 h; aprovação.
 - **Exportações (FR-23):** XLSX com abas `Escala`, `Cobertura168h`, `KPIs`, `Violacoes`, `Parametros`; CSV por aba. Layouts WFM/AFDT/ACJEF e calendário pessoal: **Fase 2/3**.
 - **Validações:** "Homologar" desabilitado com `ERRO` pendente; cenário homologado é somente leitura (alterações geram nova versão).
@@ -210,7 +217,7 @@ flowchart TD
 
 ## 4. Fluxos por cenário de uso
 
-### 4.1 Cenário 1 — Planta industrial: 6x1 → 6x2 com 4 turmas
+### 4.1 Cenário 1 — Planta industrial: 6x1 → 6x2 com 4 turmas [MVP]
 
 ```mermaid
 sequenceDiagram
@@ -242,7 +249,7 @@ sequenceDiagram
     UI->>U: Alerta de jornada noturna computada, sugere 22-05
 ```
 
-### 4.2 Cenário 2 — Hospital 12x36: furo em feriado e folguista
+### 4.2 Cenário 2 — Hospital 12x36: furo em feriado e folguista [Fase 2 — feriados, folguistas e T5]
 
 ```mermaid
 sequenceDiagram
@@ -277,7 +284,7 @@ flowchart LR
     I -- Sim --> G
 ```
 
-### 4.3 Cenário 3 — Quantas turmas preciso? (4x2 vs. 5 turmas vs. 6x2)
+### 4.3 Cenário 3 — Quantas turmas preciso? (4x2 vs. 5 turmas vs. 6x2) [MVP parcial: simular os cenários em sequência; comparador T6 Fase 2]
 
 ```mermaid
 sequenceDiagram
@@ -298,7 +305,7 @@ sequenceDiagram
 
 ---
 
-### 4.4 Cenário 4 — UTI com cargos: enfermeiro cobre técnico, não o contrário (v3.2)
+### 4.4 Cenário 4 — UTI com cargos: enfermeiro cobre técnico, não o contrário (v3.2) [MVP — sem habilidades]
 
 1. Gestor cadastra cargos em T8.1 (Enfermeiro nível 3, Técnico de enfermagem nível 2, Supervisor nível 4) e em T8.2 marca **Enfermeiro → Técnico ✓ 1,0 (prioridade 2)**, **Supervisor → Enfermeiro ✓ (vale para mínimo)**.
 2. Em T2.2 fixa **K = 4** (modo Fixo) e tamanho máx. 6 por turma.
@@ -324,14 +331,14 @@ flowchart TD
     J --> L
 ```
 
-### 4.5 Cenário 5 — K fixo pelo sindicato e escala personalizada (v3.2)
+### 4.5 Cenário 5 — K fixo pelo sindicato e escala personalizada (v3.2) [MVP parcial: K fixo + sequência personalizada no passo 3.4; T2.2/T9 Fase 2]
 
 1. ACT limita a operação a **K = 4 turmas** (T2.2 modo Fixo). Demanda 3 postos 24/7.
 2. Passo 3.4: 5 turmas e 3x2 aparecem "excede limite de turmas"; 4x2 com K = 4 mostra `COB_K_INSUFICIENTE` (11,1% dos turnos-dia descobertos).
 3. Gestor abre T9 a partir do 6X2 ("Duplicar e editar"), troca para `[M,M,T,T,N,N,F,F]` com intervalo escalonado e adiciona camada de reforço 5x2 INT 10–18 (FR-30).
 4. Validação ao vivo: K\* = 4 exato, 42 h/sem, menor interjornada 24 h → salva template "6x2 + reforço" para a organização (FR-31) e simula.
 
-## 5. Fluxo de Homologação e Exportação
+## 5. Fluxo de Homologação e Exportação [Fase 2 — exceto export, MVP]
 
 ```mermaid
 flowchart TD
@@ -387,32 +394,32 @@ flowchart TD
 
 ## 7. Rastreabilidade
 
-| Requisito (`01-PRD.md`) | Telas |
-|---|---|
-| FR-01/02 Curva 168 h / postos fixos | 3.2 |
-| FR-03 Shrinkage D/N | 3.3 |
-| FR-04 Erlang-C (P2) | 3.2 (desabilitado) |
-| FR-05/06/07 Turmas, gerador, rotação customizada | 3.4, T4 `escala` |
-| FR-08 Dimensionamento K/headcount | painel Resumo T3, 3.4, T4 card "Como fechar o déficit" |
-| FR-09 Cobertura e heatmap | T4 `cobertura`, T2.1 |
-| FR-10 Furos no intervalo | 3.4, T4 `cobertura` |
-| FR-11 Cobertura com shrinkage | 3.3, T4 `cobertura` |
-| FR-12 Folgas e feriados | 3.1, T4 `cobertura`/`escala`, T5 |
-| FR-13 Folguistas/volantes | 3.3, 3.4, T4, T5 |
-| FR-14 KPIs de cobertura | cabeçalho T4, T6 |
-| FR-15–FR-20 Viabilidade CLT | 3.1, 3.4, T4 `viabilidade`, T5 |
-| FR-21 Calendário cíclico | T4 `escala` |
-| FR-22 Comparador operacional | T6 |
-| FR-23 Export | T7 |
-| FR-24 Salvar/duplicar/versionar | T2.1, T3, T5 |
-| FR-28 Catálogo ampliado | 3.4, T8.3 |
-| FR-29 Construtor de escala | T9, 3.4 |
-| FR-30 Mix de camadas (P1) | 3.4, T9, T4 `cobertura` |
-| FR-31 Templates da organização (P1) | T8.3, T9 |
-| FR-32/33 K e tamanho de turma | T2.2, 3.4, T4 |
-| FR-34 Cargos e habilidades | T8.1, 3.2, 3.4 |
-| FR-35 Matriz de substituição | T8.2, T4 `cobertura` (filtro por cargo) |
-| FR-36 Mínimo por cargo | 3.2, T4 |
-| FR-37/38 Proporções, multi-skill (P2) | 3.2 (desabilitado), T8.2 |
-| FR-25–27 Financeiro (P2) | T4 `custos`, 3.5 (oculto no MVP) |
-| NFR-01/03/06 | T4 (desempenho, auditoria, acessibilidade) |
+| Requisito (`01-PRD.md`) | Telas | Fase (v3.3) |
+|---|---|---|
+| FR-01/02 Curva 168 h / postos fixos | 3.2 | MVP |
+| FR-03 Shrinkage D/N | 3.3 | MVP |
+| FR-04 Erlang-C (P2) | 3.2 (desabilitado) | P2 |
+| FR-05/06/07 Turmas, gerador, rotação customizada | 3.4, T4 `escala` | MVP |
+| FR-08 Dimensionamento K/headcount | painel Resumo T3, 3.4, T4 card "Como fechar o déficit" | MVP |
+| FR-09 Cobertura e heatmap | T4 `cobertura`, T2.1 | MVP |
+| FR-10 Furos no intervalo | 3.4, T4 `cobertura` | Fase 2 |
+| FR-11 Cobertura com shrinkage | 3.3, T4 `cobertura` | MVP |
+| FR-12 Folgas e feriados | 3.1, T4 `cobertura`/`escala`, T5 | Fase 2 |
+| FR-13 Folguistas/volantes | 3.3, 3.4, T4, T5 | Fase 2 |
+| FR-14 KPIs de cobertura | cabeçalho T4, T6 | MVP (T6: Fase 2) |
+| FR-15–FR-20 Viabilidade CLT | 3.1, 3.4, T4 `viabilidade`, T5 | MVP parcial (FR-15, 16, 20); FR-17–19 Fase 2 |
+| FR-21 Calendário cíclico | T4 `escala` | MVP |
+| FR-22 Comparador operacional | T6 | Fase 2 |
+| FR-23 Export | T7 | MVP (botão em T4) |
+| FR-24 Salvar/duplicar/versionar | T2.1, T3, T5 | MVP salvar; Fase 2 duplicar/versionar |
+| FR-28 Catálogo ampliado | 3.4, T8.3 | MVP essencial (10 modelos) |
+| FR-29 Construtor de escala | T9, 3.4 | MVP básico (3.4); T9 Fase 2 |
+| FR-30 Mix de camadas (P1) | 3.4, T9, T4 `cobertura` | Fase 2 |
+| FR-31 Templates da organização (P1) | T8.3, T9 | Fase 2 |
+| FR-32/33 K e tamanho de turma | T2.2, 3.4, T4 | MVP K fixo/mín (3.4); T2.2 e FR-33 Fase 2 |
+| FR-34 Cargos e habilidades | T8.1, 3.2, 3.4 | MVP cargos (3.3); T8.1/habilidades Fase 2 |
+| FR-35 Matriz de substituição | T8.2, T4 `cobertura` (filtro por cargo) | MVP tabela (3.3) + filtro T4; T8.2 Fase 2 |
+| FR-36 Mínimo por cargo | 3.2, T4 | MVP (3.3) |
+| FR-37/38 Proporções, multi-skill (P2) | 3.2 (desabilitado), T8.2 | P2 |
+| FR-25–27 Financeiro (P2) | T4 `custos`, 3.5 (oculto no MVP) | P2 |
+| NFR-01/03/06 | T4 (desempenho, auditoria, acessibilidade) | MVP (NFR-01 com 200 colab) |
