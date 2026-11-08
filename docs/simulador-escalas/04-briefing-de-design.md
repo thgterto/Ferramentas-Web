@@ -1,10 +1,10 @@
 # 04 — Briefing de Design · Simulador Operacional de Cobertura 24/7
 
-> Documento para o(a) designer de produto. Base: `01-PRD.md` (PRD v3.3, IDs FR-xx; MVP de 4 sprints) e `03-fluxo-do-app.md` (telas T0–T9, rotas e passos do wizard). **Posicionamento:** simulador **operacional** — a tela-herói é o heatmap de cobertura; viabilidade CLT aparece como restrição; custos são módulo P2. Stack-alvo: React 19 + Tailwind (`frontend/`, hoje com `tailwind.config.js` sem extensões — este briefing propõe os tokens).
+> Documento para o(a) designer de produto. Base: `01-PRD.md` (PRD v3.4 — regime legal / fim da 6x1; IDs FR-xx; MVP de 4 sprints) e `03-fluxo-do-app.md` (telas T0–T9, rotas e passos do wizard). **Posicionamento:** simulador **operacional** — a tela-herói é o heatmap de cobertura; viabilidade CLT aparece como restrição; custos são módulo P2. Stack-alvo: React 19 + Tailwind (`frontend/`, hoje com `tailwind.config.js` sem extensões — este briefing propõe os tokens).
 
 ---
 
-> **Corte do MVP (v3.3, 4 sprints — `06` §3.4):** componentes e wireframes marcados **[MVP]**, **[MVP parcial]**, **[Fase 2]** ou **[P2]**. Interface mínima do MVP: wizard (8.7, 8.8), heatmap 7×24 com filtro por cargo (8.1), cards de KPI (8.3), calendário de turmas (8.2) e painel de achados (8.4), com os tokens da §14. Componentes ricos (8.9–8.11, 8.13 completo) e comparador (8.6) são Fase 2. Desktop ≥ 1280 px no MVP (NFR-07).
+> **Corte do MVP (v3.3, 4 sprints — `06` §3.4):** componentes e wireframes marcados **[MVP]**, **[MVP parcial]**, **[Fase 2]** ou **[P2]**. Interface mínima do MVP: wizard (8.7, 8.8), heatmap 7×24 com filtro por cargo (8.1), cards de KPI (8.3), calendário de turmas (8.2) e painel de achados (8.4), **v3.4:** linha do tempo da transição (8.14) e selo de conformidade por regime (8.15), com os tokens da §14. Componentes ricos (8.9–8.11, 8.13 completo) e comparador (8.6) são Fase 2. Desktop ≥ 1280 px no MVP (NFR-07).
 
 ## 1. Objetivos de design
 
@@ -61,6 +61,12 @@ Severidades canônicas (`01-PRD.md` Apêndice A): **Erro** (escala inviável / b
 | Erro | `COB_TURMA_ABAIXO_MINIMO` | Turma C abaixo do mínimo | A Turma C tem 2 pessoas; o mínimo definido é 3. | FR-33 | Ajustar tamanho |
 | Info | `COB_COBERTURA_POR_SUBSTITUICAO` | Técnico coberto por enfermeiro | 14 h-posto de técnico nesta semana são cobertas por enfermeiros excedentes. | FR-35 | Ver horas |
 | Info | `COB_PADRAO_NAO_EXATO` | Sequência não fecha com turmas inteiras | Esta sequência precisa de 4,5 turmas. Use 5 turmas (11% de sobra) ou 9 meias-turmas. | FR-29 | **Usar 9 meias-turmas** |
+| Erro | `CLT_CARGA_SEMANAL_EXCEDIDA` | 6x2 passa do limite de 40 h | Cada turma faz em média 42 h por semana; no regime de 40 h o limite é 40 h. | EC fim da 6x1 (premissa) · FR-40 | **Usar 5 turmas** · Ver alternativas |
+| Erro | `CLT_FOLGAS_SEMANAIS_INSUFICIENTES` | Menos de 2 folgas por semana | Na 6x2 cada turma folga em média 1,75 dia por semana; o regime de 40 h pede 2. | EC fim da 6x1 (premissa) · FR-40 | Trocar modelo |
+| Erro | `CLT_ESCALA_6X1_VEDADA` | 6x1 não é permitida neste regime | A 6x1 só vale no regime atual de 44 h. Ela aparece aqui apenas como base de comparação. | EC fim da 6x1 (premissa) · FR-40 | **Comparar com 5x2 / 5 turmas** |
+| Alerta | `CLT_VIAVEL_SOMENTE_COM_ACT` | Só é viável com acordo ou convenção coletiva | Turnos de 10 h na 4x3 passam de 8 h por dia; o regime admite compensação apenas por ACT/CCT. | CLT art. 59 §2º · FR-40 | **Informar ACT/CCT** |
+| Alerta | `CLT_REGIME_PENDENTE_REGULAMENTACAO` | 12x36 depende de lei ainda não publicada | A 12x36 continua autorizada, mas as regras no regime de 40 h virão em lei ordinária. Resultado sujeito a revisão. | CLT art. 59-A · FR-40 | Ver premissas |
+| Info | `INFO_REGIME_PREMISSA` | Regime baseado em premissa | Parâmetros do regime de 40 h vêm de reportagens sobre a PEC; o texto promulgado ainda não foi confirmado. | `01` §8.1 | Ver fontes |
 | Info | `INFO_DIVERGENCIA_59A_SUMULA60` | Prorrogação noturna na 12x36 | Há divergência entre art. 59-A e Súmula 60; usamos o parâmetro da CCT. | CLT art. 59-A · Súmula 60 TST | Ver detalhe |
 
 ### Outros exemplos
@@ -223,10 +229,22 @@ Validadas com `dataviz/scripts/validate_palette.js` (claro: todos PASS; escuro: 
 - **Tabela cargo × KPI**: demanda (h-posto), coberto pelo próprio cargo, por substituição, déficit, horas sem qualificado (ERRO em destaque).
 - Cores de cargo: **não** usar as cores de turma; cargo é identificado por **rótulo + ícone** (estetoscópio, chave, escudo) e, quando precisar de cor, pela escala neutra/primária com padrão.
 
-### 8.13 Controle de turmas (K) e tamanho (T2.2, passo 3.4) [MVP parcial: campo numérico K + modo fixo/mínimo; slider, faixa e tamanho Fase 2]
+### 8.13 Controle de turmas (K) e tamanho (T2.2, passo 3.4) [MVP parcial: campo numérico K + modo fixo; mínimo (v3.4), slider, faixa e tamanho Fase 2]
 - Segmented **Fixo | Faixa | Livre**; Fixo = stepper numérico; Faixa = slider de dois polegares 1–12 com marca vertical em **K\*** do modelo ("K\* = 4,5"); Livre = texto "o motor sugere o menor K".
 - Abaixo, "cobertura alcançável com K = 4: 88,9% · déficit 56 h-posto/sem" (atualiza ao mover). Tamanho por turma: par de inputs mín./máx. + toggle "permitir meias-turmas" (mostra A1/A2 nos badges).
 - Turmas com tamanhos diferentes: tabela turma × cargo (composição), totais por turma e alerta inline `COB_TURMA_ABAIXO_MINIMO`.
+
+### 8.14 Linha do tempo da transição (passo 3.1, T4 bloco "Simular transição") [MVP — v3.4]
+- Faixa horizontal com **3 segmentos** em ordem fixa: `44 h · atual` → `42 h · transição` → `40 h · regime-alvo`, cada um com rótulo, intervalo de vigência ("até D0 + 59 dias", "D0 + 60 d → D0 + 14 meses", "a partir de D0 + 14 meses"; datas reais quando conhecidas) e marcador "hoje"/"data de referência" (losango + texto).
+- Segmento selecionado = borda `primary` 2 px + rótulo em negrito; os demais em `surface-2`. **Não** usar cores de turma nem de cobertura; a fase não é severidade.
+- Sob cada segmento (no T4): **turmas**, **pessoas**, **h/sem** e o **selo de conformidade** (8.15) do modelo do cenário; Δ pessoas vs. 44 h em texto ("+5 pessoas"). Clique no segmento = "Criar cenário desta fase".
+- Selo "Premissa — texto promulgado não confirmado" (ícone i, cor `sev-info`) fixado à direita da faixa enquanto o regime tiver status `premissa`.
+- Acessibilidade: `role="list"` com 3 `listitem`; cada item com `aria-current="step"` na fase escolhida e `aria-label` completo ("Regime 40 horas, a partir de fevereiro de 2028, 45 pessoas, conforme"). Variante MVP enxuta: a mesma informação em tabela (ordem de sacrifício R1 do `06`).
+
+### 8.15 Selo de conformidade por regime (cards do passo 3.4, cabeçalho da aba `viabilidade`) [MVP — v3.4]
+- Pílula com **ícone + texto** (nunca só cor), reutilizando tokens de severidade (§5.3): **Conforme** (`sev-ok`, escudo ✓) · **Só com ACT/CCT** (`sev-alerta`, triângulo !) · **Regime especial** (`sev-info`, círculo i, tooltip "pendente de lei ordinária") · **Não conforme** (`sev-erro`, octógono ✕) · **Baseline** (neutro `ink-muted`, ícone ⟲ — só para `6X1_BASE` fora do 44 h).
+- Variante **mini-linha 44 / 42 / 40** no card do catálogo: três pílulas compactas (`44 ✓ · 42 ✓ · 40 ✕`) com a do regime do cenário em destaque; tooltip com a conta ("6×8×7/8 = 42 h > 40 h · folgas 1,75 < 2") e o **ajuste sugerido** ("+1 turma → 5 turmas", "4x2 com 9 meias-turmas", "compensação via ACT/CCT").
+- Texto do selo vem do `legal_status` por regime da API (`regime_compliance`); o frontend não recalcula (NFR-02).
 
 ### Outros
 Botões (primário, secundário, fantasma, destrutivo), inputs com máscara pt-BR, select de escala com descrição, badge de turma, chip de filtro, toast, modal, drawer de detalhes, tooltip, skeleton, banner de premissas, trilha de auditoria (timeline).
@@ -355,19 +373,32 @@ Para cada componente documentar: **padrão, hover, foco (visível), ativo, desab
 └───────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
+### 11.7 Simular transição (T4, bloco) [MVP — v3.4]
+```
+┌─ Simular transição · 10 postos 24/7 · 3×8 h ─────────── ⓘ Premissa: texto promulgado não confirmado ┐
+│  ◆ hoje                                                                                            │
+│ ┌ 44 h · atual ──────────┐→┌ 42 h · transição ──────┐→┌ 40 h · regime-alvo ════════════┐          │
+│ │ até D0+59 d            │ │ D0+60 d → D0+14 m      │ │ a partir de D0+14 meses        │          │
+│ │ 6x2 · 4 turmas · 40 p. │ │ 6x2 · 4 turmas · 40 p. │ │ 6x2 ✕ Não conforme (42 h; 1,75)│          │
+│ │ 42 h/sem  [✓ Conforme] │ │ 42 h/sem  [✓ Conforme] │ │ → 4x2 9 meias · 45 p. · 37,3 h │          │
+│ │                        │ │                        │ │   [✓ Conforme]  +5 pessoas     │          │
+│ └────────────────────────┘ └────────────────────────┘ └──────[Criar cenário desta fase]─┘          │
+└────────────────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
 ## 12. Referências
 
 - Visualização: Datawrapper, Observable Plot, IBM Carbon Data Viz, ferramenta `dataviz` (validador de paleta usado aqui).
 - Design systems densos: IBM Carbon, Atlassian, GitHub Primer, Linear (estados), Stripe Dashboard (tabelas financeiras).
 - Escalas/WFM: Quinyx, Deputy, When I Work, Kronos/UKG (calendários de turnos) — como referência de padrões, não de estilo.
 - Acessibilidade: WCAG 2.2, ARIA APG (padrão *Grid*), Coblis/Sim Daltonism para simular CVD.
-- Legislação para microcopy: CLT arts. 58, 59, 66, 67, 71, 73; CF/88 art. 7º XIV; Súmulas 60, 110, 423, 444 TST.
+- Legislação para microcopy: CLT arts. 58, 59, 66, 67, 71, 73; CF/88 art. 7º XIV; Súmulas 60, 110, 423, 444 TST; **(v3.4) PEC do fim da 6x1 — premissas e fontes no `01` §8.1** (texto promulgado a confirmar).
 
 ## 13. Entregáveis esperados do designer
 
 1. Biblioteca Figma com tokens (variáveis claro/escuro) espelhando a seção 14.
 2. Componentes da seção 8 com todas as variantes e estados da seção 9.
-3. Protótipo navegável: wizard completo → resultado (heatmap) → déficit → "Como fechar o déficit" → ajuste de escala → comparador → export; e (v3.2) cadastro de cargos → matriz de substituição → construtor de escala → heatmap filtrado por cargo.
+3. Protótipo navegável: wizard completo → resultado (heatmap) → déficit → "Como fechar o déficit" → ajuste de escala → comparador → export; (v3.4) passo 1 com regime legal → card com selo 44/42/40 → bloco "Simular transição"; e (v3.2) cadastro de cargos → matriz de substituição → construtor de escala → heatmap filtrado por cargo.
 4. Telas em 1440, 1024 (tablet paisagem) e 768 (retrato); estados vazio/carregando/erro.
 5. Especificação de interação do heatmap e da grade 168 h (teclado, seleção, tooltip).
 6. Guia de microcopy (alertas por regra) e glossário.
@@ -436,5 +467,6 @@ export default {
 body { background: rgb(var(--bg)); color: rgb(var(--text)); font-feature-settings: "tnum" 1, "cv11" 1; }
 .pattern-deficit { background-image: repeating-linear-gradient(45deg, currentColor 0 2px, transparent 2px 5px); }
 .pattern-low     { background-image: repeating-linear-gradient(45deg, currentColor 0 1px, transparent 1px 7px); }
+.regime-seg[aria-current="step"] { outline: 2px solid rgb(var(--primary)); font-weight: 600; } /* v3.4: linha do tempo — sem cor nova */
 .pattern-over    { background-image: radial-gradient(currentColor 1px, transparent 1.5px); background-size: 6px 6px; }
 ```

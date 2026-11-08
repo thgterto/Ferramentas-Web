@@ -3,7 +3,7 @@
 | Metadado | Detalhe |
 | :--- | :--- |
 | **Documento** | Technical Requirements Document (TRD) |
-| **Base** | `01-PRD.md` (PRD v3.3 — MVP enxuto em 4 sprints; v3.2 — simulador operacional de cobertura; catálogo ampliado, construtor, K e cargos como restrições; IDs FR-xx canônicos). Esquema e API detalhados: `05-esquema-backend.md` |
+| **Base** | `01-PRD.md` (PRD v3.4 — regime legal versionado / fim da 6x1, FR-39–42; v3.3 — MVP enxuto em 4 sprints; v3.2 — simulador operacional de cobertura; catálogo ampliado, construtor, K e cargos como restrições; IDs FR-xx canônicos). Esquema e API detalhados: `05-esquema-backend.md` |
 | **Repositório** | `Ferramentas-Web` — `frontend/` (React 19 + TS + Vite 7 + Tailwind 4) e `backend/` (FastAPI) |
 | **Status** | Proposto |
 | **Data** | Novembro de 2026 |
@@ -15,9 +15,9 @@
 > | Módulo | MVP (P0) | Fase 2 |
 > | :--- | :--- | :--- |
 > | M1 demanda + shrinkage | tudo (FR-01–03) | Erlang-C (FR-04, P2) |
-> | M2 gerador + M2b | gerador genérico; catálogo essencial (10 modelos: `6X1_BASE`, `5X2`, `12X36`, `6X2`, `4X2`, `2X2_12H`, `5T`, `4X3`, `FIXO_D`, `FIXO_N`); `validar_padrao` básico (sequência + horários + offsets) | catálogo restante, `R`, folgas fixas, camadas, templates, ciclo em horas, split |
-> | M3 cobertura | cobertura hora a hora, 7×24, KPIs, dimensionamento, visão com reserva; K fixo/mínimo por operação; cargos com matriz direcional (f = 1,0) + mínimo por cargo por turno (`min_cost_flow`) | feriados (FR-12), furos no intervalo (FR-10), folguistas (FR-13, `folguistas.py`), K faixa/livre e tamanho de turma (FR-33), habilidades, substituição parcial (LP) |
-> | M4 viabilidade | `CLT_INTERJORNADA`, `CLT_DSR_35H`, `CLT_SETIMO_DIA`, `CLT_JORNADA_DIARIA`, `CLT_MEDIA_SEMANAL` (8/7) | domingo, revezamento, 12x36, intrajornada, tempo parcial, Súmula 60, `valida_incremental` |
+> | M2 gerador + M2b | gerador genérico; catálogo essencial (10 modelos: `6X1_BASE`, `5X2`, `12X36`, `6X2`, `4X2`, `2X2_12H`, `5T`, `4X3`, `FIXO_D`, `FIXO_N`); catálogo como dados com `regime_compliance` (v3.4) | `validar_padrao` básico (v3.4: Fase 2a), catálogo restante, `R`, folgas fixas, camadas, templates, ciclo em horas, split |
+> | M3 cobertura | cobertura hora a hora, 7×24, KPIs, dimensionamento, visão com reserva; K fixo por operação; **K mínimo legal** do regime (FR-41) e simulação da transição; cargos com matriz direcional (f = 1,0) + mínimo por cargo por turno (`min_cost_flow`) | K mínimo (v3.4), feriados (FR-12), furos no intervalo (FR-10), folguistas (FR-13, `folguistas.py`), K faixa/livre e tamanho de turma (FR-33), habilidades, substituição parcial (LP) |
+> | M4 viabilidade | `CLT_INTERJORNADA`, `CLT_DSR_35H`, `CLT_SETIMO_DIA`, `CLT_JORNADA_DIARIA`, `CLT_MEDIA_SEMANAL` (8/7); **v3.4 regime legal** (§5.5.2): `CLT_CARGA_SEMANAL_EXCEDIDA`, `CLT_FOLGAS_SEMANAIS_INSUFICIENTES`, `CLT_ESCALA_6X1_VEDADA`, `CLT_VIAVEL_SOMENTE_COM_ACT`, `CLT_REGIME_PENDENTE_REGULAMENTACAO`, `INFO_REGIME_PREMISSA` | domingo, revezamento, 12x36, intrajornada, tempo parcial, Súmula 60, `valida_incremental` |
 > | M5 CP-SAT / M6 financeiro | — (sem otimizador) | Fase 2 / P2 |
 > | Infra | FastAPI síncrono, Postgres 16 + RLS, JWT de acesso, NFR-01 com 200 colaboradores | Celery/Redis, refresh token, observabilidade, 1.000 colaboradores |
 
@@ -99,6 +99,7 @@ backend/app/services/engine/
   folguistas.py                                     # M3 folguistas [Fase 2]
   turmas_k.py  cobertura_cargos.py                  # M3 restrição de K e matriz de cargos [MVP parcial]
   noturno.py  compliance/ (regras, registro.py)     # M4 [MVP parcial]
+  regime_legal.py                                   # M4 regime legal versionado + transição (v3.4) [MVP]
   otimizador.py                                     # M5 [Fase 2]
   financeiro.py                                     # M6 [P2]
 backend/alembic/                                    # migrações
@@ -147,6 +148,7 @@ erDiagram
   positions ||--o{ demand_curves : tem
   demand_curves ||--o{ demand_slots : "168 slots"
   operations ||--o{ scenarios : simula
+  legal_regimes ||--o{ scenarios : "regime legal (v3.4)"
   scenarios }o--|| schedule_models : usa
   scenarios }o--o| rotation_patterns : segue
   scenarios ||--o{ teams : "turmas A..F + folguistas"
@@ -173,6 +175,7 @@ erDiagram
 - `scenarios`: `inputs_hash` (SHA-256 do JSON canônico), `engine_version`, `rules_version`, KPIs de cobertura desnormalizados — reprodutibilidade e cache.
 - `coverage_results`: por slot, `required_net`, `required_gross`, `scheduled`, `expected` (com shrinkage), `break_gap`, `status`.
 - v3.2: `roles`, `skills`, `role_skills`, `employee_skills` (Fase 2), `substitution_rules`, `role_coverage_requirements`, `team_constraints`, `custom_schedule_patterns` (+ `_versions`), `scenario_layers`, `team_role_composition`, `coverage_role_results` — DDL em `05` §3.12.
+- v3.4: `legal_regimes` (global, versionado: carga semanal máx., jornada diária máx., folgas semanais mín., `permite_6x1`, compensação ACT/CCT, regimes especiais, vigência) + `scenarios.legal_regime_id`/`legal_reference_date`/`legal_regime_resolved` — DDL em `05` §3.13.
 - `labor_agreements`: `night_premium_pct`, `allows_8h_rotating`, `sunday_off_max_interval_weeks`, vigência.
 
 ---
@@ -295,13 +298,13 @@ heat_media = gap.reshape(-1, 7, 24).mean(axis=0)
 
 **KPIs (FR-14)**, todos `O(D·24)`: `pct_horas_posto = Σ min(cob, req) / Σ req`; `deficit_hp = Σ max(0, −gap)`; `pico = max(−gap)` + `argmax` → (data, hora); `horas_deficit = count(gap < 0)`; `excesso_hp = Σ max(0, gap)`; `furos_intervalo_hp`.
 
-**Dimensionamento (FR-08):** `K* = s·L/w` (ver §5.3) → `headcount_min = ceil(K*)·postos`; com reserva, `headcount_reserva = ceil(Σ_turno postos/(1−S_turno)) × K*` ou nº mínimo de folguistas (abaixo). Achado `COB_TURMAS_INSUFICIENTES` quando `K < K*`.
+**Dimensionamento (FR-08, FR-41 v3.4):** `K* = max(s·L/w, arred(K_legal))`, `K_legal = horas_posto_semana/posto ÷ regime.carga_semanal_max_h` (168/40 = 4,2 → 5, ou 4,5 com meias-turmas; ver `01` §6.2) → `headcount_min = ceil(K*)·postos`; com reserva, `headcount_reserva = ceil(Σ_turno postos/(1−S_turno)) × K*` ou nº mínimo de folguistas (abaixo). Achado `COB_TURMAS_INSUFICIENTES` quando `K < K*`.
 
 **Folguistas (FR-13):** heurística gulosa determinística — ordenar horas de déficit por (data, hora); para cada bloco de déficit, alocar um folguista no turno que o cobre, se `M4.valida_incremental(folguista, turno)` não gerar `ERRO`; repetir até zerar ou esgotar folguistas (`COB_FOLGUISTA_INSUFICIENTE`). "Calcular mínimo" = busca incremental de 0..F_max folguistas (F_max ≤ K). Na Fase 2, CP-SAT (M5) substitui a heurística.
 
 Achados de cobertura: `COB_DEFICIT`, `COB_DEFICIT_POSTO_CRITICO`, `COB_EXCESSO`, `COB_FURO_INTERVALO`, `COB_DEFICIT_ESPERADO_SHRINKAGE`, `COB_TURMAS_INSUFICIENTES`, `COB_FOLGUISTA_INSUFICIENTE` e, v3.2, `COB_PADRAO_NAO_EXATO`, `COB_K_INSUFICIENTE`, `COB_K_ACIMA_NECESSARIO`, `COB_TURMA_ABAIXO_MINIMO`, `COB_TURMA_ACIMA_MAXIMO`, `COB_CARGO_SEM_QUALIFICADO`, `COB_DEFICIT_CARGO`, `COB_COBERTURA_POR_SUBSTITUICAO`, `COB_LIMITE_FORA_CARGO`, `COB_PROPORCAO_VIOLADA` (catálogo: `01-PRD.md` Apêndice A).
 
-### 5.4.1 M3 — Turmas (K) como restrição (FR-32, FR-33) [MVP parcial: K fixo/mínimo por operação; faixa/livre e FR-33 Fase 2]
+### 5.4.1 M3 — Turmas (K) como restrição (FR-32, FR-33) [MVP parcial: K fixo por operação; mínimo (v3.4), faixa/livre e FR-33 Fase 2]
 
 Entrada: `TeamConstraint{escopo: operação|posto|cargo|camada, modo: fixo|faixa|livre, k_min, k_max, k_fixo, tamanho_min, tamanho_max, permite_meias}`.
 
@@ -352,6 +355,12 @@ Códigos canônicos (`01-PRD.md` Apêndice A). Severidade: `ERRO` = escala invi�
 | `CLT_JORNADA_DIARIA` **MVP** | ALERTA (ERRO se > 10h fora de 12x36) | Jornada computada (com hora noturna reduzida) > 8h | CLT arts. 58, 59, 73 | FR-20 |
 | `CLT_INTRAJORNADA` *Fase 2* | ALERTA | Jornada > 6h com intervalo < 1h (ou < 30 min com CCT); intervalo > 2 h (split) sem acordo | CLT art. 71; 611-A, III | FR-10, FR-20, FR-28 |
 | `CLT_MEDIA_SEMANAL` **MVP** | ALERTA | Média no ciclo > carga contratual (alimenta HE no M6, P2) | CF art. 7º, XIII | FR-20 |
+| `CLT_CARGA_SEMANAL_EXCEDIDA` **MVP v3.4** | ERRO (ALERTA c/ `he_planejada` no 44 h) | Média no ciclo > `regime.carga_semanal_max_h` | CF art. 7º, XIII + EC do fim da 6x1 (premissa, `01` §8.1) | FR-40 |
+| `CLT_FOLGAS_SEMANAIS_INSUFICIENTES` **MVP v3.4** | ERRO | Folgas/7 d (média no ciclo ou toda janela) < `regime.folgas_semanais_min` | idem | FR-40 |
+| `CLT_ESCALA_6X1_VEDADA` **MVP v3.4** | ERRO | ≤ 1 folga/7 d com `regime.permite_6x1 = false` | idem | FR-40 |
+| `CLT_VIAVEL_SOMENTE_COM_ACT` **MVP v3.4** | ALERTA (INFO com ACT/CCT declarado) | Excede jornada/carga do regime mas o regime admite compensação por ACT/CCT; 12 h fora de 12x36 | idem; CLT art. 59 §2º | FR-40 |
+| `CLT_REGIME_PENDENTE_REGULAMENTACAO` **MVP v3.4** | ALERTA | Modelo em regime especial com política `autorizado_pendente_lei` (12x36 no 40 h) | idem; CLT art. 59-A | FR-40 |
+| `INFO_REGIME_PREMISSA` **MVP v3.4** | INFO | Regime com status `premissa` (texto promulgado não confirmado) | — | FR-39 |
 | `CLT_TEMPO_PARCIAL` *Fase 2* | ALERTA | Contrato parcial > 30 h/sem, ou > 26 h com HE > 6 h | CLT art. 58-A | FR-28 |
 | `INFO_DIVERGENCIA_59A_SUMULA60` *Fase 2* | INFO | §5.5.1 | | FR-20 |
 
@@ -370,6 +379,71 @@ def validar(turmas, ctx) -> list[Achado]:            # O(K · J_k · R), R = nº
     return achados
 ```
 Ajustes manuais (T5) e posicionamento de folguistas (M3) usam `valida_incremental(turma, jornada)`, que roda as regras só na vizinhança (±7 dias) da jornada alterada — `O(R)` por movimento, atendendo ≤ 300 ms. No MVP a unidade é a turma/folguista; validação por colaborador nominal é Fase 2.
+
+#### 5.5.2 Regime legal versionado e transição da 6x1 (FR-39–FR-42) [MVP — v3.4]
+
+As regras de carga/jornada/folgas são **dados versionados** (tabela `legal_regimes`, `05` §3.13), coerentes com o ADR-005 (regras com vigência e fonte) e o ADR-010 (modelos como dados); ver ADR-011. O motor recebe um `RegimeLegal` imutável — nunca consulta o banco — e grava `regime.code@version` no `inputs_snapshot` e em cada achado.
+
+```python
+@dataclass(frozen=True)
+class RegimeLegal:
+    code: str; version: int; status: Literal["vigente", "previsto", "premissa"]
+    valid_from: date | None; valid_to: date | None          # None = âncora D0 ainda sem data
+    carga_semanal_max_min: int                                # 44h=2640, 42h=2520, 40h=2400 (minutos)
+    jornada_diaria_max_min: int                               # 480
+    folgas_semanais_min: Fraction                             # 1 | 2
+    criterio_folgas: Literal["media_ciclo", "toda_janela_7d"]
+    permite_6x1: bool
+    compensacao_act: bool                                     # admite compensar jornada/carga por ACT/CCT
+    especiais: Mapping[str, Literal["autorizado", "autorizado_pendente_lei", "vedado"]]  # {"12X36": ...}
+
+def resolver_regime(regimes, cenario) -> RegimeLegal:        # O(R), R ≈ 3..10
+    if cenario.legal_regime_code: return regimes[cenario.legal_regime_code]
+    d = cenario.legal_reference_date or cenario.horizon_start
+    # regimes ancorados em D0 (valid_from NULL) têm as datas materializadas a partir de settings.LEGAL_D0 antes da chamada
+    vigentes = [r for r in regimes.values() if r.valid_from and r.valid_from <= d and (r.valid_to is None or d <= r.valid_to)]
+    if len(vigentes) != 1: raise RegimeNaoResolvido(d)      # 422 → wizard pede escolha explícita
+    return vigentes[0]
+
+def validar_regime(turma, padrao, regime, ctx) -> list[Achado]:   # O(L) por turma
+    L, w = len(padrao.seq), padrao.dias_trabalhados
+    media_min = Fraction(sum(jornada_computada_min(t) for t in padrao.turnos_trab), 1) * 7 / L   # 8/7 exato (noturno.py)
+    folgas_7d = Fraction(L - w, 1) * 7 / L if regime.criterio_folgas == "media_ciclo" else min_folgas_janela(padrao)
+    out = []
+    if regime.status == "premissa": out.append(Achado("INFO_REGIME_PREMISSA", "info"))
+    esp = regime.especiais.get(padrao.regime_especial)       # ex.: "12X36"
+    if esp == "autorizado_pendente_lei":
+        out.append(Achado("CLT_REGIME_PENDENTE_REGULAMENTACAO", "alerta"))
+    elif esp != "autorizado":
+        if media_min > regime.carga_semanal_max_min:
+            out.append(achado_compensavel("CLT_CARGA_SEMANAL_EXCEDIDA", regime, ctx, excesso=media_min - regime.carga_semanal_max_min))
+        if max_jornada_computada(padrao) > regime.jornada_diaria_max_min:
+            out.append(achado_compensavel("CLT_JORNADA_DIARIA", regime, ctx))   # limite do regime, não constante
+    if folgas_7d <= 1 and not regime.permite_6x1:
+        out.append(Achado("CLT_ESCALA_6X1_VEDADA", "erro"))
+    elif folgas_7d < regime.folgas_semanais_min:
+        out.append(Achado("CLT_FOLGAS_SEMANAIS_INSUFICIENTES", "erro", folgas=folgas_7d))
+    return out
+
+def achado_compensavel(codigo, regime, ctx, **det):
+    if regime.compensacao_act:                                  # só viável com ACT/CCT → alerta claro
+        sev = "info" if ctx.act_cct_declarado else "alerta"
+        return Achado("CLT_VIAVEL_SOMENTE_COM_ACT", sev, origem=codigo, **det)
+    sev = "alerta" if (codigo == "CLT_CARGA_SEMANAL_EXCEDIDA" and ctx.he_planejada and regime.code == "CLT_44H_ATUAL") else "erro"
+    return Achado(codigo, sev, **det)
+
+def k_legal(req_horas_posto_semana_por_posto, regime, meias: bool) -> Fraction:   # FR-41
+    k = Fraction(req_horas_posto_semana_por_posto * 60, regime.carga_semanal_max_min)   # 168h/40h = 21/5
+    passo = Fraction(1, 2) if meias else 1
+    return ceil(k / passo) * passo                              # 4,2 → 5 (ou 4,5)
+
+def simular_transicao(cenario, linha_do_tempo) -> list[FaseResultado]:   # O(F · custo_M1..M4), F = 3 fases
+    # Mesma demanda/turnos; para cada regime: (a) simula o modelo do cenário; (b) recomenda o modelo do catálogo
+    # essencial de menor headcount sem ERRO (respeitando K fixo, se houver) e devolve K, pessoas, h/sem e achados.
+    return [fase(cenario.with_regime(r)) for r in linha_do_tempo]           # ≈ 3 × 30 ms no MVP
+```
+
+Notas: (1) a conta de **média semanal** usa a jornada computada (8/7) — 6x2 com N 22–06 tem média > 42 h computadas; o catálogo (`01` §6.2) usa horas de relógio e o achado mostra as duas. (2) No MVP o regime é por cenário; regimes por CCT (histórico próprio) são Fase 2. (3) Mudança de seed (texto promulgado) = **nova versão** do regime; cenários antigos mantêm a versão gravada (NFR-03).
 
 #### 5.5.1 Hora noturna ficta e Súmula 60 na jornada computada (FR-20)
 
@@ -529,8 +603,8 @@ Auditoria: cada `ResultadoFinanceiro` traz `memoria_calculo` (lista de passos co
 | Nível | Ferramenta | Conteúdo |
 | :--- | :--- | :--- |
 | Unit | pytest | Cada regra de compliance e cada fórmula com casos de borda (turno cruzando meia-noite, mês de 31 dias, fevereiro, feriado em domingo) |
-| **Golden** | pytest + syrupy | Escalas conhecidas com resultado esperado conferido manualmente/por especialista: 12x36 4T, 6x2 4T `MMTTNNFF`, 4x2 5T e 9 meias-turmas, 4x2 4T (déficit esperado 11,1%), 5 turmas (L=10, 33,6h), 6x1 baseline + folguistas, intervalo não computado (furo 63 h-posto/semana com 3 postos), feriado sem folguista. Asserções: cobertura e KPIs exatos, horas fictas exatas (19–07 = 8,000000 + 2,285714 com Súmula 60), zero `CLT_*` de severidade ERRO nas escalas do catálogo; (P2) valores R$ de folha de referência |
-| **Property-based** | hypothesis | Invariantes: (a) horas fictas ≥ horas de relógio noturnas; (b) `horas_fictas · 7/8 == minutos_noturnos/60` exato; (c) cobertura total = Σ horas trabalhadas das turmas; (d) deslocar todos os offsets por `c` não altera achados (invariância a rotação); (e) qualquer sequência gerada sem `CLT_INTERJORNADA` tem todos os gaps ≥ 660 min; (f) `pct_horas_posto` é monotônico não decrescente ao acrescentar uma turma ou folguista; (g) `K < s·L/w` ⇒ sempre há déficit |
+| **Golden** | pytest + syrupy | Escalas conhecidas com resultado esperado conferido manualmente/por especialista: 12x36 4T, 6x2 4T `MMTTNNFF`, 4x2 5T e 9 meias-turmas, 4x2 4T (déficit esperado 11,1%), 5 turmas (L=10, 33,6h), 6x1 baseline + folguistas, **regime legal GT-REG-01…08 (`01` §6.2: 6x2 no 40 h → carga + folgas; transição 10 postos → 40/40/45 pessoas; 12x36 pendente de regulamentação; 4x3 só com ACT)**, intervalo não computado (furo 63 h-posto/semana com 3 postos), feriado sem folguista. Asserções: cobertura e KPIs exatos, horas fictas exatas (19–07 = 8,000000 + 2,285714 com Súmula 60), zero `CLT_*` de severidade ERRO nas escalas do catálogo; (P2) valores R$ de folha de referência |
+| **Property-based** | hypothesis | Invariantes: (a) horas fictas ≥ horas de relógio noturnas; (b) `horas_fictas · 7/8 == minutos_noturnos/60` exato; (c) cobertura total = Σ horas trabalhadas das turmas; (d) deslocar todos os offsets por `c` não altera achados (invariância a rotação); (e) qualquer sequência gerada sem `CLT_INTERJORNADA` tem todos os gaps ≥ 660 min; (f) `pct_horas_posto` é monotônico não decrescente ao acrescentar uma turma ou folguista; (g) `K < s·L/w` ⇒ sempre há déficit; (h) v3.4: para modelo exato, `CLT_CARGA_SEMANAL_EXCEDIDA` ⇔ `K*_modelo < K_legal`; (i) baixar a carga do regime nunca remove achado de regime |
 | Contrato | schemathesis sobre OpenAPI | Fuzz dos endpoints |
 | Segurança | pytest | Acesso cruzado entre orgs, JWT expirado/adulterado |
 | Performance | pytest-benchmark | Orçamento §6 no CI |
@@ -583,12 +657,14 @@ Contrato completo em **`05-esquema-backend.md` §5** (fonte da verdade). Base: *
 | `GET` | `/scenarios/{id}/financials` | *P2* Extrato de custos | FR-26 |
 | `GET` | `/jobs/{id}` | *Fase 2* Status do job | — |
 | `GET` | `/schedule-models?group=` | **MVP** (essencial; restante *Fase 2*) Catálogo com `exact_24x7`, `teams_24x7`, `teams_non_continuous`, `legal_status` | FR-28 |
-| `CRUD` | `/custom-schedule-patterns`, `POST …:validate`, `POST …/{id}:derive` | **MVP** create/get + `:validate`; `:derive`/templates *Fase 2* | FR-29, FR-31 |
+| `CRUD` | `/custom-schedule-patterns`, `POST …:validate`, `POST …/{id}:derive` | *Fase 2* (v3.4: construtor básico saiu do MVP) | FR-29, FR-31 |
 | `CRUD` | `/roles`, `/skills`, `/roles/{id}/skills` | **MVP** `/roles`; `/skills` *Fase 2* | FR-34 |
 | `GET/PUT` | `/substitution-rules` (matriz completa) | **MVP** Matriz cargo × cargo | FR-35 |
 | `CRUD` | `/positions/{id}/role-requirements` | **MVP** mínimos por cargo; habilidade/proporções *Fase 2* | FR-36, FR-37 |
-| `CRUD` | `/operations/{id}/team-constraints` | **MVP** K fixo/mínimo; faixa/livre/tamanho *Fase 2* | FR-32, FR-33 |
+| `CRUD` | `/operations/{id}/team-constraints` | **MVP** K fixo; mínimo (v3.4)/faixa/livre/tamanho *Fase 2* | FR-32, FR-33 |
 | `GET` | `/scenarios/{id}/coverage?role=` | **MVP** Cobertura/heatmap por cargo | FR-09, FR-35 |
+| `GET` | `/legal-regimes`, `/legal-regimes:resolve?date=` | **MVP v3.4** Regimes legais versionados e regime vigente na data | FR-39 |
+| `POST` | `/scenarios/{id}/transition` | **MVP v3.4** Simula a mesma operação em cada fase (44 h → 42 h → 40 h) | FR-41 |
 
 Exemplo (resumido):
 ```json
@@ -625,7 +701,7 @@ POST /api/v1/escalas/scenarios/{id}/simulate
 **Status:** Aceito. **Contexto:** NFR-02, auditoria jurídica. **Decisão:** §7. **Consequência:** M6 (P2) ~10× mais lento que float, irrelevante pois é `O(K)`.
 
 ### ADR-005: Regras de compliance como plugins versionados com fonte normativa
-**Status:** Aceito. **Contexto:** legislação e CCTs mudam (transição do 6x1). **Decisão:** registro de regras com `codigo`, `versao`, `vigencia`, `fonte`; parâmetros vindos da CCT. Simulação grava `versao_regras`. **Consequência:** resultados antigos reprodutíveis; nova lei = nova regra com vigência, sem alterar as antigas.
+**Status:** Aceito (v3.4: parâmetros legais em `legal_regimes`, ADR-011). **Contexto:** legislação e CCTs mudam (transição do 6x1). **Decisão:** registro de regras com `codigo`, `versao`, `vigencia`, `fonte`; parâmetros vindos do **regime legal** (limites legais) e da CCT (instrumento coletivo). Simulação grava `versao_regras`. **Consequência:** resultados antigos reprodutíveis; nova lei = nova regra com vigência, sem alterar as antigas.
 
 ### ADR-006: Síncrono por padrão, Celery para exceções (v3.3: MVP só síncrono; Celery na Fase 2)
 **Status:** Aceito. Celery/Redis já estão no `requirements.txt`. Simulações catalogadas síncronas; horizonte > 12 semanas, comparações > 4 cenários, exports e (Fase 2) ILP via job.
@@ -643,6 +719,9 @@ POST /api/v1/escalas/scenarios/{id}/simulate
 
 ### ADR-010: Padrões de escala como dados, não código
 **Status:** Aceito (v3.2). Todo modelo do catálogo e todo template do construtor é `seq + turnos + offsets + flags` em `rotation_patterns`/`custom_schedule_patterns`; novos modelos = seed + golden, sem código. Extensões de gerador (ciclo em horas, multibloco, `R`, folga fixa) são flags versionadas no `engine_version`.
+
+### ADR-011: Regime legal como dado versionado com vigência (fim da 6x1)
+**Status:** Aceito (v3.4). **Contexto:** a PEC do fim da 6x1 foi aprovada nas duas casas, mas o texto promulgado e as datas não estão confirmados (`01` §8.1); a transição tem fases (44 h → 42 h → 40 h) e regimes diferenciados dependem de lei ordinária. **Opções:** (A) constantes no código com feature flag; (B) parâmetros em `labor_agreements`; (C) tabela global `legal_regimes` versionada com vigência, referenciada pelo cenário (regime explícito ou data de referência). **Decisão:** C — muda por seed/migração sem deploy de motor; permite simular a mesma operação em cada fase; separa limite **legal** (regime) de cláusula **coletiva** (CCT). **Consequência:** `rules_version` passa a incluir `regime.code@version`; seeds começam com status `premissa` + `INFO_REGIME_PREMISSA`; alteração do texto = nova versão, nunca `UPDATE` destrutivo.
 
 ## 14. Riscos técnicos
 

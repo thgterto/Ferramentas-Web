@@ -1,7 +1,8 @@
 # 06 — Plano de Implementação: Simulador Operacional de Cobertura 24/7 (CLT Brasil)
 
-> Fonte: `01-PRD.md` (PRD v3.3 — IDs FR-01…FR-38, NFR-01…NFR-09 canônicos; **P0 = MVP de 4 sprints**), `02-TRD.md` (módulos do motor M1–M6), `03-fluxo-do-app.md` (telas T0–T9), `05-esquema-backend.md` (tabelas e endpoints). Estrutura inspirada nos guias `ecc:plan` / `product-management:sprint-planning`.
+> Fonte: `01-PRD.md` (PRD v3.4 — regime legal versionado / fim da 6x1, FR-39–42; v3.3 — IDs FR-01…FR-38, NFR-01…NFR-09 canônicos; **P0 = MVP de 4 sprints**), `02-TRD.md` (módulos do motor M1–M6), `03-fluxo-do-app.md` (telas T0–T9), `05-esquema-backend.md` (tabelas e endpoints). Estrutura inspirada nos guias `ecc:plan` / `product-management:sprint-planning`.
 > **v3.3 — MVP enxuto ponta a ponta em 4 sprints (~160 pts).** Entrega: motor de cobertura (M1 → M2 → M3 → M4 essencial) + API + persistência mínima + interface mínima (wizard, heatmap 7×24, calendário de turmas, painel de achados) + export CSV/XLSX. Todo o resto foi **reclassificado para a Fase 2** (§3.5) — nada foi apagado; os IDs `F*-*` antigos foram mantidos (itens reduzidos levam o sufixo **"enxuto"** e o restante do item aparece na Fase 2 como **"(resto)"**).
+> **v3.4 — regime legal no MVP (P0):** entram F1-25, F1-26, F2-12 e F3-16 (**11 pts**); para manter **40 pts/sprint** saem para a Fase 2a o **construtor básico** (F1-19, F2-11 e o modo "sequência personalizada" do wizard) e o **modo K mínimo** (parte do F1-21), e o F1-14 é absorvido pelo F1-25 — itens (3) e (4) da ordem de sacrifício pré-acordada do R1 (§7). Total continua **160 pts**.
 > Estado atual do repositório: `frontend/` (React 19 + TS 5.9 + Vite 7 + Tailwind 4, app inicial) e `backend/` (FastAPI com módulo de atas, `requirements.txt` sem versões fixadas, sem Alembic, sem testes, sem CI em `.github/`).
 
 ## 1. Premissas
@@ -10,8 +11,9 @@
 - Módulo isolado do código de atas; prefixo de API **`/api/v1/escalas`**.
 - **Corte do MVP (decisão do usuário, v3.3):**
   - **Catálogo essencial (10 modelos, FR-28 essencial):** `6X1_BASE`, `5X2`, `12X36`, `6X2`, `4X2` (5 turmas e 9 meias-turmas), `2X2_12H`, `5T`, `4X3`, `FIXO_D`, `FIXO_N`. Os demais códigos da `01` §6.1 vão para a Fase 2 (entram só como seed + golden, ADR-010).
-  - **Construtor básico (FR-29 básico):** sequência + horários dos turnos + offsets, com validação (K\*, exato, h/sem, interjornada cíclica) no passo 4 do wizard. Sem camadas/mix (FR-30), sem templates (FR-31), sem editor arrastável/T9 dedicada.
-  - **K como restrição (FR-32 enxuto):** modos **fixo** e **mínimo** por operação. Faixa/livre por posto/cargo/camada e tamanho de turma (FR-33) → Fase 2.
+  - **Regime legal versionado (v3.4, FR-39–42):** `legal_regimes` com seeds `CLT_44H_ATUAL`/`TRANSICAO_42H`/`PEC_40H` (premissas, `01` §8.1), regime explícito ou data de referência no passo 1, validação no M4 (carga, jornada, folgas, 6x1 vedada, só com ACT/CCT, pendente de regulamentação), K mínimo legal no dimensionamento, "simular transição" e selo de conformidade por regime nos cards.
+  - ~~Construtor básico (FR-29 básico)~~ → **Fase 2a (v3.4)**: trocado pelo regime legal. Sem camadas/mix (FR-30), sem templates (FR-31), sem editor arrastável/T9 dedicada.
+  - **K como restrição (FR-32 enxuto):** modo **fixo** por operação (v3.4: **mínimo** → Fase 2a). Faixa/livre por posto/cargo/camada e tamanho de turma (FR-33) → Fase 2.
   - **Cargos (FR-34–36 enxuto):** cargos (sem habilidades/certificações), matriz **direcional** A→B com fator 1,0 e **mínimo por cargo por turno**. Sem proporções (FR-37), multi-skill (FR-38), substituição parcial e limite fora do cargo (FR-35 P1).
   - **Viabilidade essencial (M4):** interjornada (FR-15), DSR 35 h/7º dia (FR-16), jornada diária/média semanal com 8/7 (FR-20). Domingo (FR-17), revezamento 6 h/8 h (FR-18) e 12x36 dobra/36 h (FR-19) → Fase 2; no MVP o card do modelo mostra a observação legal estática do catálogo ("requer ACT p/ 8 h").
   - **Sem otimizador:** sem CP-SAT; dimensionamento por fórmula `K* = s·L/w` e busca de offsets; cargos por `min_cost_flow` (ADR-009). Sem folguistas automáticos (FR-13), sem feriados (FR-12), sem furos de intervalo (FR-10) → Fase 2.
@@ -25,9 +27,9 @@
 | Sprint | Objetivo | FRs/NFRs (`01-PRD.md`) | Pts |
 |---|---|---|---|
 | **S1** Fundações enxutas + M1 + geradores | Monorepo, CI, Postgres/Alembic; domínio; demanda e shrinkage; gerador cíclico + catálogo essencial (10 modelos); harness golden | FR-01–03, FR-05, FR-06, FR-28 (essencial), NFR-02, NFR-04 | **40** |
-| **S2** M3 cobertura + K + cargos + M4 essencial | Cobertura hora a hora, KPIs, dimensionamento, visão com reserva; K fixo/mín; cobertura por cargo (matriz + mínimos); interjornada, DSR/7º dia, jornada; construtor básico | FR-07/FR-29 (básico), FR-08, FR-09, FR-11, FR-14–16, FR-20, FR-32 (enxuto), FR-34–36 (enxuto) | **40** |
-| **S3** API + persistência mínima + auth | Migrações MVP + RLS, CRUD, `simulate` síncrono, `coverage`/`sizing`, achados, cargos/matriz/K, `:validate`; auth simples; benchmark | FR-01, FR-02, FR-05–09, FR-11, FR-14–16, FR-20, FR-24 (salvar), FR-29, FR-32, FR-34–36, NFR-01 (MVP), NFR-03, NFR-05 | **40** |
-| **S4** Frontend mínimo + export + demo | Login, wizard 5 passos, heatmap 7×24 (+ filtro por cargo), KPIs, calendário de turmas, painel de achados, export CSV/XLSX, E2E, demo/beta interno | FR-01–03, FR-05–09, FR-11, FR-14–16, FR-20, FR-21, FR-23, FR-28, FR-29, FR-32, FR-34–36, NFR-06, NFR-07 | **40** |
+| **S2** M3 cobertura + K + cargos + M4 essencial + regime legal | Cobertura hora a hora, KPIs, dimensionamento (com K mínimo legal), visão com reserva; K fixo; cobertura por cargo (matriz + mínimos); interjornada, DSR/7º dia, jornada; **regime legal e transição (v3.4)** | FR-08, FR-09, FR-11, FR-14–16, FR-20, FR-32 (fixo), FR-34–36 (enxuto), **FR-39–42** | **40** |
+| **S3** API + persistência mínima + auth | Migrações MVP + RLS, CRUD, `simulate` síncrono, `coverage`/`sizing`, achados, cargos/matriz/K, **`legal_regimes` + `transition` (v3.4)**; auth simples; benchmark | FR-01, FR-02, FR-05–09, FR-11, FR-14–16, FR-20, FR-24 (salvar), FR-32, FR-34–36, FR-39–42, NFR-01 (MVP), NFR-03, NFR-05 | **40** |
+| **S4** Frontend mínimo + export + demo | Login, wizard 5 passos (passo 1 com **regime legal**), heatmap 7×24 (+ filtro por cargo), KPIs, calendário de turmas, painel de achados, **selo por regime e bloco "simular transição" (v3.4)**, export CSV/XLSX, E2E, demo/beta interno | FR-01–03, FR-05–09, FR-11, FR-14–16, FR-20, FR-21, FR-23, FR-28, FR-32, FR-39–42, FR-34–36, NFR-06, NFR-07 | **40** |
 | **Total MVP** | 4 sprints (~8 semanas) | P0 do `01` v3.3 | **160** |
 | Fase 2 | pós-MVP | Ver §3.5 (P1 e P2 do `01`) | — |
 
@@ -50,7 +52,7 @@ Legenda: **Pts** = pontos; **Dep** = dependências; **DoD** = critério de pront
 | F1-3 | M2 gerador cíclico genérico por **dia absoluto** + 6x1, 12x36 (4T, L=2, 14 d), 6x2 (4T, L=8, 56 d) | F1-1 | 8 | 6x2: 1 turma em M/T/N/F por dia em 56 d; 12x36 sem 2 dias seguidos na virada 31→1 | FR-05, FR-06 |
 | F1-4 | M2 4x2 (**5 turmas** L=6 e **9 meias-turmas** L=18) e **5 turmas** (L=10, 33,6 h, 70 d) | F1-3 | 5 | 4x2 5T excedente 11,1%; 9 meias exata; 5T 33,6 h | FR-05, FR-06 |
 | F1-18 | **M2b catálogo essencial (enxuto)**: seeds YAML + golden de `5X2`, `2X2_12H`, `4X3`, `FIXO_D`, `FIXO_N` (os 5 acima já vêm de F1-3/F1-4); catálogo como dados (ADR-010) | F1-3, F1-5 | 3 | tabela §6.1 reproduzida por teste para os 10 códigos (K\*, exato, h/sem) | FR-28 (essencial) |
-| F1-5 | Golden-test harness: fixtures YAML em `tests/engine/golden/`, revisão por SME | F1-2 | 3 | ≥ 20 casos golden assinados | NFR-04 |
+| F1-5 | Golden-test harness: fixtures YAML em `tests/engine/golden/`, revisão por SME (v3.4: inclui fixtures GT-REG-01…08 do `01` §6.2, implementados no F1-25/F1-26) | F1-2 | 3 | ≥ 20 casos golden assinados | NFR-04 |
 
 **Total S1 = 2+2+3+3+1+1+4+5+8+5+3+3 = 40 pts.** Demo: CI verde; `pytest -k golden` gera as escalas dos 10 modelos.
 
@@ -62,14 +64,15 @@ Legenda: **Pts** = pontos; **Dep** = dependências; **DoD** = critério de pront
 | F1-7 | **M3 KPIs**: % horas-posto cobertas, déficit, pico (dia/hora), horas com déficit, excesso | F1-6 | 3 | KPIs = soma das células (propriedade) | FR-14 |
 | F1-8 | **M3 dimensionamento**: `K* = s·L/w`, headcount mínimo com/sem reserva, `COB_TURMAS_INSUFICIENTES` | F1-6 | 3 | 6x2 3 postos → K=4, HC=12; 4x2 4T → sugere 5T ou 9 meias | FR-08 |
 | F1-10 | **M3 cobertura com shrinkage (enxuto)**: visão "postos + reserva" | F1-6, F1-2 | 2 | exemplo FR-11 | FR-11 |
-| F1-21 | **M3 K como restrição (enxuto)**: modos **fixo** (busca de offsets que maximiza cobertura) e **mínimo** por operação; `COB_K_INSUFICIENTE`, `COB_K_ACIMA_NECESSARIO` | F1-8 | 5 | 6x2 K=3 → 75% e 126 h-posto/sem de déficit; K mín 5 no 6x2 → `COB_K_ACIMA_NECESSARIO` | FR-32 (enxuto) |
+| F1-21 | **M3 K como restrição (enxuto, v3.4)**: modo **fixo** (busca de offsets que maximiza cobertura) por operação; `COB_K_INSUFICIENTE` (modo mínimo e `COB_K_ACIMA_NECESSARIO` → Fase 2a) | F1-8 | 3 | 6x2 K=3 → 75% e 126 h-posto/sem de déficit | FR-32 (fixo) |
 | F1-22 | **M3 cobertura por cargo (enxuto)**: oferta por cargo, matriz direcional (fator 1,0), `min_cost_flow` por hora (ADR-009), mínimo por cargo por turno, KPIs por cargo | F1-6 | 6 | enfermeiro→técnico cobre, inverso não; `COB_CARGO_SEM_QUALIFICADO`, `COB_DEFICIT_CARGO`, `COB_COBERTURA_POR_SUBSTITUICAO` | FR-34–36 (enxuto) |
 | F1-13 | M4 interjornada (timestamps absolutos), DSR 35 h, 7º dia | F1-1 | 5 | `CLT_INTERJORNADA` no caso 06h→14h; `CLT_SETIMO_DIA` | FR-15, FR-16 |
-| F1-14 | **M4 jornada (enxuto)**: jornada computada com 8/7 (sem Súmula 60), jornada diária (exceto 12x36) e média semanal | F1-13 | 3 | 22–06 = 9,142857 h; 6x2 contrato 40 h → `CLT_MEDIA_SEMANAL`; 2x2 12 h → `CLT_JORNADA_DIARIA` | FR-20 |
-| F1-19 | **M2b construtor básico (enxuto)**: `validar_padrao` (K\*, exato, h/sem, máx. consecutivos, interjornada cíclica) para sequência + horários + offsets | F1-3, F1-13 | 3 | `[M,M,T,T,N,N,F,F,F]` → 4,5 + `COB_PADRAO_NAO_EXATO`; N→T → `CLT_INTERJORNADA`; ≤ 50 ms | FR-07, FR-29 (básico) |
-| F1-16 | **Propriedades (enxuto, absorve parte de F1-24)**: catálogo essencial sem `CLT_*` ERRO (salvo 2x2 12 h); `K < K*` ⇒ déficit; matriz nunca cobre B→A sem regra | F1-6..F1-22 | 2 | 500 exemplos sem falha | FR-08, FR-09, FR-35 |
+| F1-14 | **M4 jornada (enxuto, v3.4)**: `noturno.py` — jornada computada com 8/7 (sem Súmula 60); os limites (diária/média) passam ao F1-25 | F1-13 | 1 | 22–06 = 9,142857 h | FR-20 |
+| F1-25 | **M4 regime legal (v3.4)**: `regime_legal.py` — `RegimeLegal`, `resolver_regime` (regime explícito ou data), `validar_regime`: `CLT_CARGA_SEMANAL_EXCEDIDA`, `CLT_JORNADA_DIARIA` (limite do regime), `CLT_MEDIA_SEMANAL` (contrato), `CLT_FOLGAS_SEMANAIS_INSUFICIENTES`, `CLT_ESCALA_6X1_VEDADA`, `CLT_VIAVEL_SOMENTE_COM_ACT`, `CLT_REGIME_PENDENTE_REGULAMENTACAO`, `INFO_REGIME_PREMISSA`; `regime_compliance` dos 10 modelos | F1-14, F1-18 | 5 | GT-REG-01/02/03/04/06/07/08 verdes; tabela `01` §6.2 reproduzida por teste; 2x2 12 h → `CLT_JORNADA_DIARIA` | FR-20, FR-39, FR-40, FR-42 |
+| F1-26 | **M3 dimensionamento legal + transição (v3.4)**: `k_legal` (inteiro ou meia-turma), `K*_efetivo`, `simular_transicao` (mesma operação nas 3 fases, modelo recomendado do catálogo essencial) | F1-8, F1-25 | 2 | GT-REG-05: 10 postos → 40/40/45 pessoas; 168/40 → 5 ou 4,5 | FR-08, FR-41 |
+| F1-16 | **Propriedades (enxuto, absorve parte de F1-24)**: catálogo essencial sem `CLT_*` ERRO no `CLT_44H_ATUAL` (salvo 2x2 12 h); v3.4: `CLT_CARGA_SEMANAL_EXCEDIDA` ⇔ `K*_modelo < K_legal`; `K < K*` ⇒ déficit; matriz nunca cobre B→A sem regra | F1-6..F1-22 | 2 | 500 exemplos sem falha | FR-08, FR-09, FR-35 |
 
-**Total S2 = 8+3+3+2+5+6+5+3+3+2 = 40 pts.** Demo (M1): CLI `python -m app.services.engine simulate 6x2 --turmas 4 --postos 3` imprime KPIs, heatmap ASCII e achados; 4x2 4T com déficit e sugestão de 5T; K fixo = 3 no 6x2; UTI enfermeiro→técnico.
+**Total S2 = 8+3+3+2+3+6+5+1+5+2+2 = 40 pts** (F1-6, F1-7, F1-8, F1-10, F1-21, F1-22, F1-13, F1-14, F1-25, F1-26, F1-16). Demo (M1): CLI `python -m app.services.engine simulate 6x2 --turmas 4 --postos 3 --regime PEC_40H` imprime KPIs, heatmap ASCII e achados (carga + folgas); `transition --postos 10` → 40/40/45; 4x2 4T com déficit e sugestão de 5T; K fixo = 3 no 6x2; UTI enfermeiro→técnico.
 
 ### 3.3 Sprint 3 — API, persistência mínima e auth simples
 
@@ -77,19 +80,19 @@ Legenda: **Pts** = pontos; **Dep** = dependências; **DoD** = critério de pront
 |---|---|---|---|---|---|
 | F0-5 | **Auth simples (enxuto)**: JWT de acesso (sem refresh); `users`, `organizations`, `memberships`; papéis efetivos `owner/planner/viewer` | F0-4 | 5 | rotas protegidas 401/403 em testes | segurança |
 | F2-1 | **Migrações MVP (enxuto)**: `labor_agreements` (mínima), `operations`, `positions`, `demand_curves`, `demand_slots`, `shrinkage_profiles`, `shift_templates`, `schedule_models`, `rotation_patterns`, `scenarios`, `teams`, `assignments` (por turma), `coverage_results`, `compliance_rules`, `compliance_findings` + RLS | F0-4, F1-1 | 5 | up/down testada; RLS testado | FR-01, FR-05, FR-24 |
-| F2-9 | **Migrações de cargos/K (enxuto)**: `roles`, `substitution_rules`, `role_coverage_requirements`, `team_constraints`, `custom_schedule_patterns` (sem `_versions`), `team_role_composition`, `coverage_role_results` + seeds dos 10 modelos + RLS | F2-1 | 3 | up/down + RLS testados | FR-28, FR-29, FR-32, FR-34–36 |
+| F2-9 | **Migrações de cargos/K (enxuto)**: `roles`, `substitution_rules`, `role_coverage_requirements`, `team_constraints` (v3.4: `custom_schedule_patterns` → Fase 2a), `team_role_composition`, `coverage_role_results` + seeds dos 10 modelos + RLS | F2-1 | 3 | up/down + RLS testados | FR-28, FR-29, FR-32, FR-34–36 |
 | F2-2 | CRUD de operações/postos/curvas/cenários + `slots:import` CSV/XLSX (168 linhas) | F2-1 | 5 | erros 422 legíveis | FR-01, FR-02, FR-24 (salvar) |
 | F2-3 | **`POST /scenarios/{id}/simulate` (enxuto)** → M1→M4, persiste; **só síncrono** (Celery → Fase 2) | F2-1, F1-* | 6 | contrato OpenAPI; integração | FR-05–09, FR-11, FR-14–16, FR-20 |
 | F2-4 | `GET /scenarios/{id}/coverage` (KPIs + heatmap `view`/`agg`, `?role=`) e `POST /scenarios/{id}/sizing` | F2-3 | 3 | payload ≤ 50 KB | FR-08, FR-09, FR-11, FR-14, FR-35 |
 | F2-5 | **`GET /compliance-findings` (enxuto)** — sem `PATCH /assignments` | F2-3 | 1 | filtra por severidade/código | FR-15, FR-16, FR-20 |
 | F2-6 | Reprodutibilidade: `inputs_hash`, `engine_version`, `rules_version` | F2-3 | 2 | resultado reproduzível por hash | NFR-03 |
 | F2-7 | Autorização por organização em todas as rotas | F0-5 | 2 | org A não lê org B | segurança |
-| F2-10 | Endpoints `roles`, `substitution-rules` (PUT atômico), `role-coverage-requirements` e `team-constraints` (fixo/mín), `PUT /scenarios/{id}/teams/{code}/composition` | F2-9 | 3 | 422 em diagonal da matriz | FR-32, FR-34–36 |
-| F2-11 | **`custom-schedule-patterns` (enxuto)**: create/get + `:validate` (sem `:derive`, sem versões) | F2-9, F1-19 | 2 | `:validate` ≤ 300 ms p95 | FR-29 (básico) |
+| F2-10 | Endpoints `roles`, `substitution-rules` (PUT atômico), `role-coverage-requirements` e `team-constraints` (fixo), `PUT /scenarios/{id}/teams/{code}/composition` | F2-9 | 3 | 422 em diagonal da matriz | FR-32, FR-34–36 |
+| F2-12 | **Regime legal na API (v3.4)**: migração `legal_regimes` + seeds (3 regimes, `compliance_rules` novos, `schedule_models.regime_compliance`), colunas de regime em `scenarios`, `scenario_transition_results`; `GET /legal-regimes`, `:resolve?date=`, `POST /scenarios/{id}/transition` | F2-1, F1-25, F1-26 | 2 | up/down; resolve nas bordas de vigência; exemplo JSON `05` §5.5 reproduzido | FR-39–42 |
 | F2-8 | Tipos TS gerados do OpenAPI no CI | F2-3 | 2 | diff falha CI se desatualizado | NFR-05 |
 | F1-17 | Benchmark (pytest-benchmark) **200 colab × 8 semanas** | F1-6..F1-22 | 1 | motor < 1,5 s; baseline registrado | NFR-01 (MVP) |
 
-**Total S3 = 5+5+3+5+6+3+1+2+2+3+2+2+1 = 40 pts.** Demo (M2): Swagger cria cenário, simula 4x2 com 4 turmas → `COB_TURMAS_INSUFICIENTES`, heatmap com déficit e achados.
+**Total S3 = 5+5+3+5+6+3+1+2+2+3+2+2+1 = 40 pts** (v3.4: F2-12 no lugar de F2-11). Demo (M2): Swagger cria cenário, simula 4x2 com 4 turmas → `COB_TURMAS_INSUFICIENTES`, heatmap com déficit e achados.
 
 ### 3.4 Sprint 4 — Frontend mínimo, export e demo/beta interno
 
@@ -97,16 +100,17 @@ Legenda: **Pts** = pontos; **Dep** = dependências; **DoD** = critério de pront
 |---|---|---|---|---|---|
 | F0-7 | **Frontend base (enxuto)**: React Router, cliente tipado, TanStack Query, layout, login | F0-5, F2-8 | 3 | login + rota protegida | — |
 | F3-1 | **Tokens (enxuto)**: tokens Tailwind de cobertura/severidade/turmas (`04` §14) e componentes base | F0-7 | 3 | tokens aplicados; contraste AA | NFR-06 |
-| F3-2/F3-3/F3-4/F3-5 | **Wizard 5 passos (enxuto)**: (1) operação e contrato; (2) demanda — postos fixos + grade 168 h + upload CSV/XLSX; (3) shrinkage + cargos, matriz A→B e mínimos por turno em **tabela simples**; (4) modelo do catálogo essencial **ou** sequência personalizada (construtor básico) + K fixo/mín + sugestão de K; (5) revisão | F3-1, F2-2, F2-4, F2-10, F2-11 | 13 | zod; sugestão de K vem da API; `:validate` mostra K\*/exato/achados | FR-01–03, FR-05–08, FR-11, FR-28, FR-29, FR-32, FR-34–36 |
+| F3-2/F3-3/F3-4/F3-5 | **Wizard 5 passos (enxuto)**: (1) operação e contrato; (2) demanda — postos fixos + grade 168 h + upload CSV/XLSX; (3) shrinkage + cargos, matriz A→B e mínimos por turno em **tabela simples**; (4) modelo do catálogo essencial + K fixo + sugestão de K (v3.4: sequência personalizada → Fase 2a); (5) revisão | F3-1, F2-2, F2-4, F2-10 | 11 | zod; sugestão de K vem da API | FR-01–03, FR-05–08, FR-11, FR-28, FR-29, FR-32, FR-34–36 |
 | F3-6 | **Heatmap 7×24 (enxuto)**: toggles postos/reserva e pior/média, tooltip, "Ver como tabela", **filtro por cargo** (absorve parte de F3-15) | F2-4 | 6 | ícone + número além da cor; teclado | FR-09, FR-11, FR-35 |
 | F3-7 | **Cabeçalho de KPIs** + sugestão de K/headcount | F2-4 | 2 | KPIs batem com API | FR-08, FR-14 |
 | F3-8 | **Calendário de turmas (enxuto)**: grade turma × dia `mmc(L,7)`, domingos destacados, marcadores de achado | F2-3 | 5 | 5 turmas × 70 dias < 200 ms | FR-21 |
+| F3-16 | **Regime legal na UI (v3.4)**: passo 1 com seletor regime/data de referência + checkbox ACT/CCT de compensação + selo "premissa"; selo de conformidade por regime nos cards do passo 4 (`04` §8.15); bloco "Simular transição" no T4 em **tabela** com a linha do tempo enxuta (`04` §8.14, 11.7) | F3-2..F3-5, F2-12 | 2 | fluxo 4.6 do `03` no navegador; selo com ícone + texto | FR-39–42 |
 | F3-9 | **Painel de achados**: lista por severidade com link para a data no calendário | F3-8, F2-5 | 2 | clique foca a data | FR-15, FR-16, FR-20, Apêndice A |
 | F4-4 | Export XLSX/CSV (`Escala`, `Cobertura168h`, `KPIs`, `Violacoes`, `Parametros`) | F2-3 | 3 | round-trip; 6x2 = 4 × 56 | FR-23 |
 | F3-10 | E2E Playwright enxuto: wizard → T4 aba `cobertura` (fluxo 4.1) | F3-2..F3-9 | 1 | roda no CI | fluxo 4.1 |
 | F5-7 | **Demo + beta interno (enxuto)**: deploy em staging simples (docker compose), roteiro dos fluxos 4.1, 4.3 (sem comparador) e 4.4; coleta de feedback | todos | 2 | 2 usuários internos completam fluxo 4.1 sem ajuda | KPIs §3.3 |
 
-**Total S4 = 3+3+13+6+2+5+2+3+1+2 = 40 pts.** Demo (M3): fluxo 4.1 (6x1 → 6x2) ponta a ponta no navegador + export XLSX.
+**Total S4 = 3+3+11+6+2+5+2+2+3+1+2 = 40 pts.** Demo (M3): fluxo 4.1 (6x1 → 6x2) e **fluxo 4.6 (transição 44 h → 42 h → 40 h)** ponta a ponta no navegador + export XLSX.
 
 **Soma do MVP: S1 40 + S2 40 + S3 40 + S4 40 = 160 pts.**
 
@@ -132,6 +136,11 @@ Nada foi apagado: abaixo estão os itens (ou o "resto" de itens enxutos) que sa�
 | F4-5 / F4-6 | Homologação (T7) + histórico (`audit_log`) | 6 | FR-24, NFR-03 | — |
 | F2-1/F2-9 (resto) | Tabelas `simulation_jobs`, `exports`, `audit_log`, `skills`, `role_skills`, `position_skills`, `custom_schedule_pattern_versions`, `scenario_layers`, versionamento de cenário | 5 | FR-24, FR-31, FR-34 | — |
 | F2-3 (resto) | Fallback Celery/Redis para simulações grandes | 2 | NFR-01 | ADR-006 |
+| F1-19 | **(v3.4, saiu do MVP)** M2b construtor básico: `validar_padrao` (K\*, exato, h/sem, máx. consecutivos, interjornada cíclica, **regime legal**) | 3 | FR-07, FR-29 (básico) | trocado pelo regime legal (F1-25) |
+| F2-11 | **(v3.4, saiu do MVP)** `custom-schedule-patterns` create/get + `:validate` + tabela `custom_schedule_patterns` | 2 | FR-29 (básico) | — |
+| F3-2..F3-5 (resto) | **(v3.4)** Wizard passo 4: "sequência personalizada" (construtor básico) | 2 | FR-29 | depende de F1-19/F2-11 |
+| F1-21 (resto v3.4) | Modo K **mínimo** por operação + `COB_K_ACIMA_NECESSARIO` | 2 | FR-32 | — |
+| F1-27 | **(v3.4)** Regimes por CCT (histórico próprio), regimes diferenciados da lei ordinária, migração "texto promulgado" (versão 2 dos seeds) e linha do tempo gráfica completa | 3 | FR-39–42 | depende de Q14 e da lei ordinária |
 
 **Fase 2b — repertório e restrições avançadas (ex-P1 do MVP v3.2)**
 
@@ -199,7 +208,7 @@ gantt
     Gerador + catálogo essencial + golden      :crit, s1b, after s1a, 7d
     section S2 (40 pts)
     M3 cobertura, KPIs, dimensionamento, K     :crit, s2a, after s1b, 7d
-    Cargos, M4 essencial, construtor básico    :crit, s2b, after s2a, 7d
+    Cargos, M4 essencial, regime legal         :crit, s2b, after s2a, 7d
     Marco M1 motor (CLI)                       :milestone, m1, after s2b, 0d
     section S3 (40 pts)
     Auth simples, migrações, CRUD              :crit, s3a, after s2b, 7d
@@ -231,7 +240,7 @@ gantt
 
 | # | Risco | Prob. | Impacto | Mitigação |
 |---|---|---|---|---|
-| R1 | **Escopo apertado: 160 pts em 4 sprints sem folga** (qualquer estouro atrasa o beta interno) | Alta | Alto | Corte já aplicado; ordem de sacrifício pré-acordada se um sprint fechar < 40: (1) filtro por cargo no heatmap, (2) upload XLSX (fica só CSV), (3) modo K mínimo (fica só fixo), (4) construtor básico no wizard (fica só catálogo); nunca cortar cobertura, KPIs, heatmap ou achados. Revisão de escopo no planning de cada sprint |
+| R1 | **Escopo apertado: 160 pts em 4 sprints sem folga** (qualquer estouro atrasa o beta interno) | Alta | Alto | Corte já aplicado; **v3.4: os itens (3) modo K mínimo e (4) construtor básico já foram gastos para trazer o regime legal.** Ordem de sacrifício restante se um sprint fechar < 40: (1) filtro por cargo no heatmap, (2) upload XLSX (fica só CSV), (3) modo "data de referência" (fica só escolha explícita do regime), (4) persistência de `scenario_transition_results` (transição só calculada na hora); nunca cortar cobertura, KPIs, heatmap, achados ou a validação contra o regime. Revisão de escopo no planning de cada sprint |
 | R2 | Frontend inteiro concentrado na S4 | Alta | Alto | Contrato OpenAPI congelado no meio da S3; frontend começa contra mocks no fim da S2; wizard simplificado (tabelas, sem componentes ricos) |
 | R3 | KPIs de cobertura não refletirem a operação real (pior caso vs. média) | Média | Alto | Toggle pior/média na UI; golden assinados pelo SME; Q10 decidida no beta interno |
 | R4 | Ausência de folguistas e feriados no MVP frustra usuários (6x1 baseline fica com déficit) | Média | Médio | Mensagem explícita "folguistas automáticos: Fase 2"; headcount com reserva (FR-11) como paliativo; F1-11/F1-12 primeiros da Fase 2a |
@@ -242,13 +251,14 @@ gantt
 | R9 | Pressão para trazer comparador/custo ao MVP | Média | Médio | Comparador é o 1º item da Fase 2a; financeiro especificado (FX-1/FX-2) |
 | R10 | Matriz de substituição mal entendida (direção) | Média | Alto | Rótulo "A pode cobrir B" na tabela do passo 3; golden "enfermeiro→técnico" |
 | R11 | Backend existente com deps sem versão | Alta | Baixo | lock em F0-1 |
+| R12 | **(v3.4) Texto promulgado da EC diferente das premissas** (carga, datas, folgas mínimas, compensação, 12x36) | Média | Alto | Regras como dados (ADR-011); seeds com status `premissa` + `INFO_REGIME_PREMISSA`; Q14 com o Jurídico antes do beta externo; atualização = nova versão do seed (F1-27), sem mudança de motor |
 
 ## 8. Estratégia de testes por sprint
 
 | Sprint | Testes |
 |---|---|
 | S1 | smoke de CI, migração; unitários do domínio/M1/M2; **golden** dos 10 modelos |
-| S2 | unitários ≥ 90% em `engine/` (NFR-04); golden de cobertura (KPIs exatos), cargos e viabilidade essencial; propriedade (Hypothesis) |
+| S2 | unitários ≥ 90% em `engine/` (NFR-04); golden de cobertura (KPIs exatos), cargos, viabilidade essencial e **regime legal GT-REG-01…08**; propriedade (Hypothesis) |
 | S3 | integração FastAPI + Postgres; contrato OpenAPI; RLS/autorização multi-tenant; benchmark 200 colab |
 | S4 | Vitest + RTL por passo do wizard; Playwright fluxo 4.1; axe no heatmap; round-trip CSV/XLSX |
 | Fase 2 | carga, SAST/DAST, regressão visual, E2E dos fluxos 4.2/4.3/4.5 |
@@ -258,9 +268,9 @@ gantt
 | Marco | Fim de | Demo |
 |---|---|---|
 | M0 Fundações + geradores | S1 | CI verde; escalas dos 10 modelos do catálogo essencial por golden |
-| M1 Motor de cobertura | S2 | CLI: 6x2 4T 100% coberto; 4x2 4T com déficit e sugestão de 5T; K fixo = 3 no 6x2; UTI enfermeiro→técnico; achados de interjornada/DSR/jornada |
+| M1 Motor de cobertura | S2 | CLI: 6x2 4T 100% coberto; 6x2 no `PEC_40H` com carga + folgas; transição 40/40/45; 4x2 4T com déficit e sugestão de 5T; K fixo = 3 no 6x2; UTI enfermeiro→técnico; achados de interjornada/DSR/jornada |
 | M2 API | S3 | Swagger: criar cenário, simular, ver cobertura (por cargo) e achados |
-| **M3 MVP / beta interno** | S4 | wizard → heatmap + KPIs → calendário → achados → export XLSX, no navegador (fluxo 4.1) |
+| **M3 MVP / beta interno** | S4 | wizard (com regime legal) → heatmap + KPIs → calendário → achados → simular transição → export XLSX, no navegador (fluxos 4.1 e 4.6) |
 | Fase 2a/2b/2c | pós-MVP | folguistas e feriados (fluxo 4.2), comparador (4.3), construtor T9, 1.000 colab ≤ 2 s, beta externo |
 
 ## 10. Checklist de Definição de Pronto (DoD)
@@ -268,7 +278,7 @@ gantt
 - [ ] Código revisado por ≥ 1 pessoa (ou humano revisando PR de agente)
 - [ ] Lint, tipos (mypy/tsc) e testes passando no CI
 - [ ] Cobertura de testes: engine ≥ 90% (NFR-04), backend ≥ 80%, frontend ≥ 60% (MVP)
-- [ ] Regras de cobertura e viabilidade com caso golden aprovado pelo SME e fonte citada
+- [ ] Regras de cobertura e viabilidade com caso golden aprovado pelo SME e fonte citada (regras de regime: premissa e fonte do `01` §8.1)
 - [ ] Tempo em minutos inteiros e hora noturna em `Fraction(8,7)` (NFR-02)
 - [ ] Migração Alembic com upgrade e downgrade testados (se houver)
 - [ ] Contrato OpenAPI atualizado e tipos TS regenerados
@@ -298,11 +308,11 @@ Cada tarefa: pequena (≤ 1 PR, ≤ ~300 linhas), com verificação objetiva. Ex
 11. **A13** `cobertura.py` (horizonte, 7×24 pior/média, status) (F1-6). *Verif.:* 12x36 2 postos 168/168.
 12. **A14** KPIs + visão com reserva (F1-7, F1-10). *Verif.:* KPIs = soma das células; exemplo FR-11.
 13. **A15** `dimensionamento.py` (K\*, headcount) (F1-8). *Verif.:* 6x2 → 4/12; 4x2 4T → `COB_TURMAS_INSUFICIENTES`.
-14. **A37** `turmas_k.py` modos fixo/mínimo (F1-21). *Verif.:* 6x2 K=3 → 126 h-posto/sem.
+14. **A37** `turmas_k.py` modo fixo (F1-21). *Verif.:* 6x2 K=3 → 126 h-posto/sem.
 15. **A38** `cobertura_cargos.py` (min-cost-flow por hora, matriz fator 1,0, mínimos por turno) (F1-22). *Verif.:* golden UTI.
 16. **A17** `compliance/` interjornada, DSR 35 h, 7º dia (F1-13). *Verif.:* 06h→14h = 8 h.
-17. **A18** `compliance/` jornada diária e média semanal com `noturno.py` 8/7 (F1-14). *Verif.:* 22–06 = 9,142857.
-18. **A36** `construtor.py` `validar_padrao` básico (F1-19). *Verif.:* `[M,M,T,T,N,N,F,F,F]` → 9/2 + `COB_PADRAO_NAO_EXATO`.
+17. **A18** `noturno.py` 8/7 e jornada computada (F1-14). *Verif.:* 22–06 = 9,142857.
+18. **A45** `regime_legal.py` (`resolver_regime`, `validar_regime`, `k_legal`, `simular_transicao`) + `regime_compliance` (F1-25, F1-26). *Verif.:* `pytest -k regime` com GT-REG-01…08; 168/40 → 5 / 4,5.
 19. **A20** Hypothesis (F1-16). *Verif.:* 500 exemplos.
 
 **S3**
@@ -310,12 +320,12 @@ Cada tarefa: pequena (≤ 1 PR, ≤ ~300 linhas), com verificação objetiva. Ex
 21. **A21** Migrações MVP (F2-1, F2-9). *Verif.:* up/down + RLS.
 22. **A22** CRUD + upload 168 h (F2-2). *Verif.:* integração.
 23. **A23** `simulate` (síncrono), `coverage`, `sizing`, `compliance-findings`, hash/versões (F2-3..F2-6). *Verif.:* OpenAPI snapshot.
-24. **A40** `roles.py`, `team_constraints.py`, `custom_patterns.py` (`:validate`) (F2-10, F2-11). *Verif.:* exemplos JSON do `05` §5.5 marcados MVP.
+24. **A40** `roles.py`, `team_constraints.py` (F2-10) e **A46** `legal_regimes.py` + migração/seeds + `POST /scenarios/{id}/transition` (F2-12). *Verif.:* exemplos JSON do `05` §5.5 marcados MVP (incl. `transition`).
 25. **A24** Tipos TS no CI + benchmark 200 colab (F2-8, F1-17). *Verif.:* diff vazio; < 1,5 s.
 
 **S4**
 26. **A25** Frontend: router, TanStack Query, login, tokens (F0-7, F3-1). *Verif.:* Playwright login.
-27. **A26** Wizard passos 1–5 (um PR por passo) (F3-2..F3-5). *Verif.:* RTL por passo.
+27. **A26** Wizard passos 1–5 (um PR por passo) (F3-2..F3-5) + **A47** regime no passo 1, selo nos cards e bloco transição (F3-16). *Verif.:* RTL por passo; fluxo 4.6.
 28. **A27** `Heatmap7x24` + filtro por cargo + cabeçalho de KPIs (F3-6, F3-7). *Verif.:* render + axe.
 29. **A28** `ScheduleCalendar` + painel de achados (F3-8, F3-9). *Verif.:* foco na data da violação.
 30. **A31** Export XLSX/CSV (F4-4). *Verif.:* round-trip.
@@ -326,7 +336,7 @@ Regras para agentes: não alterar o módulo de atas; não pular testes golden; c
 ### 11.1 Fase 2 — agentes (após o MVP)
 
 Mantidos com os IDs do plano v3.2, na ordem da §3.5:
-- **Fase 2a:** A16 (feriados, furos no intervalo — F1-9, F1-11), A19 + A39 (folguistas, por cargo — F1-12, F1-23), A17b `valida_incremental` (F1-15), A18b domingo/revezamento/12x36/Súmula 60 (F1-14 resto), A35b catálogo restante (F1-18 resto), A30 ajuste de escala T5 (F4-3), A29 comparador (F4-1/F4-2), A32 homologação T7 (F4-5).
+- **Fase 2a:** A36 construtor básico + `custom_patterns.py` (F1-19, F2-11 — saíram do MVP na v3.4), A37c K mínimo (F1-21 resto), A48 regimes por CCT/texto promulgado (F1-27), A16 (feriados, furos no intervalo — F1-9, F1-11), A19 + A39 (folguistas, por cargo — F1-12, F1-23), A17b `valida_incremental` (F1-15), A18b domingo/revezamento/12x36/Súmula 60 (F1-14 resto), A35b catálogo restante (F1-18 resto), A30 ajuste de escala T5 (F4-3), A29 comparador (F4-1/F4-2), A32 homologação T7 (F4-5).
 - **Fase 2b:** A37b K faixa/livre e tamanho (F1-21 resto), A41 T8.1/T8.2 matriz (F3-11), A42 T9 construtor (F3-13), A43 T2.2 + `TeamCountControl` (F3-12), camadas/templates/substituição parcial (F4-7..F4-10).
 - **Fase 2c:** A33 performance 1.000 colab (F5-1/F5-2), A34 hardening (F5-3), observabilidade/deploy (F5-4/F5-5), A05b auditoria WCAG (F5-6).
 - **Futura:** FX-1..FX-10 (não implementar FR-25–27 nem FR-37/38 antes disso).

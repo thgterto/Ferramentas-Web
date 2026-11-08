@@ -1,9 +1,9 @@
 # 03 — Fluxo do App: Sitemap, Telas e Fluxos de Usuário
 
 > Simulador Operacional de Cobertura 24/7 — CLT Brasil
-> Fonte: `01-PRD.md` (PRD v3.3; IDs FR-xx canônicos). Este documento descreve navegação, telas, estados e fluxos (felizes, de erro e edge cases). O núcleo é **cobertura**: a tela de resultado abre no heatmap; viabilidade CLT é um painel de restrições; custos são módulo P2 (fase futura).
+> Fonte: `01-PRD.md` (PRD v3.4 — regime legal / fim da 6x1; IDs FR-xx canônicos). Este documento descreve navegação, telas, estados e fluxos (felizes, de erro e edge cases). O núcleo é **cobertura**: a tela de resultado abre no heatmap; viabilidade CLT é um painel de restrições; custos são módulo P2 (fase futura).
 
-> **Corte do MVP (v3.3, 4 sprints — `06` §3):** telas, rotas e fluxos estão marcados **[MVP]**, **[MVP parcial]** ou **[Fase 2]**. **MVP = interface mínima:** T0 login, T2/T2.1 (lista simples de operações e cenários), T3 wizard de 5 passos (com cargos, matriz A→B e mínimos em **tabela simples** no passo 3.3 e construtor básico no passo 3.4), T4 com abas `cobertura` (heatmap 7×24 + KPIs + filtro por cargo), `escala` (calendário de turmas) e `viabilidade` (painel de achados) e botão **Exportar CSV/XLSX**. **Fase 2:** T1 (multi-org), T2.2, T5, T6, T7, T8.1–T8.3, T9, feriados, folguistas, furos de intervalo e camadas.
+> **Corte do MVP (v3.3, 4 sprints — `06` §3):** telas, rotas e fluxos estão marcados **[MVP]**, **[MVP parcial]** ou **[Fase 2]**. **MVP = interface mínima:** T0 login, T2/T2.1 (lista simples de operações e cenários), T3 wizard de 5 passos (com cargos, matriz A→B e mínimos em **tabela simples** no passo 3.3; **v3.4:** passo 3.1 com **regime legal / data de referência** e selo de conformidade por regime nos cards do passo 3.4; o construtor básico saiu do MVP), T4 com abas `cobertura` (heatmap 7×24 + KPIs + filtro por cargo), `escala` (calendário de turmas) e `viabilidade` (painel de achados), bloco **"Simular transição"** (44 h → 42 h → 40 h) e botão **Exportar CSV/XLSX**. **Fase 2:** T1 (multi-org), T2.2, T5, T6, T7, T8.1–T8.3, T9, feriados, folguistas, furos de intervalo e camadas.
 
 ---
 
@@ -23,7 +23,7 @@ flowchart TD
     C3 --> CB["T9 · Construtor de escala"]
     W4 -. "personalizar" .-> CB
     CB -. "usar no cenário" .-> W4
-    WIZ --> W1["3.1 Operação + regras CCT/ACT"]
+    WIZ --> W1["3.1 Operação + CCT/ACT<br/>+ regime legal / data de referência"]
     W1 --> W2["3.2 Demanda: postos fixos ou curva 168h"]
     W2 --> W3["3.3 Shrinkage e reserva"]
     W3 --> W4["3.4 Modelo de escala e turmas"]
@@ -32,7 +32,8 @@ flowchart TD
     CALC --> RES["T4 · Resultado do Cenário"]
     RES --> R1["cobertura: heatmap 7x24 + KPIs"]
     RES --> R2["escala: calendário cíclico"]
-    RES --> R3["viabilidade: restrições CLT"]
+    RES --> R3["viabilidade: restrições CLT + regime"]
+    RES --> R5["simular transição: 44h → 42h → 40h"]
     RES -. "P2" .-> R4["custos: extrato financeiro"]
     RES --> EDIT["T5 · Ajuste de Escala"]
     EDIT --> RES
@@ -63,6 +64,7 @@ Navegação global (header): Organização ▸ Operação ▸ Cenário (breadcru
 | `/o/:org/escalas/modelos/novo?de=:codigo` · `/o/:org/escalas/modelos/:pid/editar` | T9 | `POST /custom-schedule-patterns/{id}:derive`, `POST /custom-schedule-patterns:validate`, `PATCH /custom-schedule-patterns/{id}` | *Fase 2* |
 | `/o/:org/operacoes/:op/cenarios/novo?passo=1..5` | T3 | `POST /scenarios`, `PATCH /scenarios/{id}` | **MVP** |
 | `/o/:org/operacoes/:op/cenarios/:id/:aba` (aba ∈ `cobertura` (padrão), `escala`, `viabilidade`, `custos`*) | T4 | `GET /scenarios/{id}/coverage`, `/assignments`, `/compliance-findings`, `/financials`* | **MVP (sem `custos`)** |
+| `/o/:org/operacoes/:op/cenarios/:id/transicao` | T4 (bloco "Simular transição") | `POST /scenarios/{id}/transition`, `GET /legal-regimes` | **MVP (v3.4)** |
 | `/o/:org/operacoes/:op/cenarios/:id/ajustar` | T5 | `PATCH /scenarios/{id}/assignments/{aid}` | *Fase 2* |
 | `/o/:org/operacoes/:op/comparar?ids=...` | T6 | `POST /scenario-comparisons` | *Fase 2* |
 | `/o/:org/operacoes/:op/cenarios/:id/homologar` | T7 | `POST /scenarios/{id}/approve`, `POST /scenarios/{id}/exports` | *Fase 2 (export: MVP via T4)* |
@@ -131,9 +133,10 @@ Papéis (enum `member_role`, `05` §3.1): `owner`, `admin`, `planner` (planejado
 ### T3 · Wizard de Novo Cenário [MVP]
 Stepper de 5 passos com autosalvamento; "Voltar" preserva dados; "Simular" só no passo 5. Painel lateral "Resumo" mostra demanda total (horas-posto/semana) e **estimativa de turmas/headcount** (FR-08) ao vivo.
 
-#### 3.1 Operação e regras (CCT/ACT) [MVP parcial: CCT/regime e contrato; feriados, domingo e checkbox de revezamento Fase 2]
+#### 3.1 Operação e regras (CCT/ACT) e regime legal [MVP parcial: CCT/regime, contrato e **regime legal (v3.4)**; feriados, domingo e checkbox de revezamento Fase 2]
 - **Componentes:** regime (Contínuo 24/7 | janela fixa); setor; CCT/ACT (sindicato, vigência); **checkbox "ACT/CCT autoriza 8 h em turnos ininterruptos de revezamento"** (FR-18); `N` de folga dominical (FR-17); calendário de feriados + política em feriado (FR-12); data inicial do horizonte.
-- **Validações:** revezamento > 6 h sem checkbox → `CLT_REVEZAMENTO_6H` exibido como aviso (não bloqueia o avanço; o cenário sairá com ALERTA); CCT vencida → alerta.
+- **Regime legal (v3.4, FR-39) [MVP]:** seletor segmentado **"Regime" | "Data de referência"**. *Regime*: `CLT_44H_ATUAL` (44 h — 6x1 permitida), `TRANSICAO_42H` (42 h), `PEC_40H` (40 h, ≥ 2 folgas/semana); *Data de referência*: date picker → o app chama `GET /legal-regimes:resolve?date=` e mostra o regime vigente. Abaixo, a **linha do tempo da transição** (`04` §8.14) com a fase escolhida destacada e o selo **"Premissa — texto promulgado não confirmado"** (`INFO_REGIME_PREMISSA`). Checkbox **"Há ACT/CCT de compensação de jornada"** (alimenta `CLT_VIAVEL_SOMENTE_COM_ACT`). Toggle **"Simular transição"**: após simular, T4 mostra o bloco por fase (FR-41).
+- **Validações:** revezamento > 6 h sem checkbox → `CLT_REVEZAMENTO_6H` exibido como aviso (não bloqueia o avanço; o cenário sairá com ALERTA); CCT vencida → alerta; data de referência sem regime vigente (D0 sem data) → "Escolha o regime explicitamente" (não avança).
 
 #### 3.2 Demanda [MVP: postos fixos, grade 168 h, upload CSV/XLSX; habilidades Fase 2]
 - **Postos fixos** (FR-02): `P(d,t)=k` por faixa; atalho "igual em todas as 168 h"; marcação de **posto crítico**.
@@ -147,14 +150,16 @@ Stepper de 5 passos com autosalvamento; "Voltar" preserva dados; "Simular" só n
 - **Validações:** 0 ≤ % < 60; alerta informativo se > 40%.
 - **Dados exibidos:** demanda nominal vs. demanda bruta com reserva, ao vivo.
 
-#### 3.4 Modelo de escala e turmas [MVP parcial: catálogo essencial de 10 modelos, K fixo/mínimo, sequência personalizada básica; resto Fase 2]
+#### 3.4 Modelo de escala e turmas [MVP parcial: catálogo essencial de 10 modelos com **selo de conformidade por regime** (v3.4), K fixo; sequência personalizada básica e K mínimo → Fase 2 (v3.4); resto Fase 2]
 - **Componentes:** catálogo ampliado (FR-28, `01` §6.1) em grupos — *contínuos 24/7* (6x1, 12x36, 6x2, 4x2, 5 turmas, 3x1, 3x2, 6x3, 2x2, Pitman, Panamá, DuPont, Continental, 12x60, 24x48, 24x72, 5T francesa, 6 turmas), *não contínuos* (5x2, 5x1, 4x3), *complementares* (fim de semana 12 h, parcial 20/25/30 h, reforço de pico) e *variações* (fixo × rotativo, escalonado; 18x36 e split com selo P1); filtros "cobre 24/7 exato" e "viável sem CCT"; grupo "Da organização" (templates FR-31); botão **"Personalizar" → T9** (FR-29). Bloco **"Turmas"**: modo K herdado de T2.2 (editável se Livre), tamanho mín./máx., meias-turmas, **composição por cargo** de cada turma (FR-34). Bloco **"Camadas"** (P1, FR-30): "+ adicionar camada" (ex.: reforço 5x2). Cada card mostra turnos/dia, padrão, **K necessário**, h/sem média e ciclo calendário (`01` §6). Campos: nº de turmas (A, B, C…), horários dos turnos, **intervalo intrajornada** (computado com rendição | não computado sem rendição | coberto por volantes — FR-10), nº de folguistas (ou "calcular mínimo").
 - **Pré-checagem (antes de simular):**
   - `K` informado < `K` necessário → `COB_TURMAS_INSUFICIENTES` com sugestão (ex.: 4x2 → 5 turmas ou 9 meias-turmas). Permite seguir para ver o déficit.
   - Modelo exige K fora da restrição (T2.2) → `COB_K_INSUFICIENTE` previsto e card desabilitado (modo Fixo) ou com aviso (Faixa).
   - Turma com tamanho fora de mín./máx. → `COB_TURMA_ABAIXO_MINIMO` / `COB_TURMA_ACIMA_MAXIMO`; mínimo de cargo impossível com a composição (ex.: 0 enfermeiros) → `COB_CARGO_SEM_QUALIFICADO` previsto.
   - Personalizado com transição < 11 h → `CLT_INTERJORNADA` já no editor; sem folga ≥ 35 h → `CLT_DSR_35H`.
-- **Recomendação:** selo "Recomendado" no modelo com menor headcount que zera o déficit sem `ERRO`.
+  - **(v3.4) Regime legal:** cada card mostra o **selo de conformidade** do regime do passo 1 (`04` §8.15) e a mini-linha 44/42/40; modelo não conforme (ex.: 6x2 no 40 h → `CLT_CARGA_SEMANAL_EXCEDIDA` + `CLT_FOLGAS_SEMANAIS_INSUFICIENTES`) fica com o ajuste sugerido ("+1 turma → 5 turmas", "4x2 com 9 meias-turmas"); `6X1_BASE` fora do 44 h aparece só como **baseline de comparação** (`CLT_ESCALA_6X1_VEDADA`); modelos que dependem de acordo (4x3 10 h, 2x2 12 h) mostram o alerta "Só é viável com ACT/CCT".
+  - **(v3.4)** K informado < **K mínimo legal** (ex.: 4 turmas em 24/7 de 8 h no 40 h; K_legal = 4,2) → `COB_TURMAS_INSUFICIENTES` com "5 turmas ou 9 meias-turmas".
+- **Recomendação:** selo "Recomendado" no modelo com menor headcount que zera o déficit sem `ERRO` **no regime do cenário**.
 
 #### 3.5 Revisão e simular [MVP]
 - Resumo de todos os passos + seção recolhida **"Parâmetros de custo (opcional — Fase 2)"**, desabilitada no MVP.
@@ -164,7 +169,11 @@ Stepper de 5 passos com autosalvamento; "Voltar" preserva dados; "Simular" só n
 
 ```mermaid
 flowchart TD
-    S1["Passo 1: Operação + CCT"] --> S2["Passo 2: Demanda"]
+    S1["Passo 1: Operação + CCT"] --> RG{"Regime legal"}
+    RG -- "Escolher regime" --> S2["Passo 2: Demanda"]
+    RG -- "Data de referência" --> RS{"Regime vigente<br/>na data?"}
+    RS -- Sim --> S2
+    RS -- "Não (D0 sem data)" --> RG
     S2 --> M{"Modo"}
     M -- "Postos fixos" --> PF["Definir P(d,t)=k"]
     M -- "Curva 168h" --> CV{"Grade ou arquivo?"}
@@ -177,12 +186,13 @@ flowchart TD
     GR --> S3["Passo 3: Shrinkage e reserva"]
     S3 --> S4["Passo 4: Modelo e turmas"]
     S4 --> V4{"Pré-checagem<br/>K e restrições"}
-    V4 -- "Interjornada no editor" --> S4
+    V4 -- "Não conforme ao regime" --> AR["Selo + ajuste sugerido<br/>(+1 turma, ACT/CCT, outro modelo)"] --> S4
     S4 -. "Personalizar (Fase 2: T9)" .-> T9["T9 Construtor (Fase 2)"] -. "usar" .-> S4
     V4 -- "K fora da restrição" --> AK["Aviso COB_K_INSUFICIENTE<br/>+ K sugerido"] --> S4
     V4 -- "Turmas insuficientes" --> AV["Aviso + sugestão de K"] --> S5
     V4 -- OK --> S5["Passo 5: Revisão"]
     S5 --> C(("Simular")) --> R["T4 aba cobertura"]
+    R -. "toggle Simular transição" .-> TR["Bloco transição<br/>44h → 42h → 40h"]
 ```
 
 ### T4 · Resultado do Cenário [MVP parcial: abas `cobertura` (com filtro por cargo), `escala` e `viabilidade` (painel de achados) + Exportar; furos de intervalo, feriados, folguistas e tabela cargo × KPI Fase 2]
@@ -191,7 +201,8 @@ flowchart TD
   - **Aba `cobertura` (padrão; FR-09, FR-10, FR-11, FR-12):** heatmap 7×24 de **déficit / exato / excesso**; alternância **"postos" | "postos + reserva"** e **"pior caso" | "média"** do horizonte; filtro por posto e **por cargo** ("Todos", cada cargo, "só substituições" — FR-35); camada por **camada de escala** (FR-30); camada "furos no intervalo"; tooltip com demanda, cobertura, diferença, turmas presentes e feriado; lista "Top 10 horas em déficit"; card **"Como fechar o déficit"** (ex.: "+1 turma", "+2 folguistas", "trocar para 5 turmas") (FR-08, FR-13). Clique em célula de déficit → T5 filtrado.
   - **Aba `escala` (FR-21):** calendário turma × dia do ciclo calendário completo (`mmc(L,7)`: 14/56/42/70/7 dias), códigos M/T/N/D/N12/F, domingos e feriados destacados, folguistas como linha própria, marcadores de déficit/violação.
   - **Cobertura por cargo (v3.2):** tabela cargo × KPIs (demanda, próprio, por substituição, déficit, horas sem qualificado); bloco "Turmas" mostra K usado vs. restrição e cobertura alcançável quando K é fixo (FR-32).
-  - **Aba `viabilidade` (FR-15–FR-20):** restrições agrupadas por severidade com código, regra, fonte normativa, turma/data, "Ver no calendário" / "Corrigir".
+  - **Aba `viabilidade` (FR-15–FR-20, FR-40):** restrições agrupadas por severidade com código, regra, fonte normativa, turma/data, "Ver no calendário" / "Corrigir". **(v3.4)** Cabeçalho da aba com o **regime aplicado** (código, versão, vigência, selo "premissa") e os achados de regime (`CLT_CARGA_SEMANAL_EXCEDIDA`, `CLT_FOLGAS_SEMANAIS_INSUFICIENTES`, `CLT_ESCALA_6X1_VEDADA`, `CLT_VIAVEL_SOMENTE_COM_ACT`, `CLT_REGIME_PENDENTE_REGULAMENTACAO`).
+  - **Bloco "Simular transição" (v3.4, FR-41) [MVP]:** linha do tempo `04` §8.14 + tabela fase × (modelo do cenário: conforme?/achados; modelo recomendado; turmas; pessoas; h/sem; Δ pessoas vs. 44 h). Ex. 10 postos 24/7: 40 → 40 → **45** pessoas (4x2 9 meias) ou 50 (5T). Ação "Criar cenário desta fase" (duplica com o regime e o modelo recomendado).
   - **Aba `custos` (P2, FR-25–27):** oculta no MVP.
 - **Estados:** carregando (progresso M1→M4); rascunho não calculado → "Simular agora"; inviável (sem escala sem `ERRO` para os parâmetros) → "Não há escala viável com N turmas: aumente turmas, reduza postos ou troque o modelo" + atalho para 3.4; timeout → reprocessar.
 - **Transições:** → T5, T6, T7, T3 (editar parâmetros cria nova versão).
@@ -338,6 +349,36 @@ flowchart TD
 3. Gestor abre T9 a partir do 6X2 ("Duplicar e editar"), troca para `[M,M,T,T,N,N,F,F]` com intervalo escalonado e adiciona camada de reforço 5x2 INT 10–18 (FR-30).
 4. Validação ao vivo: K\* = 4 exato, 42 h/sem, menor interjornada 24 h → salva template "6x2 + reforço" para a organização (FR-31) e simula.
 
+### 4.6 Cenário 6 — Mesma planta, fim da 6x1: simular a transição 44 h → 42 h → 40 h (v3.4) [MVP]
+
+```mermaid
+sequenceDiagram
+    actor U as Gerente de Operações
+    participant UI as App (Wizard/Resultado)
+    participant API as API Escalas
+    participant RL as Regime legal (M4)
+    participant M3 as M3 Cobertura/dimensionamento
+    U->>UI: Passo 1: data de referência 2028-03-01, ACT de compensação não
+    UI->>API: GET /legal-regimes:resolve?date=2028-03-01
+    API-->>UI: PEC_40H (status premissa)
+    U->>UI: Passo 2: 10 postos 24/7 e Passo 4: 6x2, 4 turmas
+    UI->>U: Card 6x2 com selo "não conforme 40 h" e ajuste "+1 turma"
+    U->>UI: Simular cobertura com "Simular transição"
+    UI->>API: POST /scenarios/{id}/transition
+    loop CLT_44H_ATUAL, TRANSICAO_42H, PEC_40H
+        API->>M3: cobertura + K_legal
+        API->>RL: validar escala contra o regime
+        RL-->>API: achados da fase
+    end
+    API-->>UI: fases com modelo, turmas, pessoas e achados
+    UI->>U: 44h e 42h: 6x2 4T, 40 pessoas, conforme
+    UI->>U: 40h: 6x2 CARGA e FOLGAS (ERRO), recomendado 4x2 9 meias, 45 pessoas
+    U->>UI: Criar cenário da fase 40h
+```
+
+- Datas ilustrativas: D0 hipotético = 01/12/2026 ⇒ 42 h a partir de 30/01/2027 e 40 h a partir de 01/02/2028 (premissa `01` §8.1, PL3).
+- Ponto de atenção: o painel mostra o selo "premissa — confirmar texto promulgado" em todas as fases.
+
 ## 5. Fluxo de Homologação e Exportação [Fase 2 — exceto export, MVP]
 
 ```mermaid
@@ -380,6 +421,10 @@ flowchart TD
 | E22 | Excluir cargo em uso | T8.1 | Bloqueado com lista de postos/turmas/regras que o usam. |
 | E23 | Template editado usado em cenários | T9 | Nova versão; cenários antigos mantêm a versão usada. |
 | E24 | Sequência inválida no construtor (sem F, código inexistente) | T9 | Salvar desabilitado; posição destacada. |
+| E25 | (v3.4) Data de referência sem regime vigente (promulgação sem data) | 3.1 | Pede a escolha explícita do regime; não avança. |
+| E26 | (v3.4) Modelo não conforme ao regime (ex.: 6x2 no 40 h) | 3.4/T4 | Selo "não conforme" + ajuste sugerido; pode simular para comparar; achados ERRO bloqueiam homologação. |
+| E27 | (v3.4) Escala só viável com ACT/CCT e checkbox desmarcado | 3.1/3.4/T4 | `CLT_VIAVEL_SOMENTE_COM_ACT` (ALERTA) com texto "Só é viável com acordo ou convenção coletiva"; marcar o checkbox rebaixa para INFO. |
+| E28 | (v3.4) Seed do regime atualizado após cenário calculado | T4 | Cenário mantém a versão gravada; banner "Regime atualizado — recalcular cria nova versão". |
 | E10 | Shrinkage derruba cobertura esperada | T4 | `COB_DEFICIT_ESPERADO_SHRINKAGE` na visão "postos + reserva". |
 | E11 | Déficit em posto crítico | T4/T7 | `COB_DEFICIT_POSTO_CRITICO` (ERRO) bloqueia homologação. |
 | E12 | Nenhuma escala viável sem `ERRO` | T4 | Mensagem explicativa + K mínimo teórico. |
@@ -399,7 +444,7 @@ flowchart TD
 | FR-01/02 Curva 168 h / postos fixos | 3.2 | MVP |
 | FR-03 Shrinkage D/N | 3.3 | MVP |
 | FR-04 Erlang-C (P2) | 3.2 (desabilitado) | P2 |
-| FR-05/06/07 Turmas, gerador, rotação customizada | 3.4, T4 `escala` | MVP |
+| FR-05/06/07 Turmas, gerador, rotação customizada | 3.4, T4 `escala` | MVP (FR-07: Fase 2 na v3.4) |
 | FR-08 Dimensionamento K/headcount | painel Resumo T3, 3.4, T4 card "Como fechar o déficit" | MVP |
 | FR-09 Cobertura e heatmap | T4 `cobertura`, T2.1 | MVP |
 | FR-10 Furos no intervalo | 3.4, T4 `cobertura` | Fase 2 |
@@ -413,10 +458,14 @@ flowchart TD
 | FR-23 Export | T7 | MVP (botão em T4) |
 | FR-24 Salvar/duplicar/versionar | T2.1, T3, T5 | MVP salvar; Fase 2 duplicar/versionar |
 | FR-28 Catálogo ampliado | 3.4, T8.3 | MVP essencial (10 modelos) |
-| FR-29 Construtor de escala | T9, 3.4 | MVP básico (3.4); T9 Fase 2 |
+| FR-29 Construtor de escala | T9, 3.4 | Fase 2 (v3.4: básico saiu do MVP) |
 | FR-30 Mix de camadas (P1) | 3.4, T9, T4 `cobertura` | Fase 2 |
 | FR-31 Templates da organização (P1) | T8.3, T9 | Fase 2 |
-| FR-32/33 K e tamanho de turma | T2.2, 3.4, T4 | MVP K fixo/mín (3.4); T2.2 e FR-33 Fase 2 |
+| FR-32/33 K e tamanho de turma | T2.2, 3.4, T4 | MVP K fixo (3.4); K mínimo (v3.4), T2.2 e FR-33 Fase 2 |
+| FR-39 Regime legal versionado | 3.1 | MVP (v3.4) |
+| FR-40 Validação contra o regime | 3.4, T4 `viabilidade` | MVP (v3.4) |
+| FR-41 Dimensionamento sob o regime / simular transição | 3.1 (toggle), T4 bloco transição, fluxo 4.6 | MVP (v3.4) |
+| FR-42 Conformidade por regime no catálogo | 3.4 (selo nos cards) | MVP (v3.4) |
 | FR-34 Cargos e habilidades | T8.1, 3.2, 3.4 | MVP cargos (3.3); T8.1/habilidades Fase 2 |
 | FR-35 Matriz de substituição | T8.2, T4 `cobertura` (filtro por cargo) | MVP tabela (3.3) + filtro T4; T8.2 Fase 2 |
 | FR-36 Mínimo por cargo | 3.2, T4 | MVP (3.3) |

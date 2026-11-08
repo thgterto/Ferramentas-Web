@@ -1,9 +1,9 @@
-# PRD v3.3 — Simulador Operacional de Cobertura 24/7 (Brasil/CLT)
+# PRD v3.4 — Simulador Operacional de Cobertura 24/7 (Brasil/CLT)
 
 | Metadado | Detalhe |
 | :--- | :--- |
 | **Produto** | Simulador de Escalas & Cobertura 24/7 (Workforce Coverage Simulator) |
-| **Versão** | 3.3 — **MVP enxuto ponta a ponta em 4 sprints** (P0 = MVP; demais itens reclassificados para Fase 2, ver §4 e `06`). v3.2: catálogo ampliado, construtor de escala, turmas (K) como restrição e matriz de cobertura entre cargos (v3.1: reposicionado como **simulador operacional de cobertura**; substitui v3.0 e `00-prd-original.md`, v2.0) |
+| **Versão** | 3.4 — **regime legal versionado (fim da escala 6x1: 44 h → 42 h → 40 h)** como restrição P0 do MVP (Módulo 10, §6.2, §8.1). 3.3 — **MVP enxuto ponta a ponta em 4 sprints** (P0 = MVP; demais itens reclassificados para Fase 2, ver §4 e `06`). v3.2: catálogo ampliado, construtor de escala, turmas (K) como restrição e matriz de cobertura entre cargos (v3.1: reposicionado como **simulador operacional de cobertura**; substitui v3.0 e `00-prd-original.md`, v2.0) |
 | **Status** | Pronto para planejamento técnico (Spec) |
 | **Stack alvo** | Frontend: React 19 + TypeScript + Vite 7 + Tailwind 4 (`/frontend`). Backend: FastAPI + Python + PostgreSQL 16 (`/backend`). Detalhes em `02-TRD.md` |
 | **Data** | Novembro/2026 |
@@ -69,11 +69,12 @@ Operações ininterruptas (indústria contínua, CDs, hospitais, NOC, segurança
 O MVP entrega **motor de cobertura + API + interface mínima** (wizard, heatmap 7×24, calendário de turmas, painel de achados) e export. Tudo o que está aqui é **P0**; o plano está no `06` §2–§3.
 - **Demanda (FR-01–03):** postos fixos por faixa horária e curva 168 h (grade 7×24 e upload CSV/XLSX); shrinkage diurno e noturno.
 - **Catálogo essencial (FR-28 essencial, 10 modelos):** `6X1_BASE` (baseline), `5X2`, `12X36`, `6X2`, `4X2` (5 turmas ou 9 meias-turmas), `2X2_12H`, `5T` (5 turmas, 33,6 h), `4X3` e turno fixo `FIXO_D`/`FIXO_N`. Critério: modelos mais usados em 24/7 e não contínuo no Brasil + baseline + os dois de 12 h. Geração cíclica determinística por dia absoluto (FR-05, FR-06).
-- **Construtor básico (FR-29 básico, absorve FR-07):** sequência livre + horários dos turnos + offsets, com validação (K\*, exato, h/sem, interjornada cíclica) dentro do passo 4 do wizard.
-- **Turmas como restrição (FR-32 enxuto):** K **fixo** ou **mínimo** por operação; sugestão de K/headcount (FR-08).
+- **Regime legal versionado (v3.4, FR-39–FR-42):** entidade *regime legal* com vigência e parâmetros (carga semanal máxima, jornada diária máxima, folgas semanais mínimas, compensação por ACT/CCT, regimes especiais); seeds `CLT_44H_ATUAL`, `TRANSICAO_42H`, `PEC_40H`; o cenário escolhe o regime ou uma data de referência; o M4 valida cada escala contra o regime; visão **"simular transição"** (mesma operação em 44 h → 42 h → 40 h com turmas/pessoas por fase); catálogo com selo de conformidade por regime (§6.2). Premissas legais a validar: §8.1.
+- ~~Construtor básico (FR-29 básico)~~ → **Fase 2 na v3.4** (trocado pelo regime legal; ver `06` §3.5). No MVP só o catálogo essencial.
+- **Turmas como restrição (FR-32 enxuto):** K **fixo** por operação (modo **mínimo** → Fase 2 na v3.4); sugestão de K/headcount (FR-08), agora com o **K mínimo legal** do regime (FR-41).
 - **Cargos (FR-34–36 enxuto):** cargos com nível (sem habilidades), matriz **direcional** A→B com fator 1,0, **mínimo por cargo por turno**; cobertura e heatmap filtráveis por cargo.
 - **Cobertura (núcleo):** cobertura hora a hora no horizonte; heatmap 7×24 de déficit/exato/excesso (pior caso/média); visão "postos + reserva" (FR-11); KPIs (FR-14); dimensionamento (FR-08).
-- **Viabilidade essencial (M4):** interjornada 11 h (FR-15), descanso semanal 35 h e 7º dia (FR-16), jornada diária/média semanal com hora noturna 8/7 (FR-20, sem Súmula 60). Selo "viabilidade parcial" lista as regras verificadas.
+- **Viabilidade essencial (M4):** interjornada 11 h (FR-15), descanso semanal 35 h e 7º dia (FR-16), jornada diária/média semanal com hora noturna 8/7 (FR-20, sem Súmula 60) **contra os limites do regime legal vigente** (FR-40: carga semanal média no ciclo, jornada diária, folgas semanais, 6x1 vedada, viável só com ACT/CCT, regime pendente de regulamentação). Selo "viabilidade parcial" lista as regras verificadas.
 - **Visualização:** heatmap 7×24, calendário cíclico por turma (FR-21), painel de achados.
 - **Export:** CSV e XLSX (FR-23).
 - **Persistência mínima:** PostgreSQL 16 com `organization_id` + RLS; cenário salvo (FR-24 só "salvar"); simulação síncrona; auth simples (JWT de acesso). Sem PII.
@@ -85,8 +86,10 @@ O MVP entrega **motor de cobertura + API + interface mínima** (wizard, heatmap 
 | Domingo periódico (FR-17), revezamento 6 h/8 h (FR-18), regras 12x36 (FR-19), Súmula 60 na jornada (FR-20 parcial) | 2 (P1, Fase 2a) | MVP verifica só interjornada, DSR/7º dia e jornada |
 | Comparador operacional (FR-22), ajuste de escala (T5), homologação (T7), versionar/duplicar cenário (FR-24 parcial) | 2 (P1, Fase 2a) | Interface mínima no MVP |
 | Catálogo restante da §6.1 (FR-28: 5x1, 6x3, 3x1, 3x2, Pitman, Panamá, DuPont, Continental, 12x60, 24x48, 24x72, 5T francesa, 6T, fim de semana, parcial, reforço, escalonado…) | 2 (P1, Fase 2a) | Entram como dados (ADR-010), sem mudança de motor |
+| Construtor básico no wizard (FR-29 básico / FR-07) e modo K **mínimo** (FR-32) | 2 (P1, Fase 2a) | **v3.4:** trocados pelo regime legal (FR-39–42) para manter 40 pts/sprint (`06` §3.5) |
 | Construtor avançado e T9 dedicada (FR-29 P1), mix de camadas (FR-30), templates (FR-31) | 2 (P1, Fase 2b) | — |
 | K faixa/livre e por posto/cargo/camada (FR-32 parcial), tamanho de turma e meias-turmas configuráveis (FR-33) | 2 (P1, Fase 2b) | — |
+| Regimes diferenciados por lei ordinária (12x36 e outros) com regras próprias; histórico de regimes por CCT; atualização do seed após texto promulgado | 2 (P1) | Dependem da lei ordinária e da confirmação do texto (§8.1, Q14–Q16) |
 | Habilidades/certificações (FR-34 parcial, FR-36 por habilidade), substituição parcial e limite fora do cargo (FR-35 P1), telas T8.1/T8.2/T2.2 | 2 (P1, Fase 2b) | MVP configura cargos/matriz em tabela simples no wizard |
 | Performance 1.000 colaboradores (NFR-01 completo), responsivo ≥ 768 px, hardening, beta externo | 2 (Fase 2c) | MVP: 200 colaboradores |
 | **Módulo financeiro** (FR-25–27) | futura (P2) | Secundário ao objetivo de cobertura; depende de Q1, Q3 |
@@ -124,7 +127,7 @@ Prioridade (v3.3): **P0** = MVP de 4 sprints (`06` §3.1–3.4); **P1** = Fase 2
 - Dado o modelo 6x2 padrão (§6), quando gerados 56 dias, então em cada dia há exatamente uma turma em M, uma em T, uma em N e uma em F.
 - Dado 12x36 em horizonte que cruza 31→1, então nenhuma turma trabalha dois dias seguidos.
 
-**FR-07 (P0, via FR-29 básico) Rotação customizada.** *(v3.2: absorvido pelo construtor FR-29 — mantido como o modo "sequência + offsets".)* Usuário define padrão `L` e offsets; o sistema calcula `K_min = turnos_por_dia × L / dias_trabalhados` e alerta se `K` não for compatível.
+**FR-07 (P1 — Fase 2 na v3.4, via FR-29 básico) Rotação customizada.** *(v3.2: absorvido pelo construtor FR-29 — mantido como o modo "sequência + offsets".)* Usuário define padrão `L` e offsets; o sistema calcula `K_min = turnos_por_dia × L / dias_trabalhados` e alerta se `K` não for compatível.
 - Dado padrão de 6 dias com 4 trabalhados e 3 turnos/dia, então `K_min = 4,5` e exibe "não há cobertura exata com turmas inteiras".
 
 **FR-08 (P0) Dimensionamento: turmas e headcount mínimo.** Para a demanda e o modelo escolhidos, calcular `K` necessário, headcount mínimo sem reserva (`K × postos`) e com reserva (shrinkage/folguistas), e sugerir o modelo/K que zera o déficit.
@@ -184,6 +187,7 @@ Regras com severidade `ERRO` (escala inviável; bloqueia homologação), `ALERTA
 - Dado turno 22h–05h (7 h relógio), então horas noturnas computadas = 8,000000.
 - Dado turno 22h–06h, então jornada computada = 7×8/7 + 1×8/7 = 9,142857 h → `CLT_JORNADA_DIARIA` (ALERTA, ver C6) com sugestão de encurtar para 22h–05h ou aceitar HE.
 - Dado 6x2 (42 h/sem) com contrato 40 h, então `CLT_MEDIA_SEMANAL` (ALERTA, 2 h/sem acima).
+- *(v3.4)* Os limites de jornada diária e de carga semanal deixam de ser constantes: vêm do **regime legal** do cenário (FR-39). `CLT_MEDIA_SEMANAL` compara com a **carga contratual**; `CLT_CARGA_SEMANAL_EXCEDIDA` (FR-40) compara com o **limite legal do regime**.
 
 ### Módulo 5 — Comparação, visualização e export
 
@@ -207,7 +211,7 @@ Regras com severidade `ERRO` (escala inviável; bloqueia homologação), `ALERTA
 - Dado o DuPont (12 h, rotativo D/N), quando simulado, então o motor gera a cobertura (168/168 h) e emite `CLT_REVEZAMENTO_6H` com severidade ERRO (jornada > 8 h em revezamento, Súmula 423) — o cenário sai "inviável".
 - Dado o 24x48, então o card exibe "inviável na CLT" e a simulação emite `CLT_JORNADA_DIARIA` (ERRO); o modelo continua disponível para comparação.
 
-**FR-29 (P0 básico = sequência + horários + offsets com validação / P1 avançado e T9 dedicada) Construtor de escala personalizada.** Editor em que o gestor define:
+**FR-29 (P1 — v3.4: básico também saiu do MVP, ver §4.2; básico = sequência + horários + offsets com validação / avançado e T9 dedicada) Construtor de escala personalizada.** *(Os marcadores "(P0)" abaixo indicam o escopo do construtor básico da Fase 2a.)* Editor em que o gestor define:
 - (P0) **sequência de ciclo livre** (ex.: `[M,M,T,T,N,N,F,F,F]`, até 84 posições), com códigos de turno da organização;
 - (P0) **turnos**: código, início, duração (P1 — Fase 2: turnos sobrepostos e de tamanhos diferentes na mesma escala) (60–1.440 min); (P1) **turnos sobrepostos e de tamanhos diferentes** (ex.: D12 07–19 + INT 10–18);
 - (P1 — Fase 2, depende de FR-10) **intervalo intrajornada** por turno (duração, posição, política FR-10: rendição / não computado / volante / **escalonado** — entradas ou intervalos defasados em `n` minutos entre subgrupos);
@@ -226,7 +230,7 @@ Regras com severidade `ERRO` (escala inviável; bloqueia homologação), `ALERTA
 
 ### Módulo 8 — Número de turmas como restrição (v3.2)
 
-**FR-32 (P0 fixo/mínimo por operação / P1 faixa, livre e por posto/cargo/camada) Parâmetro K (turmas) como restrição.** Por operação e, opcionalmente, por posto/cargo/camada: `K` em modo **fixo** (`K = k`), **faixa** (`K_min ≤ K ≤ K_max`) ou **livre**.
+**FR-32 (P0 fixo por operação / P1 mínimo (v3.4), faixa, livre e por posto/cargo/camada) Parâmetro K (turmas) como restrição.** Por operação e, opcionalmente, por posto/cargo/camada: `K` em modo **fixo** (`K = k`), **faixa** (`K_min ≤ K ≤ K_max`) ou **livre**.
 - (a) **K fixo:** o motor gera a escala com exatamente `k` turmas e informa a **cobertura alcançável** (% horas-posto, déficit) e o déficit residual; se `k < K*`, emite `COB_K_INSUFICIENTE` com o déficit e a menor alternativa (folguistas, meias-turmas, outro modelo com o mesmo `k`).
 - (b) **K livre / faixa:** o motor sugere o **menor K** (dentro da faixa) que zera o déficit para o modelo; se nenhum K da faixa zera, `COB_K_INSUFICIENTE` com o melhor K e o déficit restante.
 - Dado 6x2, 3 postos e K fixo = 3, então cobertura alcançável = 75% das horas-posto (em média 2,25 turmas trabalham por dia para 3 turnos), déficit = 0,75 turno-dia × 8 h × 3 postos × 7 = **126 horas-posto/semana** e `COB_K_INSUFICIENTE` com sugestão "K = 4 ou +folguistas".
@@ -260,6 +264,40 @@ Regras com severidade `ERRO` (escala inviável; bloqueia homologação), `ALERTA
 - **FR-13:** o folguista sugerido tem cargo; o motor só o posiciona onde a matriz permite (folguista técnico não cobre déficit de enfermeiro) e prefere o cargo de menor prioridade de substituição.
 - **FR-22:** comparador ganha "horas cobertas por substituição" e "horas sem qualificado".
 
+### Módulo 10 — Regime legal versionado e transição da escala 6x1 (v3.4)
+
+> Motivação: o pedido "as escalas simuladas devem atender às regras da mudança da escala 6x1". Os parâmetros vêm de **reportagens** sobre a PEC aprovada (§8.1); o texto promulgado **ainda não foi confirmado** — por isso as regras são **dados versionados** (ADR-005/ADR-011 do `02`), nunca código fixo.
+
+**FR-39 (P0) Regime legal versionado e configurável.** Entidade *regime legal* com código, nome, **vigência** (`valid_from`/`valid_to`, ou âncora "data da promulgação + offset" enquanto a data não for conhecida), status (`vigente`, `previsto`, `premissa`) e parâmetros:
+- `carga_semanal_max_h` (44 / 42 / 40), comparada com a **média semanal calculada sobre o ciclo** (`w × h_turno_computado × 7 / L`, hora noturna 8/7);
+- `jornada_diaria_max_h` (8) com exceções: **compensação/redução por ACT/CCT** (`compensacao_act`) e **regimes especiais** (12x36, art. 59-A) com política própria (`autorizado`, `autorizado_pendente_lei`);
+- `folgas_semanais_min` (dias de folga por 7 dias, média no ciclo; padrão 1 / 1 / **2 — premissa a validar**) e `criterio_folgas` (`media_ciclo` padrão | `toda_janela_7d`);
+- `permite_6x1` (true só em `CLT_44H_ATUAL`; premissa a validar na transição);
+- fonte normativa e nota de premissa.
+Seeds: `CLT_44H_ATUAL`, `TRANSICAO_42H`, `PEC_40H` (`05` §3.13). O cenário escolhe **um regime** explicitamente **ou** uma **data de referência**, e o motor aplica o regime vigente naquela data; o regime aplicado e a sua versão ficam no `inputs_snapshot` (NFR-03).
+- Dado cenário com data de referência dentro da vigência de `TRANSICAO_42H`, quando simulado, então o resultado registra `legal_regime = TRANSICAO_42H` e a carga máxima usada = 42 h.
+- Dado regime com status `premissa`, então todo resultado traz `INFO_REGIME_PREMISSA` ("parâmetros baseados em reportagens; confirmar texto promulgado").
+- Dado data de referência sem regime vigente (ex.: promulgação ainda sem data), então o wizard pede a escolha explícita do regime.
+
+**FR-40 (P0) Validação da escala contra o regime.** O M4 valida **cada turma** contra o regime do cenário:
+- média semanal no ciclo > `carga_semanal_max_h` → `CLT_CARGA_SEMANAL_EXCEDIDA` (ERRO; vira `CLT_VIAVEL_SOMENTE_COM_ACT` se o regime admite compensação por ACT/CCT **e** o cenário declara o instrumento — ver abaixo);
+- jornada computada > `jornada_diaria_max_h` fora de regime especial → `CLT_JORNADA_DIARIA` (limite vindo do regime) e, se o regime admite compensação por ACT/CCT, `CLT_VIAVEL_SOMENTE_COM_ACT`;
+- folgas por 7 dias (média no ciclo) < `folgas_semanais_min` → `CLT_FOLGAS_SEMANAIS_INSUFICIENTES` (ERRO);
+- padrão com ≤ 1 folga a cada 7 dias (6x1 ou pior) em regime com `permite_6x1 = false` → `CLT_ESCALA_6X1_VEDADA` (ERRO);
+- escala que **só é viável** com ACT/CCT (compensação de jornada/carga, 12 h fora de 12x36) → `CLT_VIAVEL_SOMENTE_COM_ACT` (ALERTA sem instrumento declarado; INFO com instrumento declarado) — **alerta claro na UI**: "Esta escala só é viável com acordo ou convenção coletiva";
+- regime especial cuja regra depende da lei ordinária (12x36 e outras escalas diferenciadas no regime 40 h) → `CLT_REGIME_PENDENTE_REGULAMENTACAO` (ALERTA), sem `ERRO` de carga enquanto a política for `autorizado_pendente_lei`.
+- Dado 6x2 8 h com 4 turmas em `PEC_40H`, então média = 42 h > 40 h → `CLT_CARGA_SEMANAL_EXCEDIDA` (ERRO, 2 h/sem acima) e folgas = 2 × 7/8 = 1,75 < 2 → `CLT_FOLGAS_SEMANAIS_INSUFICIENTES` (ERRO); a sugestão é "5 turmas (5T, 33,6 h) ou 4x2 com 9 meias-turmas (37,33 h)".
+- Dado o mesmo 6x2 em `TRANSICAO_42H`, então nenhum achado de regime (42 h = 42 h; folgas 1,75 ≥ 1).
+- Dado `6X1_BASE` 7h20 (44 h) em `CLT_44H_ATUAL`, então conforme; em `TRANSICAO_42H` ou `PEC_40H`, então `CLT_ESCALA_6X1_VEDADA` (ERRO) e `CLT_CARGA_SEMANAL_EXCEDIDA` (44 > 42/40).
+- Dado `4X3` 10 h (40 h) em `PEC_40H` sem ACT/CCT declarado, então `CLT_VIAVEL_SOMENTE_COM_ACT` (ALERTA); com ACT/CCT declarado, INFO.
+- Dado `12X36` (42 h média) em `PEC_40H`, então `CLT_REGIME_PENDENTE_REGULAMENTACAO` (ALERTA) e nenhum ERRO de carga.
+
+**FR-41 (P0) Dimensionamento sob o regime e simulação da transição.** O dimensionamento (FR-08) passa a considerar o **K mínimo legal** por posto: `K_legal = horas_posto_semana_por_posto / carga_semanal_max_h` (24/7 com 3 × 8 h: 168/44 = 3,82 → 4; 168/42 = 4 → 4; 168/40 = **4,2 → 5 turmas, ou 4,5 com meias-turmas = 9 meias**). `K*_efetivo = max(K*_modelo, arred(K_legal))`, com `arred` para o inteiro (ou meio, se meias-turmas forem permitidas) superior. Visão **"simular transição"**: a mesma operação é simulada em cada fase da linha do tempo (`CLT_44H_ATUAL` → `TRANSICAO_42H` → `PEC_40H`), com modelo recomendado, turmas, pessoas, h/sem e achados por fase.
+- Dado 10 postos 24/7 em 3 × 8 h, quando "simular transição", então: 44 h → 6x2 4 turmas, 40 pessoas (42 h); 42 h → 6x2 4 turmas, 40 pessoas; 40 h → 6x2 inviável; recomendado 4x2 com 9 meias-turmas, **45 pessoas** (37,33 h) ou 5T, 50 pessoas (33,6 h); limite inferior teórico `ceil(1.680/40)` = 42 pessoas.
+- Dado K fixo = 4 pela operação em `PEC_40H` com 3 × 8 h 24/7, então `COB_K_INSUFICIENTE` (K_legal = 4,2) com sugestão "5 turmas ou 9 meias-turmas".
+
+**FR-42 (P0) Conformidade por regime no catálogo.** Cada card do catálogo (FR-28) mostra o **selo de conformidade por regime** (44 h / 42 h / 40 h: `conforme`, `só com ACT/CCT`, `regime especial`, `não conforme`) e, quando não conforme, o **ajuste sugerido** (mais uma turma, turno menor, compensação via ACT/CCT, outro modelo) — tabela da §6.2.
+
 ### Módulo 6 — Financeiro (P2 — fase futura, opcional)
 
 > Mantido para não perder o trabalho de especificação, mas **fora do MVP**. Só entra após decisões Q1/Q3 e planilha de referência do DP.
@@ -292,42 +330,72 @@ Fórmula geral de cobertura exata com turmas inteiras de mesmo tamanho:
 
 Convenções: `s` = turnos/dia a cobrir, `L` = ciclo da turma, `w` = dias trabalhados no ciclo; **K\* = s × L / w** turmas (por posto); h/sem = `w × h_turno × 7 / L`. "Exato" = existe offset com turmas inteiras de mesmo tamanho que cobre cada turno-dia exatamente uma vez (verificado por enumeração dos offsets `i·L/K` no ciclo calendário). Coluna *não contínuo* = turmas para 1 turno/dia na janela indicada. Viabilidade é a padrão (sem CCT); ver Apêndice A.
 
-| Código | Modelo | Sequência (por turma) | h/turno | h/sem | K\* 24/7 | 24/7 exato? | K não contínuo | Aplicação | Observações legais (padrão) |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| `5X2` | 5x2 | `[X×5,F,F]` L=7 | 8 (ou 8h48) | 40 (44) | 3×7/5 = 4,2 | Não (5 turmas, +19% excesso) | 1 (seg–sex) | Administrativo, reforço | Viável; folga fixa sáb/dom |
-| `5X1` | 5x1 | `[X×5,F]` L=6 | 8 | 46,67 | 3,6 | Não (4 turmas, +11,1%) | 1,2 → 2 (seg–dom) | Varejo, logística | `CLT_MEDIA_SEMANAL` se contrato 44 h; usar 7h20 (36,7 h) ou 7h20+HE |
-| `6X1_BASE` | 6x1 | `[X×6,F]` L=7 | 8 / 7h20 | 48 / 44 | 3,5 | Não; **exato com 7 meias-turmas** L=21 `[M×6,F,T×6,F,N×6,F]` | 1,17 → 2 (seg–dom) | Baseline | Ver C9/Q8; 7º dia sempre folga |
-| `4X3` | 4x3 | `[X×4,F,F,F]` L=7 | 10 | 40 | — (10 h não divide 24 h) | n/a | 1 (seg–qui) + 1 (qui–dom) = 2 para 7 d | Manutenção, não contínuo | Compensação semanal (art. 59 §2º, acordo); 12 h → `CLT_JORNADA_DIARIA` |
-| `4X2` | 4x2 | L=6 (4 + 2 F) | 8 | 37,33 | 4,5 | Não (5 turmas +11,1%) / **exato com 9 meias** L=18 | 1,5 → 2 | Indústria | Revezamento: ACT p/ 8 h |
-| `6X2` | 6x2 | `[M,M,T,T,N,N,F,F]` L=8 | 8 | 42 | 4 | **Sim** | 1,33 → 2 | Indústria | ACT p/ 8 h; `CLT_MEDIA_SEMANAL` se 40 h |
-| `6X3` | 6x3 | `[M×2,T×2,N×2,F×3]` L=9 | 8 | 37,33 | 4,5 | Não (5 turmas +11,1%) / **exato com 9 meias** L=27 `[M×6,F×3,T×6,F×3,N×6,F×3]` | 1,5 → 2 | Mineração, offshore curto | ACT p/ 8 h |
-| `3X1` | 3x1 | `[M,T,N,F]` L=4 (para frente) | 8 | 42 | 3×4/3 = 4 | **Sim** | 1,33 → 2 | Indústria, segurança | ACT p/ 8 h; rotação diária (fadiga) |
-| `3X2` | 3x2 | `[M,T,N,F,F]` L=5 | 8 | 33,6 | 5 | **Sim** | 1,67 → 2 | Indústria, saneamento | ACT p/ 8 h |
-| `2X2_12H` | 2x2 (12 h) | `[D,D,F,F]` L=4, turmas fixas D/N | 12 | 42 | 2×4/2 = 4 | **Sim** (2 D + 2 N) | 2 | Saúde, segurança | 12 h fora de 12x36 ⇒ `CLT_JORNADA_DIARIA` ERRO salvo CCT (override documentado) |
-| `PITMAN` | Pitman 2-2-3 | `[D,D,F,F,D,D,D,F,F,D,D,F,F,F]` L=14, fixas D/N | 12 | 42 | 4 | **Sim** (offset 7) | 2 | Polícia privada, utilities | Idem 2x2; fim de semana de 3 dias alternado |
-| `PANAMA` | Continental 2-2-3 / Panamá (12 h rotativo) | Pitman em D por 14 d, depois em N por 14 d, L=28 | 12 | 42 | 4 | **Sim** (offset 7) | — | Plantas químicas | Revezamento > 8 h ⇒ `CLT_REVEZAMENTO_6H` **ERRO** (Súmula 423) — inviável |
-| `DUPONT` | DuPont | `[N×4,F×3,D×3,F,N×3,F×3,D×4,F×7]` L=28 | 12 | 42 | 2×28/14 = 4 | **Sim** (offset 7) | — | Refinarias | Rotativo D/N 12 h ⇒ `CLT_REVEZAMENTO_6H` ERRO — inviável |
-| `CONTINENTAL_8H` | Continental (8 h) | `[M,M,T,T,N,N,N,F,F,M,M,T,T,T,N,N,F,F,M,M,M,T,T,N,N,F,F,F]` L=28 | 8 | 42 | 3×28/21 = 4 | **Sim** (offset 7) | — | Siderurgia | Tem 7 dias seguidos (`MMMTTNN`) ⇒ `CLT_SETIMO_DIA` ERRO; derivar no construtor |
-| `12X36` | 12x36 | `[D,F]`/`[N,F]` L=2 | 12 | 42 | 4 | **Sim** | 2 | Saúde, vigilância | Art. 59-A; dia absoluto |
-| `12X60` | 12x60 | `[D,F,F]` L=3, fixas D/N | 12 | 28 | 2×3/1 = 6 | **Sim** | 3 | Saúde (plantonista) | Descanso 60 h ≥ 36 h; enquadrar como 12x36 por CCT (ALERTA de enquadramento) |
-| `24X48` | 24x48 | `[P24,F,F]` L=3 | 24 | 56 | 1×3/1 = 3 | **Sim** | — | Bombeiro/serviço público (não CLT) | `CLT_JORNADA_DIARIA` ERRO + `CLT_MEDIA_SEMANAL` — inviável na CLT |
-| `24X72` | 24x72 | `[P24,F,F,F]` L=4 | 24 | 42 | 4 | **Sim** | — | Idem | `CLT_JORNADA_DIARIA` ERRO — inviável salvo lei específica |
-| `18X36` | 18x36 | ciclo de **54 h** (18 trab. + 36 F) | 18 | 56 | 54/18 = 3 | **Sim** em horas; ciclo calendário `mmc(54,24)` = 216 h = 9 d | — | Embarcações | > 12 h ⇒ ERRO; exige ciclo em horas (`cycle_unit = 'hours'`) |
-| `5T` | 5 turmas | `[M,M,T,T,N,N,F,F,F,F]` L=10 | 8 | 33,6 | 5 | **Sim** | 2 | Indústria | ACT p/ 8 h |
-| `5T_FR` | 5 turmas francesa (5×8) | `[M,M,T,T,N,N,R,F,F,F]` L=10 (`R` = reserva/formação) | 8 | 33,6 (+8 h R) | 5 | **Sim** (R não conta como posto) | — | Química, papel | R vira reserva para FR-11/FR-13 |
-| `6T` | 6 turmas (8 h) | `[M,M,T,T,N,N,F×6]` L=12 | 8 | 28 | 6 | **Sim** | — | Alta fadiga | Horas baixas: avaliar contrato |
-| `6T_6H` | 6 turmas (4 × 6 h) | `[M,M,T,T,V,V,F,N,N,F,F,F]` L=12 (M 06–12, T 12–18, V 18–24, N 00–06) | 6 | 28 | 4×12/8 = 6 | **Sim** | — | Revezamento sem ACT | Revezamento ≤ 6 h: dispensa ACT (art. 7º XIV) |
-| `SDF_12H` | Fim de semana 12 h | `[F×5,D,D]` L=7 (D e/ou N) | 12 | 24 | complementar | — | 1 por turno de sáb–dom | Complementa 5x2 | Domingo toda semana ⇒ `CLT_DOMINGO_PERIODICIDADE`; 12 h ⇒ CCT |
-| `PARCIAL_20/25/30` | Jornada parcial | `5x2` de 4 h / 5 h / 6 h | 4–6 | 20/25/30 | — | — | 1 por faixa | Picos, varejo | Art. 58-A (≤ 30 h sem HE ou ≤ 26 h + 6 HE) ⇒ `CLT_TEMPO_PARCIAL` |
-| `FIXO_N` / `FIXO_D` | Turno fixo noturno / diurno | qualquer sequência com um único turno | — | — | por modelo base | — | — | Saúde, vigilância | Fixo não é revezamento (FR-18 não se aplica) |
-| `ROT_FRENTE` / `ROT_TRAS` | Rotação para frente × para trás | M→T→N (frente) / N→T→M (trás) | — | — | — | — | — | Qualquer | Para trás exige folga entre N e T (N 06h → T 14h = 8 h ⇒ `CLT_INTERJORNADA`) |
-| `INT_PICO` | Intermediário / reforço de pico | turno `INT` (ex.: 10–18) em camada adicional (FR-30) | 6–8 | — | — | — | por pico | Picos diurnos | Só reforço; não substitui núcleo |
-| `ESCALONADO` | Entradas escalonadas | subgrupos com entradas defasadas (ex.: 06, 07, 08 h) | 8 | — | — | — | — | Rampas de demanda, cobertura de intervalos | Cobre intervalo sem volante (FR-10 escalonado) |
-| `SPLIT` | Jornada fracionada (split shift) | 2 blocos no dia (ex.: 07–11 + 17–21) | 8 | 40 | — | — | — | Transporte, restaurantes | Intervalo > 2 h exige acordo escrito/CCT (art. 71) ⇒ `CLT_INTRAJORNADA` |
+| Código | Modelo | Sequência (por turma) | h/turno | h/sem | K\* 24/7 | 24/7 exato? | K não contínuo | Aplicação | Observações legais (padrão) | Conformidade 44 h / 42 h / 40 h (v3.4, §6.2) |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| `5X2` | 5x2 | `[X×5,F,F]` L=7 | 8 (ou 8h48) | 40 (44) | 3×7/5 = 4,2 | Não (5 turmas, +19% excesso) | 1 (seg–sex) | Administrativo, reforço | Viável; folga fixa sáb/dom | ✔ / ✔ / ✔ (8 h = 40 h; 8h48 = 44 h só no 44 h) |
+| `5X1` | 5x1 | `[X×5,F]` L=6 | 8 | 46,67 | 3,6 | Não (4 turmas, +11,1%) | 1,2 → 2 (seg–dom) | Varejo, logística | `CLT_MEDIA_SEMANAL` se contrato 44 h; usar 7h20 (36,7 h) ou 7h20+HE | ✖ 46,67 h (✔ com 7h20) / ✖ / ✖ carga + folgas 1,17 |
+| `6X1_BASE` | 6x1 | `[X×6,F]` L=7 | 8 / 7h20 | 48 / 44 | 3,5 | Não; **exato com 7 meias-turmas** L=21 `[M×6,F,T×6,F,N×6,F]` | 1,17 → 2 (seg–dom) | Baseline | Ver C9/Q8; 7º dia sempre folga | ✔ só 7h20 (8 h = 48 h, Q8) / ✖ 6x1 vedada / ✖ 6x1 vedada |
+| `4X3` | 4x3 | `[X×4,F,F,F]` L=7 | 10 | 40 | — (10 h não divide 24 h) | n/a | 1 (seg–qui) + 1 (qui–dom) = 2 para 7 d | Manutenção, não contínuo | Compensação semanal (art. 59 §2º, acordo); 12 h → `CLT_JORNADA_DIARIA` | ACT / ACT / ACT (10 h/dia ⇒ compensação por ACT/CCT) |
+| `4X2` | 4x2 | L=6 (4 + 2 F) | 8 | 37,33 | 4,5 | Não (5 turmas +11,1%) / **exato com 9 meias** L=18 | 1,5 → 2 | Indústria | Revezamento: ACT p/ 8 h | ✔ / ✔ / ✔ (37,33 h; folgas 2,33) |
+| `6X2` | 6x2 | `[M,M,T,T,N,N,F,F]` L=8 | 8 | 42 | 4 | **Sim** | 1,33 → 2 | Indústria | ACT p/ 8 h; `CLT_MEDIA_SEMANAL` se 40 h | ✔ / ✔ / ✖ 42 h + folgas 1,75 |
+| `6X3` | 6x3 | `[M×2,T×2,N×2,F×3]` L=9 | 8 | 37,33 | 4,5 | Não (5 turmas +11,1%) / **exato com 9 meias** L=27 `[M×6,F×3,T×6,F×3,N×6,F×3]` | 1,5 → 2 | Mineração, offshore curto | ACT p/ 8 h | ✔ / ✔ / ✔ (37,33 h; folgas 2,33) |
+| `3X1` | 3x1 | `[M,T,N,F]` L=4 (para frente) | 8 | 42 | 3×4/3 = 4 | **Sim** | 1,33 → 2 | Indústria, segurança | ACT p/ 8 h; rotação diária (fadiga) | ✔ / ✔ / ✖ 42 h + folgas 1,75 |
+| `3X2` | 3x2 | `[M,T,N,F,F]` L=5 | 8 | 33,6 | 5 | **Sim** | 1,67 → 2 | Indústria, saneamento | ACT p/ 8 h | ✔ / ✔ / ✔ (33,6 h; folgas 2,8) |
+| `2X2_12H` | 2x2 (12 h) | `[D,D,F,F]` L=4, turmas fixas D/N | 12 | 42 | 2×4/2 = 4 | **Sim** (2 D + 2 N) | 2 | Saúde, segurança | 12 h fora de 12x36 ⇒ `CLT_JORNADA_DIARIA` ERRO salvo CCT (override documentado) | CCT / CCT / ✖ 42 h |
+| `PITMAN` | Pitman 2-2-3 | `[D,D,F,F,D,D,D,F,F,D,D,F,F,F]` L=14, fixas D/N | 12 | 42 | 4 | **Sim** (offset 7) | 2 | Polícia privada, utilities | Idem 2x2; fim de semana de 3 dias alternado | CCT / CCT / ✖ 42 h |
+| `PANAMA` | Continental 2-2-3 / Panamá (12 h rotativo) | Pitman em D por 14 d, depois em N por 14 d, L=28 | 12 | 42 | 4 | **Sim** (offset 7) | — | Plantas químicas | Revezamento > 8 h ⇒ `CLT_REVEZAMENTO_6H` **ERRO** (Súmula 423) — inviável | ✖ / ✖ / ✖ (revezamento; + 42 h no 40 h) |
+| `DUPONT` | DuPont | `[N×4,F×3,D×3,F,N×3,F×3,D×4,F×7]` L=28 | 12 | 42 | 2×28/14 = 4 | **Sim** (offset 7) | — | Refinarias | Rotativo D/N 12 h ⇒ `CLT_REVEZAMENTO_6H` ERRO — inviável | ✖ / ✖ / ✖ (revezamento; + 42 h no 40 h) |
+| `CONTINENTAL_8H` | Continental (8 h) | `[M,M,T,T,N,N,N,F,F,M,M,T,T,T,N,N,F,F,M,M,M,T,T,N,N,F,F,F]` L=28 | 8 | 42 | 3×28/21 = 4 | **Sim** (offset 7) | — | Siderurgia | Tem 7 dias seguidos (`MMMTTNN`) ⇒ `CLT_SETIMO_DIA` ERRO; derivar no construtor | ✖ / ✖ / ✖ (7º dia; + 42 h no 40 h) |
+| `12X36` | 12x36 | `[D,F]`/`[N,F]` L=2 | 12 | 42 | 4 | **Sim** | 2 | Saúde, vigilância | Art. 59-A; dia absoluto | ✔ / ✔ / especial (42 h; pendente lei ordinária) |
+| `12X60` | 12x60 | `[D,F,F]` L=3, fixas D/N | 12 | 28 | 2×3/1 = 6 | **Sim** | 3 | Saúde (plantonista) | Descanso 60 h ≥ 36 h; enquadrar como 12x36 por CCT (ALERTA de enquadramento) | ✔ / ✔ / ✔ (28 h) |
+| `24X48` | 24x48 | `[P24,F,F]` L=3 | 24 | 56 | 1×3/1 = 3 | **Sim** | — | Bombeiro/serviço público (não CLT) | `CLT_JORNADA_DIARIA` ERRO + `CLT_MEDIA_SEMANAL` — inviável na CLT | ✖ / ✖ / ✖ |
+| `24X72` | 24x72 | `[P24,F,F,F]` L=4 | 24 | 42 | 4 | **Sim** | — | Idem | `CLT_JORNADA_DIARIA` ERRO — inviável salvo lei específica | ✖ / ✖ / ✖ |
+| `18X36` | 18x36 | ciclo de **54 h** (18 trab. + 36 F) | 18 | 56 | 54/18 = 3 | **Sim** em horas; ciclo calendário `mmc(54,24)` = 216 h = 9 d | — | Embarcações | > 12 h ⇒ ERRO; exige ciclo em horas (`cycle_unit = 'hours'`) | ✖ / ✖ / ✖ |
+| `5T` | 5 turmas | `[M,M,T,T,N,N,F,F,F,F]` L=10 | 8 | 33,6 | 5 | **Sim** | 2 | Indústria | ACT p/ 8 h | ✔ / ✔ / ✔ (33,6 h; folgas 2,8) |
+| `5T_FR` | 5 turmas francesa (5×8) | `[M,M,T,T,N,N,R,F,F,F]` L=10 (`R` = reserva/formação) | 8 | 33,6 (+8 h R) | 5 | **Sim** (R não conta como posto) | — | Química, papel | R vira reserva para FR-11/FR-13 | ✔ / ✔ / ✔ (39,2 h com `R`; folgas 2,1) |
+| `6T` | 6 turmas (8 h) | `[M,M,T,T,N,N,F×6]` L=12 | 8 | 28 | 6 | **Sim** | — | Alta fadiga | Horas baixas: avaliar contrato | ✔ / ✔ / ✔ (28 h) |
+| `6T_6H` | 6 turmas (4 × 6 h) | `[M,M,T,T,V,V,F,N,N,F,F,F]` L=12 (M 06–12, T 12–18, V 18–24, N 00–06) | 6 | 28 | 4×12/8 = 6 | **Sim** | — | Revezamento sem ACT | Revezamento ≤ 6 h: dispensa ACT (art. 7º XIV) | ✔ / ✔ / ✔ (28 h) |
+| `SDF_12H` | Fim de semana 12 h | `[F×5,D,D]` L=7 (D e/ou N) | 12 | 24 | complementar | — | 1 por turno de sáb–dom | Complementa 5x2 | Domingo toda semana ⇒ `CLT_DOMINGO_PERIODICIDADE`; 12 h ⇒ CCT | CCT / CCT / CCT (24 h; 12 h) |
+| `PARCIAL_20/25/30` | Jornada parcial | `5x2` de 4 h / 5 h / 6 h | 4–6 | 20/25/30 | — | — | 1 por faixa | Picos, varejo | Art. 58-A (≤ 30 h sem HE ou ≤ 26 h + 6 HE) ⇒ `CLT_TEMPO_PARCIAL` | ✔ / ✔ / ✔ |
+| `FIXO_N` / `FIXO_D` | Turno fixo noturno / diurno | qualquer sequência com um único turno | — | — | por modelo base | — | — | Saúde, vigilância | Fixo não é revezamento (FR-18 não se aplica) | = modelo base |
+| `ROT_FRENTE` / `ROT_TRAS` | Rotação para frente × para trás | M→T→N (frente) / N→T→M (trás) | — | — | — | — | — | Qualquer | Para trás exige folga entre N e T (N 06h → T 14h = 8 h ⇒ `CLT_INTERJORNADA`) | = modelo base |
+| `INT_PICO` | Intermediário / reforço de pico | turno `INT` (ex.: 10–18) em camada adicional (FR-30) | 6–8 | — | — | — | por pico | Picos diurnos | Só reforço; não substitui núcleo | conforme a sequência |
+| `ESCALONADO` | Entradas escalonadas | subgrupos com entradas defasadas (ex.: 06, 07, 08 h) | 8 | — | — | — | — | Rampas de demanda, cobertura de intervalos | Cobre intervalo sem volante (FR-10 escalonado) | conforme a sequência |
+| `SPLIT` | Jornada fracionada (split shift) | 2 blocos no dia (ex.: 07–11 + 17–21) | 8 | 40 | — | — | — | Transporte, restaurantes | Intervalo > 2 h exige acordo escrito/CCT (art. 71) ⇒ `CLT_INTRAJORNADA` | ✔ / ✔ / ✔ (40 h; intervalo > 2 h ⇒ acordo) |
 
 **Resumo de exatidão 24/7 (turmas inteiras):** exatos — 6x2, 3x1, 3x2, 2x2, Pitman, Panamá, DuPont, Continental 8 h, 12x36, 12x60, 24x48, 24x72, 18x36 (em horas), 5T, 5T francesa, 6T, 6T 6 h. Não exatos — 5x2, 5x1, 6x1, 4x2, 6x3 (os três últimos fecham com meias-turmas). **Exato em cobertura não é viável na CLT:** DuPont, Panamá (revezamento > 8 h), Continental 8 h (7º dia), 24x48, 24x72, 18x36 (jornada) — o produto os mostra para comparação com selo "inviável" e permite derivá-los no construtor.
 
 **MVP × fase (v3.3):** só o **catálogo essencial** entra no MVP — `6X1_BASE`, `5X2`, `12X36`, `6X2`, `4X2`, `2X2_12H`, `5T`, `4X3`, `FIXO_D`, `FIXO_N` (tag **MVP**); os demais códigos desta tabela são **Fase 2** e entram depois como dados de catálogo (o motor M2 é genérico; cada modelo é uma linha de `schedule_models` + `rotation_patterns` + teste golden). `18X36` (ciclo em horas) e `SPLIT` (dois blocos/dia) exigem extensões do gerador e são **P1**.
+
+### 6.2 Conformidade por regime legal (v3.4, FR-40–FR-42)
+
+Premissas: regimes `CLT_44H_ATUAL` (44 h, ≥ 1 folga/7 d, 6x1 permitida), `TRANSICAO_42H` (42 h, ≥ 1 folga/7 d, 6x1 vedada — premissa), `PEC_40H` (40 h, **≥ 2 folgas/7 d — premissa**, 6x1 vedada); jornada até 8 h (compensação por ACT/CCT; 12x36 regime especial). **Média semanal** = `w × h × 7 / L`; **folgas/7 d** = `(L − w) × 7 / L` (média no ciclo). Legenda: ✔ conforme · **ACT** só viável com ACT/CCT (`CLT_VIAVEL_SOMENTE_COM_ACT`) · **especial** regime diferenciado pendente de lei ordinária (`CLT_REGIME_PENDENTE_REGULAMENTACAO`) · ✖ não conforme. Contas conferidas para todos os códigos da §6.1 (coluna "Conformidade").
+
+**Catálogo essencial do MVP**
+
+| Código | h/turno | h/sem média (conta) | Folgas/7 d (conta) | 44 h | 42 h | 40 h | Achados no 40 h | Ajuste sugerido para 40 h |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| `6X1_BASE` | 8 / 7h20 | 6×8×7/7 = 48 / 6×7,33×7/7 = 44 | 1×7/7 = 1 | ✔ só 7h20 (8 h ⇒ `CLT_CARGA_SEMANAL_EXCEDIDA`, HE — Q8) | ✖ | ✖ | `CLT_ESCALA_6X1_VEDADA`, `CLT_CARGA_SEMANAL_EXCEDIDA` | **Baseline de comparação apenas.** 24/7: 4x2 (9 meias) ou 5T; não contínuo: 5x2 |
+| `5X2` | 8 | 5×8×7/7 = **40** | 2×7/7 = 2 | ✔ | ✔ | ✔ | — | (8h48 = 44 h: reduzir para 8 h) · 24/7 exige 5 turmas (K\* 4,2) |
+| `12X36` | 12 | 1×12×7/2 = **42** | 1×7/2 = 3,5 | ✔ | ✔ | especial | `CLT_REGIME_PENDENTE_REGULAMENTACAO` | Aguardar lei ordinária; se exigir ≤ 40 h: 5ª turma (12 h, 33,6 h) |
+| `6X2` | 8 | 6×8×7/8 = **42** | 2×7/8 = **1,75** | ✔ | ✔ | ✖ | `CLT_CARGA_SEMANAL_EXCEDIDA` (+2 h), `CLT_FOLGAS_SEMANAIS_INSUFICIENTES` | +1 turma → **5T** (33,6 h) ou **4x2 9 meias** (37,33 h). ACT de compensação cobre a carga, **não** as folgas (premissa) |
+| `4X2` | 8 | 4×8×7/6 = 37,33 | 2×7/6 = 2,33 | ✔ | ✔ | ✔ | — | — (5 turmas ou 9 meias) |
+| `2X2_12H` | 12 | 2×12×7/4 = **42** | 2×7/4 = 3,5 | CCT | CCT | ✖ | `CLT_CARGA_SEMANAL_EXCEDIDA`, `CLT_JORNADA_DIARIA`/`CLT_VIAVEL_SOMENTE_COM_ACT` | 5 turmas 12 h `[D,D,F,F,F]` (2×5/2 = 5; 33,6 h) ou migrar para 12x36 |
+| `5T` | 8 | 6×8×7/10 = 33,6 | 4×7/10 = 2,8 | ✔ | ✔ | ✔ | — | — (referência do regime 40 h em 24/7) |
+| `4X3` | 10 | 4×10×7/7 = 40 | 3×7/7 = 3 | ACT | ACT | ACT | `CLT_VIAVEL_SOMENTE_COM_ACT` (10 h > 8 h) | Com ACT/CCT de compensação: conforme; sem: 4x3 de 8 h (32 h) ou 5x2 |
+| `FIXO_D` / `FIXO_N` | — | do modelo base | do modelo base | = base | = base | = base | os do modelo base | os do modelo base |
+
+**Dimensionamento 24/7 sob o regime (FR-41)** — 3 turnos de 8 h, por posto: `K_legal = 168 / carga`.
+
+| Regime | `K_legal` | Turmas inteiras | Com meias-turmas | Exemplo 10 postos: modelo recomendado → pessoas |
+| :--- | :--- | :--- | :--- | :--- |
+| `CLT_44H_ATUAL` | 168/44 = 3,82 | 4 | 4 | 6x2 4T → **40** (42 h) |
+| `TRANSICAO_42H` | 168/42 = 4,00 | 4 | 4 | 6x2 4T → **40** (42 h) |
+| `PEC_40H` | 168/40 = **4,20** | **5** | **4,5 (9 meias)** | 4x2 9 meias → **45** (37,33 h) · 5T → 50 (33,6 h) · mínimo teórico `ceil(1.680/40)` = 42 |
+
+Identidade usada nos testes: para modelo exato, `K*_modelo ≥ K_legal` ⇔ `h/sem do modelo ≤ carga máxima` (6x2: K\* = 4 < 4,2 ⇔ 42 h > 40 h). Com 2 turnos de 12 h o `K_legal` é o mesmo (168/40 = 4,2 → 5).
+
+**Casos golden de regime (v3.4)** — entram na suíte do `02` §10: GT-REG-01 6x2 4T em `PEC_40H` → `CLT_CARGA_SEMANAL_EXCEDIDA` + `CLT_FOLGAS_SEMANAIS_INSUFICIENTES`; GT-REG-02 6x2 4T em `TRANSICAO_42H` → sem achados de regime; GT-REG-03 `6X1_BASE` 7h20 em 44 h → conforme, em 42 h → `CLT_ESCALA_6X1_VEDADA` + carga; GT-REG-04 5T em `PEC_40H` → conforme; GT-REG-05 transição 10 postos → 40 / 40 / 45 pessoas; GT-REG-06 12x36 em `PEC_40H` → `CLT_REGIME_PENDENTE_REGULAMENTACAO` sem ERRO; GT-REG-07 4x3 10 h em `PEC_40H` → `CLT_VIAVEL_SOMENTE_COM_ACT` (ALERTA sem ACT, INFO com ACT); GT-REG-08 data de referência → regime vigente correto nas bordas `valid_from`/`valid_to`.
 
 **4x2 — duas opções no MVP:**
 - **(a) 5 turmas**, padrão 4 trabalhados + 2 folgas (L=6), mesmo turno no bloco e rotação M→T→N a cada bloco; em média 3,33 turmas trabalham por dia → excedente de 11,1% (heatmap mostra excesso; usável como reserva de absenteísmo). O motor garante ≥ 1 turma por turno em todos os dias.
@@ -350,11 +418,27 @@ Convenções: `s` = turnos/dia a cobrir, `L` = ciclo da turma, `w` = dias trabal
 ## 8. Premissas
 
 1. Regra de negócio: CLT urbana; rural (21h–05h/20h–04h) fica para Fase 2.
-2. A eventual extinção da 6x1 é tratada como **cenário**, não norma vigente; o 6x1 permanece como baseline.
+2. *(v3.4)* A extinção da 6x1 é modelada como **regime legal versionado** (FR-39): o 6x1 permanece como **baseline de comparação**, permitido só em `CLT_44H_ATUAL`. Parâmetros e fontes em §8.1.
 3. Feriados nacionais carregados automaticamente; estaduais/municipais informados manualmente.
 4. O usuário informa se há ACT/CCT para 8 h em revezamento e para 12x36; o produto não valida o instrumento.
 5. Headcount por turma = postos do turno; ausências (férias, absenteísmo) são cobertas por reserva/folguistas (FR-11, FR-13).
 6. Horizonte padrão = ciclo calendário completo (`mmc(L,7)`).
+
+### 8.1 Premissas legais — fim da escala 6x1 (v3.4)
+
+> **Pendência bloqueante para homologação (não para o desenvolvimento): confirmar o texto promulgado pelo Congresso** (EC publicada no DOU) e atualizar os seeds de `legal_regimes` (`05` §3.13). Até lá, os três regimes têm status `premissa` e todo resultado mostra `INFO_REGIME_PREMISSA`.
+
+| # | Premissa (fonte: reportagens — texto promulgado **não** confirmado) | Uso no produto | Status |
+| :--- | :--- | :--- | :--- |
+| PL1 | PEC do fim da 6x1 aprovada na Câmara (mai/2026) e no Senado (out/2026), rumo à promulgação | Existência dos regimes `TRANSICAO_42H` e `PEC_40H` | A validar (data de promulgação desconhecida → vigências ancoradas em "D0 = promulgação") |
+| PL2 | Jornada semanal cai de **44 h para 40 h**; quem já está em 40 h ou 36 h não muda | `carga_semanal_max_h`; contratos ≤ 40 h não geram achado novo | A validar |
+| PL3 | Transição (versão Câmara): 44 h → **42 h após 60 dias** → **40 h em 14 meses**; 5x2 mantida como referência | Vigências `CLT_44H_ATUAL` até D0+59 d, `TRANSICAO_42H` de D0+60 d até D0+14 meses−1 d, `PEC_40H` a partir de D0+14 meses | A validar (contagem dos 14 meses a partir da promulgação é premissa) |
+| PL4 | Jornada **até 8 h diárias** e 40 h semanais, com **compensação/redução mediante ACT/CCT** | `jornada_diaria_max_h = 8`; `compensacao_act = true` ⇒ `CLT_VIAVEL_SOMENTE_COM_ACT` | A validar |
+| PL5 | **Lei ordinária** tratará regimes diferenciados; **12x36** e outras escalas seguem autorizadas | 12x36 = regime especial `autorizado_pendente_lei` ⇒ `CLT_REGIME_PENDENTE_REGULAMENTACAO` | A validar; regras definitivas dependem da lei |
+| PL6 | A proposta original de **36 h / 4x3** **não** consta da versão aprovada mais recente | Nenhum seed de 36 h; 4x3 continua no catálogo como modelo comum | Confirmado nas reportagens; reconfirmar no texto |
+| PL7 | 6x1 deixa de ser permitida como regra geral ⇒ **mínimo de 2 dias de descanso semanais** no regime-alvo | `folgas_semanais_min = 2` e `permite_6x1 = false` em `PEC_40H`; `permite_6x1 = false` também em `TRANSICAO_42H` | **Premissa do produto a validar com o Jurídico** (Q14, Q15) |
+
+Fontes: O Tempo, "Entenda a PEC que acaba com a escala 6x1, aprovada no Senado" (14/10/2026) — <https://www.otempo.com.br/politica/congresso/2026/10/14/entenda-a-pec-que-acaba-com-a-escala-6x1-aprovada-no-senado>; Agência Brasil, "Câmara aprova em dois turnos PEC pelo fim da escala 6x1" (mai/2026) — <https://agenciabrasil.ebc.com.br/politica/noticia/2026-05/camara-aprova-em-dois-turnos-pec-pelo-fim-da-escala-6x1>.
 
 ## 9. Perguntas em aberto
 
@@ -370,6 +454,9 @@ Convenções: `s` = turnos/dia a cobrir, `L` = ciclo da turma, `w` = dias trabal
 | Q11 | Política padrão em feriado: escala corre normalmente ou turma de folga é convocada? | Operações | Não (FR-12) |
 | Q12 | Substituição por cargo superior (enfermeiro cobrindo técnico) conta 100% do posto por padrão ou exige fator configurado? | Operações + RH | Não (padrão 1,0, FR-35) |
 | Q13 | Modelos 12 h fora do 12x36 (2x2, Pitman, SDF): aceitar override por CCT com ALERTA, ou manter ERRO? | Jurídico | Não (padrão ERRO + override documentado) |
+| **Q14** | **(v3.4) Fim da 6x1 — texto promulgado:** confirmar no texto da EC (i) carga 40 h e fases 42 h/40 h com datas exatas (60 dias / 14 meses contados de quê?), (ii) nº mínimo de folgas semanais (2?) e se a vedação da 6x1 vale já na fase 42 h, (iii) alcance da compensação por ACT/CCT (carga, jornada, folgas?), (iv) tratamento de 12x36 e demais regimes diferenciados até a lei ordinária | **Jurídico** | Sim (homologação; seeds `legal_regimes` com status `premissa` até lá) |
+| Q15 | (v3.4) Folgas semanais: critério "média no ciclo" (padrão; 6x2 = 1,75) ou "em toda janela de 7 dias"? | Jurídico | Não (parâmetro `criterio_folgas`) |
+| Q16 | (v3.4) Baseline 6x1 8 h com HE planejada no regime 44 h: `CLT_CARGA_SEMANAL_EXCEDIDA` como ERRO ou ALERTA (ligado a Q8)? | Jurídico + Produto | Não (padrão ALERTA com `he_planejada`) |
 | Q1 | (P2) Divisor padrão para revezamento 8 h com ACT (220? 180?) | Jurídico/DP | Só para Módulo 6 |
 | Q6 | (P2) Encargos: % único aceitável? | Produto/Financeiro | Só para Módulo 6 |
 
@@ -398,8 +485,8 @@ Resolvida: **Q7** (persistência) → PostgreSQL 16 (decisão do `02-TRD.md` / `
 
 ## 11. Fases e dependências
 
-- **Fase 1 (MVP — 4 sprints, v3.3):** P0 = FR-01–03, FR-05–09, FR-11, FR-14–16, FR-20 (sem Súmula 60), FR-21, FR-23, FR-24 (salvar), FR-28 (essencial), FR-29 (básico, inclui FR-07), FR-32 (fixo/mín), FR-34–36 (enxutos). Dependências: Q8; casos golden de cobertura e viabilidade dos 10 modelos.
-- **Fase 2 (pós-MVP, P1):** FR-10, FR-12, FR-13, FR-17–19, FR-20 (Súmula 60; depende de Q2, Q3), FR-22, FR-24 (versionar/duplicar), restante de FR-28/29/32/34–36, FR-30, FR-31, FR-33; NFR-01 completo. **Fase futura (P2):** Módulo 6 financeiro (FR-25–27), Erlang-C/UPH (FR-04), ILP CP-SAT, proporções e multi-skill (FR-37, FR-38), alocação nominal e calendário pessoal.
+- **Fase 1 (MVP — 4 sprints, v3.3):** P0 = FR-01–03, FR-05–09, FR-11, FR-14–16, FR-20 (sem Súmula 60), FR-21, FR-23, FR-24 (salvar), FR-28 (essencial), FR-32 (fixo), FR-34–36 (enxutos), **FR-39–FR-42 (regime legal, v3.4)**. *(v3.4: FR-29 básico/FR-07 e K mínimo movidos para a Fase 2.)* Dependências: Q8; Q14 (só para homologação); casos golden de regime (GT-REG, §6.2) e de cobertura e viabilidade dos 10 modelos.
+- **Fase 2 (pós-MVP, P1):** FR-07/FR-29 básico e K mínimo (v3.4), FR-10, FR-12, FR-13, FR-17–19, FR-20 (Súmula 60; depende de Q2, Q3), FR-22, FR-24 (versionar/duplicar), restante de FR-28/29/32/34–36, FR-30, FR-31, FR-33; NFR-01 completo. **Fase futura (P2):** Módulo 6 financeiro (FR-25–27), Erlang-C/UPH (FR-04), ILP CP-SAT, proporções e multi-skill (FR-37, FR-38), alocação nominal e calendário pessoal.
 - **Fase 3:** integrações WFM/ponto (TOTVS, Senior, ADP, SAP) e avaliação de AFDT/ACJEF.
 
 ## Apêndice A — Catálogo canônico de códigos de achado
@@ -434,7 +521,15 @@ Resolvida: **Q7** (persistência) → PostgreSQL 16 (decisão do `02-TRD.md` / `
 | `COB_LIMITE_FORA_CARGO` | ALERTA | FR-35 (P1), FR-38 |
 | `COB_PROPORCAO_VIOLADA` | ALERTA (ERRO se obrigatória) | FR-37 (P2) |
 | `INFO_DIVERGENCIA_59A_SUMULA60` | INFO | FR-20 |
+| `CLT_CARGA_SEMANAL_EXCEDIDA` | ERRO (ALERTA com `he_planejada` em `CLT_44H_ATUAL`, Q16) | FR-40 |
+| `CLT_FOLGAS_SEMANAIS_INSUFICIENTES` | ERRO | FR-40 |
+| `CLT_ESCALA_6X1_VEDADA` | ERRO | FR-40 |
+| `CLT_VIAVEL_SOMENTE_COM_ACT` | ALERTA (INFO se ACT/CCT declarado no cenário) | FR-40 |
+| `CLT_REGIME_PENDENTE_REGULAMENTACAO` | ALERTA | FR-40 |
+| `INFO_REGIME_PREMISSA` | INFO | FR-39 |
 
 Severidades: **ERRO** (escala inviável / bloqueia homologação), **ALERTA** (exige ciência e justificativa), **INFO**.
+
+**Distinções (v3.4):** `CLT_MEDIA_SEMANAL` = média acima da **carga contratual** (HE); `CLT_CARGA_SEMANAL_EXCEDIDA` = média acima do **limite legal do regime**. `CLT_ESCALA_6X1_VEDADA` (≤ 1 folga/7 d em regime que veda a 6x1) prevalece sobre `CLT_FOLGAS_SEMANAIS_INSUFICIENTES` (1 < folgas < mínimo) — o motor emite um dos dois.
 
 **Distinções (v3.2):** `COB_TURMAS_INSUFICIENTES` = o K **informado no cenário** é menor que o K\* do modelo (pré-checagem do FR-08); `COB_K_INSUFICIENTE` = a **restrição** de K da operação/posto/cargo (fixo ou `K_max`) impede zerar o déficit (FR-32). `COB_DEFICIT_CARGO` = déficit de um cargo após aplicar a matriz de substituição; `COB_CARGO_SEM_QUALIFICADO` = mínimo de cargo/habilidade obrigatório (FR-36) ou certificação de posto (FR-34) não atendido.

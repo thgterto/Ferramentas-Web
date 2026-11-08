@@ -1,8 +1,8 @@
 # 05 — Esquema de Backend: Simulador de Escalas 24/7 (CLT Brasil)
 
-> Base: `01-PRD.md` (PRD v3.3 — MVP enxuto em 4 sprints; v3.2 — simulador operacional de cobertura; IDs FR-xx canônicos) e `02-TRD.md` (módulos M1–M6). **Este documento é a fonte da verdade de tabelas e endpoints.** Backend alvo: o FastAPI existente em `backend/` (hoje `app/main.py`, `app/api/v1/escalas/endpoints/atas.py`, `app/schemas/ata.py`, `app/services/ata_excel_service.py`). O simulador entra como um **novo módulo** sob o prefixo **`/api/v1/escalas`**, sem quebrar o router `atas` (`/api/v1/atas`).
+> Base: `01-PRD.md` (PRD v3.4 — regime legal versionado / fim da 6x1, FR-39–42; v3.3 — MVP enxuto em 4 sprints; v3.2 — simulador operacional de cobertura; IDs FR-xx canônicos) e `02-TRD.md` (módulos M1–M6). **Este documento é a fonte da verdade de tabelas e endpoints.** Backend alvo: o FastAPI existente em `backend/` (hoje `app/main.py`, `app/api/v1/escalas/endpoints/atas.py`, `app/schemas/ata.py`, `app/services/ata_excel_service.py`). O simulador entra como um **novo módulo** sob o prefixo **`/api/v1/escalas`**, sem quebrar o router `atas` (`/api/v1/atas`).
 
-> **Corte do MVP (v3.3 — `06` §3.3):** cada `CREATE TABLE` traz o comentário `-- [MVP]` ou `-- [Fase 2]`, e cada endpoint da §5.4 começa com **MVP** ou *Fase 2*/*P2*. Tabelas **MVP:** `organizations`, `users`, `memberships`, `labor_agreements` (mínima), `operations`, `positions`, `demand_curves`, `demand_slots`, `shrinkage_profiles`, `shift_templates`, `schedule_models` (seeds só dos 10 modelos essenciais), `rotation_patterns`, `scenarios`, `scenario_shift_templates`, `teams`, `assignments` (por turma), `coverage_results`, `compliance_rules`, `compliance_findings`, `custom_schedule_patterns`, `roles`, `team_constraints` (modos `fixo`/`minimo` por operação), `substitution_rules` (fator 1,0), `role_coverage_requirements` (mínimo por cargo), `team_role_composition`, `coverage_role_results`. RLS em todas. Simulação **síncrona** (§7 Celery = Fase 2). Colunas existentes que só servem à Fase 2 (folguistas, feriados, camadas, versões) permanecem no DDL com default neutro.
+> **Corte do MVP (v3.3 — `06` §3.3):** cada `CREATE TABLE` traz o comentário `-- [MVP]` ou `-- [Fase 2]`, e cada endpoint da §5.4 começa com **MVP** ou *Fase 2*/*P2*. Tabelas **MVP:** `organizations`, `users`, `memberships`, `labor_agreements` (mínima), `operations`, `positions`, `demand_curves`, `demand_slots`, `shrinkage_profiles`, `shift_templates`, `schedule_models` (seeds só dos 10 modelos essenciais), `rotation_patterns`, `scenarios`, `scenario_shift_templates`, `teams`, `assignments` (por turma), `coverage_results`, `compliance_rules`, `compliance_findings`, **`legal_regimes` (v3.4, §3.13)**, `roles`, `team_constraints` (modo `fixo` por operação; `minimo` → Fase 2 na v3.4), `substitution_rules` (fator 1,0), `role_coverage_requirements` (mínimo por cargo), `team_role_composition`, `coverage_role_results`. RLS em todas (`legal_regimes` é catálogo global somente leitura). *(v3.4: `custom_schedule_patterns` passa a Fase 2 junto com o construtor básico.)* Simulação **síncrona** (§7 Celery = Fase 2). Colunas existentes que só servem à Fase 2 (folguistas, feriados, camadas, versões) permanecem no DDL com default neutro.
 
 ## Sumário
 1. Princípios de modelagem
@@ -51,6 +51,8 @@ erDiagram
     schedule_models ||--o{ rotation_patterns : "padrões base"
     organizations ||--o{ employees : emprega
     operations ||--o{ scenarios : simula
+    legal_regimes ||--o{ scenarios : "regime legal (v3.4)"
+    legal_regimes ||--o{ legal_regimes : "supersedes (nova versão)"
     scenarios ||--o{ scenarios : "parent_version"
     scenarios }o--|| schedule_models : usa
     scenarios }o--|| labor_agreements : "snapshot de regras"
@@ -760,7 +762,7 @@ CREATE TRIGGER trg_demand_slots_gran BEFORE INSERT OR UPDATE ON demand_slots
 ### 3.12 Repertório de escalas, turmas como restrição e cargos (v3.2 — FR-28–FR-38)
 
 ```sql
-CREATE TYPE team_count_mode AS ENUM ('fixo','minimo','faixa','livre');           -- FR-32 (MVP: fixo, minimo; Fase 2: faixa, livre)
+CREATE TYPE team_count_mode AS ENUM ('fixo','minimo','faixa','livre');           -- FR-32 (MVP: fixo; Fase 2: minimo (v3.4), faixa, livre)
 CREATE TYPE constraint_scope AS ENUM ('operacao','posto','cargo','camada');
 CREATE TYPE rotation_direction AS ENUM ('frente','tras','nenhuma');               -- FR-29
 CREATE TYPE cycle_unit AS ENUM ('days','hours');                                  -- 18x36 (P1)
@@ -974,6 +976,117 @@ INSERT INTO schedule_models (code,name,work_days,off_days,cycle_length_days,typi
  ('18X36','18x36',1,0,54,'{3}',63,18,56,true,false,true,'CLT arts. 58/59','continuo',1,3,true,NULL,NULL,'inviavel_clt','p1','hours');
 ```
 
+### 3.13 Regime legal versionado — fim da escala 6x1 (v3.4 — FR-39–FR-42)
+
+Parâmetros legais como **dados versionados** (ADR-005/ADR-011 do `02`). Os valores abaixo são **premissas** (reportagens; texto promulgado não confirmado — `01` §8.1); a vigência é ancorada em `D0` = data da promulgação enquanto ela não for conhecida (`valid_from` NULL + `anchor_offset`).
+
+```sql
+CREATE TYPE legal_regime_status AS ENUM ('vigente','previsto','premissa');
+CREATE TYPE rest_days_criterion AS ENUM ('media_ciclo','toda_janela_7d');          -- Q15
+CREATE TYPE special_regime_policy AS ENUM ('autorizado','autorizado_pendente_lei','vedado');
+
+CREATE TABLE legal_regimes (   -- [MVP] catálogo global, versionado; somente leitura para app_user
+  id                      bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  code                    text NOT NULL CHECK (code ~ '^[A-Z0-9_]{3,40}$'),       -- 'PEC_40H'
+  version                 integer NOT NULL DEFAULT 1 CHECK (version >= 1),
+  name                    text NOT NULL,
+  status                  legal_regime_status NOT NULL,
+  valid_from              date,                         -- NULL = ainda ancorado em D0 (promulgação sem data)
+  valid_to                date,
+  anchor                  text CHECK (anchor IN ('promulgacao')),
+  anchor_offset_from      interval,                     -- ex.: '60 days', '14 months'
+  anchor_offset_to        interval,
+  weekly_hours_max        numeric(18,6) NOT NULL CHECK (weekly_hours_max BETWEEN 1 AND 60),   -- 44 / 42 / 40
+  daily_hours_max         numeric(18,6) NOT NULL DEFAULT 8.000000,
+  min_rest_days_per_week  numeric(18,6) NOT NULL CHECK (min_rest_days_per_week BETWEEN 0 AND 7), -- 1 / 1 / 2 (premissa)
+  rest_days_criterion     rest_days_criterion NOT NULL DEFAULT 'media_ciclo',
+  allows_6x1              boolean NOT NULL,
+  allows_compensation_agreement boolean NOT NULL DEFAULT true,  -- compensação/redução por ACT/CCT
+  special_regimes         jsonb NOT NULL DEFAULT '{}'::jsonb,   -- {"12X36":"autorizado_pendente_lei"}
+  legal_reference         text NOT NULL,
+  assumption_note         text,                                 -- texto da premissa + fontes
+  supersedes_id           bigint REFERENCES legal_regimes(id),  -- nova versão após texto promulgado
+  created_at              timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (code, version),
+  CHECK (valid_to IS NULL OR valid_from IS NULL OR valid_to >= valid_from),
+  CHECK (valid_from IS NOT NULL OR anchor IS NOT NULL)
+);
+-- Sem sobreposição de vigência entre regimes ativos com data (btree_gist)
+CREATE EXTENSION IF NOT EXISTS btree_gist;
+ALTER TABLE legal_regimes ADD CONSTRAINT ex_legal_regimes_no_overlap
+  EXCLUDE USING gist (daterange(valid_from, valid_to, '[]') WITH &&)
+  WHERE (valid_from IS NOT NULL AND status <> 'previsto');
+REVOKE INSERT, UPDATE, DELETE ON legal_regimes FROM app_user;
+
+INSERT INTO legal_regimes (code,version,name,status,valid_from,valid_to,anchor,anchor_offset_from,anchor_offset_to,
+  weekly_hours_max,daily_hours_max,min_rest_days_per_week,rest_days_criterion,allows_6x1,allows_compensation_agreement,special_regimes,legal_reference,assumption_note) VALUES
+ ('CLT_44H_ATUAL',1,'CLT atual — 44 h','vigente','1988-10-05',NULL,'promulgacao',NULL,'59 days',
+   44,8,1,'toda_janela_7d',true,true,'{"12X36":"autorizado"}','CF art. 7º XIII; CLT arts. 58, 59, 59-A, 67',
+   'Vigente até D0 + 59 dias (D0 = promulgação da EC do fim da 6x1)'),
+ ('TRANSICAO_42H',1,'Transição — 42 h','premissa',NULL,NULL,'promulgacao','60 days','14 months - 1 day',
+   42,8,1,'media_ciclo',false,true,'{"12X36":"autorizado"}','EC fim da 6x1 (versão Câmara; texto promulgado a confirmar)',
+   'Premissa: 42 h após 60 dias; vedação da 6x1 já nesta fase a validar (Q14). Fontes: Agência Brasil mai/2026; O Tempo 14/10/2026'),
+ ('PEC_40H',1,'Regime-alvo — 40 h (5x2 referência)','premissa',NULL,NULL,'promulgacao','14 months',NULL,
+   40,8,2,'media_ciclo',false,true,'{"12X36":"autorizado_pendente_lei"}','EC fim da 6x1 (texto promulgado a confirmar); lei ordinária p/ regimes diferenciados',
+   'Premissa: 40 h e 8 h/dia com compensação por ACT/CCT; ≥ 2 folgas/semana (a validar, Q14); 12x36 segue autorizada até lei ordinária; 36 h/4x3 fora da versão aprovada');
+-- Quando D0 for conhecido: migração cria version = 2 de cada regime com valid_from/valid_to preenchidos e status 'vigente'/'previsto'
+-- (supersedes_id = versão 1). Nunca UPDATE destrutivo: cenários antigos referenciam a versão usada.
+
+ALTER TABLE scenarios                                       -- [MVP] vínculo do cenário ao regime
+  ADD COLUMN legal_regime_id        bigint REFERENCES legal_regimes(id),   -- escolha explícita; NULL = resolve pela data
+  ADD COLUMN legal_reference_date   date,                                   -- NULL = horizon_start
+  ADD COLUMN legal_regime_resolved_id bigint REFERENCES legal_regimes(id), -- regime efetivamente aplicado (gravado no cálculo)
+  ADD COLUMN compensation_agreement_declared boolean NOT NULL DEFAULT false, -- ACT/CCT de compensação (CLT_VIAVEL_SOMENTE_COM_ACT)
+  ADD COLUMN overtime_planned       boolean NOT NULL DEFAULT false,          -- he_planejada (Q8/Q16; só CLT_44H_ATUAL)
+  ADD COLUMN simulate_transition    boolean NOT NULL DEFAULT false,
+  ADD CONSTRAINT ck_scenarios_regime CHECK (legal_regime_id IS NOT NULL OR legal_reference_date IS NOT NULL OR legal_regime_resolved_id IS NOT NULL OR status = 'rascunho');
+CREATE INDEX ix_scenarios_legal_regime ON scenarios (legal_regime_resolved_id);
+
+CREATE TABLE scenario_transition_results (   -- [MVP] uma linha por fase da "simular transição" (FR-41)
+  scenario_id        bigint NOT NULL REFERENCES scenarios(id) ON DELETE CASCADE,
+  organization_id    bigint NOT NULL REFERENCES organizations(id),
+  legal_regime_id    bigint NOT NULL REFERENCES legal_regimes(id),
+  phase_order        smallint NOT NULL,
+  scenario_model_code text NOT NULL,
+  scenario_model_compliant boolean NOT NULL,
+  recommended_model_code text,
+  teams_required     numeric(18,6) NOT NULL,          -- K*_efetivo (pode ser 4.5 = 9 meias)
+  headcount          integer NOT NULL,
+  avg_weekly_hours   numeric(18,6) NOT NULL,
+  k_legal            numeric(18,6) NOT NULL,          -- 168/40 = 4.200000
+  findings_summary   jsonb NOT NULL DEFAULT '{}'::jsonb,   -- {"erro":2,"alerta":0,"codes":[...]}
+  PRIMARY KEY (scenario_id, legal_regime_id)
+);
+
+-- Conformidade por regime no catálogo (FR-42): cache dos valores da 01 §6.2, conferido por teste golden
+ALTER TABLE schedule_models ADD COLUMN regime_compliance jsonb NOT NULL DEFAULT '{}'::jsonb;
+-- formato: {"CLT_44H_ATUAL":{"status":"conforme"},"PEC_40H":{"status":"nao_conforme","codes":[...],"adjustment":"..."}}
+-- status ∈ conforme | so_com_act | regime_especial | nao_conforme | baseline
+UPDATE schedule_models SET regime_compliance = v.rc::jsonb FROM (VALUES
+ ('6X1_BASE','{"CLT_44H_ATUAL":{"status":"conforme","note":"só 7h20 (44 h); 8 h = 48 h → CLT_CARGA_SEMANAL_EXCEDIDA"},"TRANSICAO_42H":{"status":"baseline","codes":["CLT_ESCALA_6X1_VEDADA","CLT_CARGA_SEMANAL_EXCEDIDA"]},"PEC_40H":{"status":"baseline","codes":["CLT_ESCALA_6X1_VEDADA","CLT_CARGA_SEMANAL_EXCEDIDA"],"adjustment":"4X2 9 meias ou 5T (24/7); 5X2 (não contínuo)"}}'),
+ ('5X2','{"CLT_44H_ATUAL":{"status":"conforme"},"TRANSICAO_42H":{"status":"conforme"},"PEC_40H":{"status":"conforme","note":"8 h = 40 h; 8h48 só no 44 h"}}'),
+ ('12X36','{"CLT_44H_ATUAL":{"status":"conforme"},"TRANSICAO_42H":{"status":"conforme"},"PEC_40H":{"status":"regime_especial","codes":["CLT_REGIME_PENDENTE_REGULAMENTACAO"],"adjustment":"se a lei exigir ≤ 40 h: 5ª turma (33,6 h)"}}'),
+ ('6X2','{"CLT_44H_ATUAL":{"status":"conforme"},"TRANSICAO_42H":{"status":"conforme"},"PEC_40H":{"status":"nao_conforme","codes":["CLT_CARGA_SEMANAL_EXCEDIDA","CLT_FOLGAS_SEMANAIS_INSUFICIENTES"],"adjustment":"+1 turma → 5T (33,6 h) ou 4X2 9 meias (37,33 h)"}}'),
+ ('4X2','{"CLT_44H_ATUAL":{"status":"conforme"},"TRANSICAO_42H":{"status":"conforme"},"PEC_40H":{"status":"conforme"}}'),
+ ('2X2_12H','{"CLT_44H_ATUAL":{"status":"so_com_act"},"TRANSICAO_42H":{"status":"so_com_act"},"PEC_40H":{"status":"nao_conforme","codes":["CLT_CARGA_SEMANAL_EXCEDIDA","CLT_VIAVEL_SOMENTE_COM_ACT"],"adjustment":"5 turmas 12 h [D,D,F,F,F] (33,6 h) ou 12X36"}}'),
+ ('5T','{"CLT_44H_ATUAL":{"status":"conforme"},"TRANSICAO_42H":{"status":"conforme"},"PEC_40H":{"status":"conforme"}}'),
+ ('4X3','{"CLT_44H_ATUAL":{"status":"so_com_act"},"TRANSICAO_42H":{"status":"so_com_act"},"PEC_40H":{"status":"so_com_act","codes":["CLT_VIAVEL_SOMENTE_COM_ACT"],"adjustment":"sem ACT/CCT: 4x3 de 8 h (32 h) ou 5X2"}}'),
+ ('FIXO_D','{"*":{"status":"modelo_base"}}'),
+ ('FIXO_N','{"*":{"status":"modelo_base"}}')
+) AS v(code, rc) WHERE schedule_models.code = v.code;
+-- Códigos Fase 2: valores da coluna "Conformidade" da 01 §6.1 (ex.: 3X1 e PITMAN → nao_conforme no PEC_40H; 3X2, 6X3, 5T_FR, 6T → conforme).
+
+INSERT INTO compliance_rules VALUES
+ ('CLT_CARGA_SEMANAL_EXCEDIDA','erro','Média semanal no ciclo acima da carga máxima do regime','CF art. 7º XIII; EC fim da 6x1 (premissa)','compliance-2026.11+regimes-1',true),
+ ('CLT_FOLGAS_SEMANAIS_INSUFICIENTES','erro','Folgas por semana abaixo do mínimo do regime','EC fim da 6x1 (premissa)','compliance-2026.11+regimes-1',true),
+ ('CLT_ESCALA_6X1_VEDADA','erro','Escala 6x1 vedada neste regime','EC fim da 6x1 (premissa)','compliance-2026.11+regimes-1',true),
+ ('CLT_VIAVEL_SOMENTE_COM_ACT','alerta','Escala só é viável com ACT/CCT (compensação de jornada/carga)','CLT art. 59 §2º; EC fim da 6x1 (premissa)','compliance-2026.11+regimes-1',false),
+ ('CLT_REGIME_PENDENTE_REGULAMENTACAO','alerta','Regime diferenciado pendente de lei ordinária','CLT art. 59-A; EC fim da 6x1 (premissa)','compliance-2026.11+regimes-1',false),
+ ('INFO_REGIME_PREMISSA','info','Regime legal baseado em premissa (texto promulgado não confirmado)','01-PRD §8.1','compliance-2026.11+regimes-1',false);
+-- CLT_CARGA_SEMANAL_EXCEDIDA grava severity 'alerta' no finding quando overtime_planned = true em CLT_44H_ATUAL (Q16).
+-- RLS: scenario_transition_results recebe a política tenant_isolation do §4; legal_regimes é global (como schedule_models).
+```
+
 ---
 
 ## 4. Multi-tenancy com RLS [MVP]
@@ -1016,7 +1129,7 @@ CREATE POLICY st_write ON shift_templates FOR ALL
   USING (organization_id = (SELECT current_org_id()))
   WITH CHECK (organization_id = (SELECT current_org_id()));
 -- idem para rotation_patterns. schedule_models e compliance_rules: globais, somente leitura para app_user.
-REVOKE INSERT, UPDATE, DELETE ON schedule_models, compliance_rules FROM app_user;
+REVOKE INSERT, UPDATE, DELETE ON schedule_models, compliance_rules, legal_regimes FROM app_user;
 
 ALTER TABLE organizations ENABLE ROW LEVEL SECURITY;
 CREATE POLICY org_self ON organizations USING (id = (SELECT current_org_id()));
@@ -1121,6 +1234,7 @@ Notas:
 | Padrões de rotação | *Fase 2* `/rotation-patterns`, `POST /rotation-patterns:preview` |
 | Colaboradores (Fase 2) | *Fase 2* `/employees`, `POST /employees:bulk` (até 5.000) |
 | Regras de compliance | **MVP** `GET /compliance-rules` |
+| Regimes legais (v3.4) | **MVP** `GET /legal-regimes` (lista com vigência/status/parâmetros), `GET /legal-regimes/{code}?version=`, `GET /legal-regimes:resolve?date=AAAA-MM-DD` (regime vigente; 422 `REGIME_NAO_RESOLVIDO` se nenhum ou vários) |
 
 **Cenários**
 
@@ -1141,6 +1255,7 @@ Notas:
 | PUT | `/scenarios/{id}/teams/{code}/members` | *Fase 2* define colaboradores da turma (Fase 2) |
 | GET | `/scenarios/{id}/assignments` | **MVP** cursor; filtros `employee_id`, `team`, `date[gte]`, `date[lte]` |
 | PATCH | `/scenarios/{id}/assignments/{assignment_id}` | *Fase 2* ajuste manual turma × dia (só rascunho; recalcula cobertura e viabilidade) — T5 |
+| POST | `/scenarios/{id}/transition` | **MVP (v3.4)** simula a mesma operação em cada regime da linha do tempo (padrão: os 3 seeds) → fases com modelo, K\*, K_legal, pessoas, h/sem e achados; persiste em `scenario_transition_results` (FR-41) |
 | POST | `/scenarios/{id}/sizing` | **MVP** dimensionamento: K*, headcount mínimo, folguistas mínimos *Fase 2* (FR-08, FR-13) |
 | GET | `/scenarios/{id}/coverage` | **MVP** KPIs (FR-14) + heatmap 7×24 (`?view=postos|reserva&agg=pior|media`) — aba `cobertura` da T4 |
 | GET | `/scenarios/{id}/compliance-findings` | **MVP** cursor; filtros `severity`, `rule_code` (`COB_*`, `CLT_*`) — aba `viabilidade` |
@@ -1153,13 +1268,13 @@ Notas:
 
 | Método | Rota | Descrição | FR |
 |---|---|---|---|
-| GET | `/schedule-models?group=continuo|nao_continuo|complementar|variacao&exact_24x7=true&legal_status=` | **MVP** Catálogo (MVP: 10 modelos essenciais; restante *Fase 2*) | FR-28 |
-| GET/POST | `/custom-schedule-patterns` | **MVP** Lista/cria padrão personalizado (templates/versões *Fase 2*) | FR-29, FR-31 |
-| GET/PATCH/DELETE | `/custom-schedule-patterns/{id}` | **MVP** GET; *Fase 2* PATCH (cria nova versão `current_version+1`) e DELETE | FR-29, FR-31 |
+| GET | `/schedule-models?group=continuo|nao_continuo|complementar|variacao&exact_24x7=true&legal_status=&regime=PEC_40H` | **MVP** Catálogo (MVP: 10 modelos essenciais; restante *Fase 2*); v3.4: `regime_compliance` por regime e filtro `regime` | FR-28, FR-42 |
+| GET/POST | `/custom-schedule-patterns` | *Fase 2 (v3.4)* Lista/cria padrão personalizado (templates/versões *Fase 2*) | FR-29, FR-31 |
+| GET/PATCH/DELETE | `/custom-schedule-patterns/{id}` | *Fase 2 (v3.4)* GET; *Fase 2* PATCH (cria nova versão `current_version+1`) e DELETE | FR-29, FR-31 |
 | GET | `/custom-schedule-patterns/{id}/versions` | *Fase 2* Histórico de versões | FR-31 |
 | POST | `/custom-schedule-patterns/{id}:derive` | *Fase 2* Duplica de um código do catálogo (`{id}` = código) ou de outro template | FR-31 |
-| POST | `/custom-schedule-patterns:validate` | **MVP** Validação em tempo real (sem persistir), ≤ 300 ms | FR-29 |
-| GET/POST/PATCH/DELETE | `/operations/{operation_id}/team-constraints` | **MVP** K fixo/mínimo por operação (faixa/livre, escopo e tamanho *Fase 2*) | FR-32, FR-33 |
+| POST | `/custom-schedule-patterns:validate` | *Fase 2 (v3.4)* Validação em tempo real (sem persistir), ≤ 300 ms | FR-29 |
+| GET/POST/PATCH/DELETE | `/operations/{operation_id}/team-constraints` | **MVP** K fixo por operação (mínimo (v3.4), faixa/livre, escopo e tamanho *Fase 2*) | FR-32, FR-33 |
 | CRUD | `/roles`, `/skills` | **MVP** `/roles` (cargo + nível); *Fase 2* `/skills` | FR-34 |
 | GET/PUT | `/roles/{id}/skills` | *Fase 2* Habilidades padrão do cargo | FR-34 |
 | GET/PUT | `/positions/{id}/skills` | *Fase 2* Certificações exigidas pelo posto | FR-34 |
@@ -1235,6 +1350,10 @@ Alternativa compacta aceita: `{ "granularity": "60", "values": ["4","4","4", "..
   "horizon_start": "2027-01-04",
   "horizon_weeks": 8,
   "agreement_8h_confirmed": true,
+  "legal_regime_code": null,
+  "legal_reference_date": "2028-03-01",
+  "compensation_agreement_declared": false,
+  "simulate_transition": true,
   "params": { "solver": "ilp", "time_limit_s": 20, "overstaff_weight": "0.200000", "fixed_night_teams": false }
 }
 ```
@@ -1335,7 +1454,7 @@ Pequeno (≤ 300 colaboradores e ≤ 12 semanas): `200` com resumo. Grande: `202
 ```
 → `202` com `job_id` e `export_id`; `GET /exports/{id}` devolve `download_url` quando pronto.
 
-**POST `/api/v1/escalas/custom-schedule-patterns:validate`** (FR-29) — **[MVP]**
+**POST `/api/v1/escalas/custom-schedule-patterns:validate`** (FR-29) — **[Fase 2 (v3.4)]**
 ```json
 {
   "sequence": ["M","M","T","T","N","N","F","F","F"],
@@ -1357,7 +1476,7 @@ Pequeno (≤ 300 colaboradores e ≤ 12 semanas): `200` com resumo. Grande: `202
 } }
 ```
 
-**PUT `/api/v1/escalas/operations/{id}/team-constraints`** (FR-32, FR-33) — **[MVP (fixo/mínimo)]**
+**PUT `/api/v1/escalas/operations/{id}/team-constraints`** (FR-32, FR-33) — **[MVP (fixo; mínimo Fase 2 na v3.4)]**
 ```json
 { "items": [
   {"scope":"operacao","mode":"fixo","k_min":4,"k_max":4,"team_size_min":3,"team_size_max":6,"allow_half_teams":false,"source_note":"ACT 2026 cl. 12"},
@@ -1378,6 +1497,35 @@ Pequeno (≤ 300 colaboradores e ≤ 12 semanas): `200` com resumo. Grande: `202
 **POST `/api/v1/escalas/operations/{id}/role-requirements`** (FR-36) — **[MVP (por cargo)]**
 ```json
 {"kind":"minimo","role_code":"ENF","min_count":1,"accepts_substitute":true,"shift_codes":["D12","N12"],"severity":"erro"}
+```
+
+**GET `/api/v1/escalas/legal-regimes:resolve?date=2028-03-01`** (FR-39) — **[MVP (v3.4)]**
+```json
+{ "data": { "code": "PEC_40H", "version": 1, "status": "premissa", "valid_from": null,
+  "anchor": "promulgacao", "anchor_offset_from": "14 months",
+  "weekly_hours_max": "40.000000", "daily_hours_max": "8.000000", "min_rest_days_per_week": "2.000000",
+  "rest_days_criterion": "media_ciclo", "allows_6x1": false, "allows_compensation_agreement": true,
+  "special_regimes": {"12X36": "autorizado_pendente_lei"},
+  "assumption_note": "Premissa: … confirmar texto promulgado (01 §8.1)" } }
+```
+> Enquanto `valid_from` for NULL, o resolve usa `D0` configurado em `settings.LEGAL_D0` (hipotético em ambiente de demo: 2026-12-01); sem `LEGAL_D0`, datas até hoje resolvem para `CLT_44H_ATUAL` e datas futuras → `422 REGIME_NAO_RESOLVIDO` (o wizard pede a escolha explícita). Quando D0 for conhecido, a versão 2 do `CLT_44H_ATUAL` ganha `valid_to = D0 + 59 dias`.
+
+**POST `/api/v1/escalas/scenarios/{id}/transition`** (FR-41) — **[MVP (v3.4)]**
+```json
+{ "regimes": ["CLT_44H_ATUAL", "TRANSICAO_42H", "PEC_40H"], "recommend": true, "allow_half_teams": true }
+```
+→ `200` (10 postos 24/7, 3 × 8 h, cenário com 6x2 4T — valores do golden GT-REG-05)
+```json
+{ "data": { "phases": [
+  { "regime": "CLT_44H_ATUAL@1", "k_legal": "3.818182", "scenario_model": {"code":"6X2","compliant":true,"teams":4,"headcount":40,"avg_weekly_hours":"42.000000","findings":[]} },
+  { "regime": "TRANSICAO_42H@1", "k_legal": "4.000000", "scenario_model": {"code":"6X2","compliant":true,"teams":4,"headcount":40,"avg_weekly_hours":"42.000000","findings":[{"rule_code":"INFO_REGIME_PREMISSA","severity":"info"}]} },
+  { "regime": "PEC_40H@1", "k_legal": "4.200000",
+    "scenario_model": {"code":"6X2","compliant":false,"teams":4,"headcount":40,"avg_weekly_hours":"42.000000",
+      "findings":[{"rule_code":"CLT_CARGA_SEMANAL_EXCEDIDA","severity":"erro","excess_hours":"2.000000"},
+                  {"rule_code":"CLT_FOLGAS_SEMANAIS_INSUFICIENTES","severity":"erro","rest_days_per_week":"1.750000"},
+                  {"rule_code":"INFO_REGIME_PREMISSA","severity":"info"}]},
+    "recommended": {"code":"4X2","half_teams":true,"teams_required":"4.500000","headcount":45,"avg_weekly_hours":"37.333333","delta_headcount_vs_first":5},
+    "alternatives": [{"code":"5T","teams_required":"5.000000","headcount":50,"avg_weekly_hours":"33.600000"}] } ] } }
 ```
 
 **POST `/api/v1/escalas/scenarios/{id}/simulate`** — trecho v3.2 (camadas, K, composição) — **[MVP parcial: K e composição MVP; camadas Fase 2]**
@@ -1442,6 +1590,7 @@ backend/
 │   │           ├── custom_patterns.py # construtor/templates + :validate, :derive (FR-29–31)
 │   │           ├── roles.py           # roles, skills, substitution-rules, role-requirements (FR-34–37)
 │   │           ├── team_constraints.py # K e tamanho de turma (FR-32/33)
+│   │           ├── legal_regimes.py   # v3.4: GET /legal-regimes, :resolve (FR-39)
 │   │           ├── employees.py
 │   │           ├── scenarios.py       # CRUD, versions, simulate, approve, teams, assignments
 │   │           ├── scenario_results.py # coverage, sizing, findings (financials: P2)
@@ -1480,6 +1629,7 @@ backend/
 │   │       ├── cobertura.py, dimensionamento.py, folguistas.py   # M3 núcleo (FR-08–14)
 │   │       ├── turmas_k.py, cobertura_cargos.py   # M3 K como restrição (FR-32/33) e matriz de cargos (FR-34–38)
 │   │       ├── noturno.py                        # Fraction(8,7), Súmula 60 (FR-20)
+│   │       ├── regime_legal.py                   # v3.4: resolver_regime, validar_regime, k_legal, simular_transicao (FR-39–42)
 │   │       ├── compliance/                       # M4 (FR-15–20)
 │   │       │   ├── registro.py       # @regra("CLT_INTERJORNADA", ...)
 │   │       │   ├── rules_version.py  # RULES_VERSION = "compliance-2026.11"
@@ -1557,7 +1707,7 @@ RETURNING *;
 | **API** | Versão no path (`/api/v1/escalas`). Mudanças aditivas (campos, endpoints, filtros opcionais) não mudam versão. Quebras → `/api/v2`, convivendo no máx. 2 versões; `Deprecation` + `Sunset` headers com 6 meses. OpenAPI publicado em `/api/v1/escalas/openapi.json`. |
 | **Cenários** | `lineage_id` + `version` incremental + `parent_scenario_id`. Calculado/homologado é imutável (trigger); editar = `POST /scenarios/{id}/versions`. Um único homologado por linhagem (índice parcial); homologar nova versão arquiva a anterior na mesma transação. `row_version` + `ETag/If-Match` para edição concorrente de rascunhos. |
 | **Motor** | `ENGINE_VERSION` (semver) gravado em cada cenário; resultados nunca são recalculados silenciosamente — recalcular com motor novo gera nova versão do cenário. |
-| **Regras legais** | `compliance_rules.rules_version` (ex.: `compliance-2026.11`) gravado no cenário e em cada finding com `legal_reference` desnormalizada, para o laudo ficar reprodutível mesmo após mudanças legislativas (ex.: fim da 6x1). |
+| **Regras legais** | `compliance_rules.rules_version` (ex.: `compliance-2026.11`) gravado no cenário e em cada finding com `legal_reference` desnormalizada, para o laudo ficar reprodutível mesmo após mudanças legislativas (ex.: fim da 6x1). **v3.4:** `legal_regimes` (`code`, `version`, `supersedes_id`) — o cenário grava `legal_regime_resolved_id` e o `rules_version` inclui `regime.code@version`; texto promulgado = nova versão, nunca `UPDATE`. |
 | **CCT/ACT e curvas** | `rules_version`/`version` incrementados a cada alteração; o cenário usa o `inputs_snapshot` congelado, não a linha viva. |
 | **Banco** | Alembic com migrations reversíveis; expand → migrate → contract para mudanças de coluna; RLS e grants em migration própria e testados em CI. |
 | **Auditoria** | `audit_log` append-only particionado por ano: criação/edição de CCT, transições de status, homologação, dispensa de finding, exportações. |
