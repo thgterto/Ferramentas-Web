@@ -49,6 +49,7 @@ class ModeloEscala:
     k_nao_continuo: int | None = None
     modelo_base: str | None = None
     esperado: Mapping[str, Any] | None = None
+    regime_compliance: Mapping[str, Mapping[str, str]] | None = None  # FR-42 (seed)
 
     # ---- métricas analíticas -------------------------------------------------
     def _grupos_canonicos(self, meias: bool = False) -> tuple[GrupoTurmas, ...]:
@@ -214,6 +215,7 @@ def carregar_catalogo(dados: Mapping[str, Any]) -> Catalogo:
             k_nao_continuo=fonte.get("k_nao_continuo"),
             modelo_base=m.get("modelo_base"),
             esperado=m.get("esperado"),
+            regime_compliance=m.get("regime_compliance"),
         )
     return Catalogo(str(dados["versao"]), turnos, modelos)
 

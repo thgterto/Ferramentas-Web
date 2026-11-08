@@ -28,6 +28,7 @@ dev = [
   "pytest-cov==6.0.0",
   "httpx==0.28.1",
   "types-PyYAML==6.0.12.20241230",
+  "hypothesis==6.122.3",
 ]
 
 [tool.setuptools.packages.find]
