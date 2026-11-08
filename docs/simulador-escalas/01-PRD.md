@@ -1,9 +1,9 @@
-# PRD v3.1 — Simulador Operacional de Cobertura 24/7 (Brasil/CLT)
+# PRD v3.2 — Simulador Operacional de Cobertura 24/7 (Brasil/CLT)
 
 | Metadado | Detalhe |
 | :--- | :--- |
 | **Produto** | Simulador de Escalas & Cobertura 24/7 (Workforce Coverage Simulator) |
-| **Versão** | 3.1 — reposicionado como **simulador operacional de cobertura** (substitui v3.0 e `00-prd-original.md`, v2.0) |
+| **Versão** | 3.2 — catálogo ampliado, construtor de escala, turmas (K) como restrição e matriz de cobertura entre cargos (v3.1: reposicionado como **simulador operacional de cobertura**; substitui v3.0 e `00-prd-original.md`, v2.0) |
 | **Status** | Pronto para planejamento técnico (Spec) |
 | **Stack alvo** | Frontend: React 19 + TypeScript + Vite 7 + Tailwind 4 (`/frontend`). Backend: FastAPI + Python + PostgreSQL 16 (`/backend`). Detalhes em `02-TRD.md` |
 | **Data** | Novembro/2026 |
@@ -67,7 +67,10 @@ Operações ininterruptas (indústria contínua, CDs, hospitais, NOC, segurança
 
 ### 4.1 MVP (Fase 1) — núcleo de cobertura
 - **Demanda:** modo **postos fixos** por faixa horária e **curva 168 h** (grade 7×24 e upload CSV/XLSX). Shrinkage/absenteísmo diurno e noturno.
-- **Modelos de escala** (geração cíclica determinística, §6): **6x1 baseline**, **12x36** (4 turmas), **6x2** (4 turmas, 42 h), **4x2** (5 turmas ou 9 meias-turmas), **5 turmas** (33,6 h).
+- **Modelos de escala** (geração cíclica determinística, §6): **6x1 baseline**, **12x36** (4 turmas), **6x2** (4 turmas, 42 h), **4x2** (5 turmas ou 9 meias-turmas), **5 turmas** (33,6 h) e o **catálogo ampliado** da §6.1 (FR-28: 5x2, 5x1, 4x3, 6x3, 3x1, 3x2, 2x2, Pitman, Panamá, DuPont, Continental, 12x60, 24x48, 24x72, 5T francesa, 6 turmas, fim de semana, parcial, fixo/rotativo, reforço, escalonado).
+- **Construtor de escala** (FR-29 básico): sequência livre, turnos de qualquer duração (sobrepostos), intervalo e cobertura do intervalo, offsets, sentido da rotação, data-âncora, validação em tempo real; duplicar do catálogo.
+- **Turmas como restrição** (FR-32, FR-33): K fixo/faixa/livre por operação, posto ou cargo; tamanho mín./máx. por turma; turmas de tamanhos diferentes e meias-turmas.
+- **Cargos e matriz de cobertura** (FR-34–36): cargos com nível e habilidades/certificações, substituição **direcional** A→B (fator 1,0), mínimo de cargo/habilidade por turno; cobertura e heatmap por cargo; folguista respeita a matriz.
 - **Cobertura (núcleo):** cobertura hora a hora no horizonte; heatmap 7×24 de déficit/exato/excesso; furos no intervalo intrajornada; cobertura com shrinkage ("postos" vs. "postos + reserva"); cobertura em folgas e feriados do calendário real; dimensionamento de turmas/headcount mínimo; folguistas/volantes como turma de reserva.
 - **Viabilidade (restrições CLT):** interjornada 11 h, descanso semanal 35 h e 7º dia, folga dominical periódica, revezamento 6 h/8 h (Art. 7º XIV), regras 12x36, limites de jornada diária/semanal (com hora noturna reduzida na jornada computada).
 - **Comparador operacional:** até 5 cenários lado a lado pelos KPIs de cobertura e headcount.
@@ -81,7 +84,8 @@ Operações ininterruptas (indústria contínua, CDs, hospitais, NOC, segurança
 | **Módulo financeiro** (adicional noturno, DSR reflexo, HE, encargos, comparador de custo, breakeven 5ª turma) | 2 (P2) | Secundário ao objetivo de cobertura; depende de decisões jurídicas (Q1, Q3) |
 | Erlang-C / filas com SLA, UPH/TMA | 2 | Exige calibração de volume; postos fixos cobrem o caso crítico |
 | Solver ILP de turnos livres/intermediários | 2 | Modelos cíclicos fechados resolvem o MVP |
-| 3x1, 3x2, 5x2/4x3 contínuos, 6 turmas, jornadas parciais | 2 | Ampliação do catálogo sobre o mesmo motor |
+| Construtor avançado (folgas fixas, feriado por modelo, `R`), mix de camadas, templates da org (FR-29 P1, FR-30, FR-31); substituição parcial e limite de horas fora do cargo (FR-35 P1) | 1 (P1) | Entram no MVP se a capacidade permitir (Sprint 8) |
+| Proporções entre cargos (FR-37), multi-skill avançado e custo de substituição (FR-38); ciclo em horas (18x36) e split shift | 2 | Exigem alocação nominal/CP-SAT ou extensão do gerador |
 | Alocação nominal de colaboradores, sugestão automática de substituto por pessoa | 2 | MVP trabalha por turma (sem PII) |
 | Calendário pessoal anual do colaborador (PDF/iCal), feriados municipais automáticos | 2 | — |
 | Integrações TOTVS, Senior, ADP, SAP SuccessFactors; AFDT/ACJEF | 3 | Layouts proprietários; AFDT/ACJEF são de *ponto realizado* |
@@ -114,7 +118,7 @@ Prioridade: **P0** = obrigatório MVP; **P1** = desejável MVP; **P2** = fase fu
 - Dado o modelo 6x2 padrão (§6), quando gerados 56 dias, então em cada dia há exatamente uma turma em M, uma em T, uma em N e uma em F.
 - Dado 12x36 em horizonte que cruza 31→1, então nenhuma turma trabalha dois dias seguidos.
 
-**FR-07 (P1) Rotação customizada.** Usuário define padrão `L` e offsets; o sistema calcula `K_min = turnos_por_dia × L / dias_trabalhados` e alerta se `K` não for compatível.
+**FR-07 (P1) Rotação customizada.** *(v3.2: absorvido pelo construtor FR-29 — mantido como o modo "sequência + offsets".)* Usuário define padrão `L` e offsets; o sistema calcula `K_min = turnos_por_dia × L / dias_trabalhados` e alerta se `K` não for compatível.
 - Dado padrão de 6 dias com 4 trabalhados e 3 turnos/dia, então `K_min = 4,5` e exibe "não há cobertura exata com turmas inteiras".
 
 **FR-08 (P0) Dimensionamento: turmas e headcount mínimo.** Para a demanda e o modelo escolhidos, calcular `K` necessário, headcount mínimo sem reserva (`K × postos`) e com reserva (shrinkage/folguistas), e sugerir o modelo/K que zera o déficit.
@@ -188,6 +192,68 @@ Regras com severidade `ERRO` (escala inviável; bloqueia homologação), `ALERTA
 
 **FR-24 (P1) Salvar, versionar e duplicar cenários.**
 
+### Módulo 7 — Repertório e construtor de escalas (v3.2)
+
+> Amplia o Módulo 2. O catálogo completo está em §6.1; o construtor substitui e expande o FR-07 (que passa a ser o "modo sequência livre" do FR-29).
+
+**FR-28 (P0) Catálogo ampliado de modelos.** O wizard oferece todos os modelos da §6.1, agrupados em *contínuos 24/7*, *não contínuos*, *complementares* (fim de semana, reforço, parcial) e *variações de turno* (fixo × rotativo, escalonado, fracionado). Cada card mostra sequência, h/sem média, turmas necessárias (24/7 e não contínuo), selo **"cobre 24/7 exato"** ou **"não exato"** (com a alternativa: meias-turmas ou excedente %) e selo de viabilidade padrão (`viável`, `exige CCT/ACT`, `inviável na CLT`).
+- Dado o modelo 3x1 com 3 turnos de 8 h e 3 postos, quando selecionado, então o card mostra K = 4, "cobre 24/7 exato", 42 h/sem e headcount 12.
+- Dado o DuPont (12 h, rotativo D/N), quando simulado, então o motor gera a cobertura (168/168 h) e emite `CLT_REVEZAMENTO_6H` com severidade ERRO (jornada > 8 h em revezamento, Súmula 423) — o cenário sai "inviável".
+- Dado o 24x48, então o card exibe "inviável na CLT" e a simulação emite `CLT_JORNADA_DIARIA` (ERRO); o modelo continua disponível para comparação.
+
+**FR-29 (P0 básico / P1 avançado) Construtor de escala personalizada.** Editor em que o gestor define:
+- (P0) **sequência de ciclo livre** (ex.: `[M,M,T,T,N,N,F,F,F]`, até 84 posições), com códigos de turno da organização;
+- (P0) **turnos**: código, início, duração (60–1.440 min), inclusive **turnos sobrepostos e de tamanhos diferentes** (ex.: D12 07–19 + INT 10–18);
+- (P0) **intervalo intrajornada** por turno (duração, posição, política FR-10: rendição / não computado / volante / **escalonado** — entradas ou intervalos defasados em `n` minutos entre subgrupos);
+- (P0) **offsets por turma**, **data-âncora do ciclo** (dia absoluto 0) e **sentido da rotação** (para frente M→T→N ou para trás N→T→M; o construtor pode gerar a sequência a partir de "bloco de n dias por turno + folgas");
+- (P1) **dias de folga fixos** (ex.: todo domingo, sobrepondo-se à sequência), **regras de feriado** por modelo (trabalha conforme escala / folga coberta / folga com fechamento da operação) e **semana com dia de reserva** (`R` = presente, não conta como posto).
+- **Validação em tempo real** (≤ 300 ms por edição, sem simular o cenário completo): K necessário e se fecha exato, cobertura por turno-dia no ciclo, h/sem média, maior sequência de dias trabalhados, menor interjornada, maior descanso semanal e domingo de folga — usando as mesmas regras do M3/M4.
+- Dado a sequência `[M,M,T,T,N,N,F,F,F]` (L=9, 6 trabalhados, 3 turnos), quando digitada, então o construtor mostra K\* = 4,5, "não exato: use 5 turmas (+11,1% de excesso) ou 9 meias-turmas" e `COB_PADRAO_NAO_EXATO` (INFO).
+- Dado a sequência com N seguido de T no dia seguinte (rotação para trás), então o construtor marca a transição em vermelho com `CLT_INTERJORNADA` (06h → 14h = 8 h) antes de simular.
+- Dado "domingo fixo de folga" sobre o 6x2, então a cobertura de domingo cai e o construtor exibe o déficit de domingo e sugere folguista ou turma extra.
+
+**FR-30 (P1) Mix de modelos na mesma operação.** Um cenário pode ter **camadas** de escala, cada uma com modelo/sequência, turnos, turmas e cargo próprios (ex.: núcleo **12x36** 2 postos 24/7 + **reforço 5x2** INT 10–18 seg–sex + **SDF 12 h** sáb–dom). A cobertura do posto é a soma das camadas; o heatmap permite isolar cada camada.
+- Dado núcleo 12x36 (2 postos) e reforço 5x2 10–18 (1 posto) com demanda de 3 postos 10–18 seg–sex e 2 no restante, então cobertura exata em 168/168 h e excesso 0.
+
+**FR-31 (P1) Templates da organização e derivação.** "Duplicar do catálogo" cria um padrão editável (`custom_schedule_patterns`) com `derived_from` = código do catálogo; templates salvos ficam disponíveis para toda a organização, versionados (alteração cria nova versão; cenários guardam a versão usada).
+- Dado o template "6x2 UTI" derivado do 6X2 e editado, quando outro planejador cria um cenário, então ele aparece no grupo "Da organização" com a origem "derivado de 6x2".
+
+### Módulo 8 — Número de turmas como restrição (v3.2)
+
+**FR-32 (P0) Parâmetro K (turmas) como restrição.** Por operação e, opcionalmente, por posto/cargo/camada: `K` em modo **fixo** (`K = k`), **faixa** (`K_min ≤ K ≤ K_max`) ou **livre**.
+- (a) **K fixo:** o motor gera a escala com exatamente `k` turmas e informa a **cobertura alcançável** (% horas-posto, déficit) e o déficit residual; se `k < K*`, emite `COB_K_INSUFICIENTE` com o déficit e a menor alternativa (folguistas, meias-turmas, outro modelo com o mesmo `k`).
+- (b) **K livre / faixa:** o motor sugere o **menor K** (dentro da faixa) que zera o déficit para o modelo; se nenhum K da faixa zera, `COB_K_INSUFICIENTE` com o melhor K e o déficit restante.
+- Dado 6x2, 3 postos e K fixo = 3, então cobertura alcançável = 75% das horas-posto (em média 2,25 turmas trabalham por dia para 3 turnos), déficit = 0,75 turno-dia × 8 h × 3 postos × 7 = **126 horas-posto/semana** e `COB_K_INSUFICIENTE` com sugestão "K = 4 ou +folguistas".
+- Dado 4x2 e K livre na faixa 4–6, então o motor sugere K = 5 (excedente 11,1%) e informa que K = 4 deixa 11,1% dos turnos-dia descobertos.
+- Dado K máx = 4 na operação e modelo 5 turmas escolhido, então o wizard bloqueia o modelo com a explicação "exige 5 turmas; limite da operação = 4".
+
+**FR-33 (P0) Tamanho das turmas.** Por turma: `tamanho_min`, `tamanho_max` (pessoas) e tamanho alvo; turmas **com tamanhos diferentes** (ex.: turma A diurna 4 pessoas, C noturna 3) e **meias-turmas** (turma dividida em subturmas `A1/A2` com offsets próprios). O motor respeita `min ≤ tamanho ≤ max`.
+- Dado demanda 3 postos e `tamanho_max` = 2, então o motor exige 2 turmas por turno-dia (ou meias-turmas) e recalcula K; se não houver solução com o K permitido, `COB_K_INSUFICIENTE`.
+- Dado turma com 2 pessoas e `tamanho_min` = 3, então `COB_TURMA_ABAIXO_MINIMO` (ERRO); acima do máximo, `COB_TURMA_ACIMA_MAXIMO` (ALERTA).
+
+### Módulo 9 — Cargos e matriz de cobertura entre cargos (v3.2)
+
+**FR-34 (P0) Cargos, níveis e habilidades.** Cadastro por organização de **cargos/funções** (nome, nível hierárquico 1–9, CBO opcional) e **habilidades/certificações** (ex.: `NR13_CALDEIRA`, `COREN_ENF`, `NR10`, com validade opcional). Cargos têm habilidades padrão; turmas/colaboradores (Fase 2) declaram a composição por cargo. Exemplos seed: enfermeiro (nível 3), técnico de enfermagem (2), operador de caldeira NR-13 (2), operador líder (3), supervisor (4).
+- Dado o posto "Caldeira" com exigência `NR13_CALDEIRA`, quando uma turma não tem nenhum membro com essa habilidade no turno, então `COB_CARGO_SEM_QUALIFICADO` (ERRO) naquelas horas.
+
+**FR-35 (P0) Matriz de substituição (quem pode cobrir quem).** Regras **direcionais** `A → B` ("A pode cobrir posto de B") com: `fator` (P0 = 1,0 cobre integralmente; **P1: substituição parcial** 0 < f < 1, conta como fração do posto), `prioridade` (1 = preferida), e (P1) `limite de horas fora do cargo` por pessoa/semana. A ausência de regra = não substitui. A diagonal (A → A) é sempre 1,0.
+- Dado "enfermeiro → técnico de enfermagem" permitido e o inverso não, quando faltar 1 técnico e houver 1 enfermeiro excedente na hora, então o déficit de técnico é coberto, o heatmap do cargo técnico fica "exato" com marcador de substituição e `COB_COBERTURA_POR_SUBSTITUICAO` (INFO); quando faltar enfermeiro e sobrar técnico, o déficit permanece.
+- Dado regra parcial "operador → operador líder" f = 0,5, então 2 operadores excedentes cobrem 1 posto de líder (P1).
+- O motor nunca usa a mesma pessoa-hora duas vezes (uma pessoa cobre um posto por vez).
+
+**FR-36 (P0) Mínimo por cargo por turno.** Requisitos de presença por turno ou faixa horária: "≥ 1 enfermeiro por plantão", "≥ 1 supervisor 24/7", "≥ 1 com `NR13_CALDEIRA` sempre que a caldeira opera". Podem ser satisfeitos por substitutos **somente** se a regra marcar `aceita_substituto`.
+- Dado plantão noturno com 0 enfermeiros e 5 técnicos, então `COB_CARGO_SEM_QUALIFICADO` (ERRO) mesmo que o total de pessoas atenda a demanda.
+
+**FR-37 (P2) Proporções entre cargos.** Ex.: "1 enfermeiro para cada 4 técnicos" (arredondamento para cima), por hora. Violação → `COB_PROPORCAO_VIOLADA` (ALERTA; ERRO se marcada como obrigatória por norma, ex.: COFEN).
+- Dado 9 técnicos e 2 enfermeiros na hora, então exige `ceil(9/4) = 3` enfermeiros → `COB_PROPORCAO_VIOLADA` (falta 1).
+
+**FR-38 (P2) Multi-skill avançado e custo de substituição.** Colaboradores/turmas polivalentes com várias habilidades e **custo/preferência** por substituição (o motor minimiza o custo total de substituições, ex.: prefere técnico de outro setor a enfermeiro); limite de horas fora do cargo por colaborador (`COB_LIMITE_FORA_CARGO`); exige alocação nominal (Fase 2).
+
+**Integração com módulos existentes:**
+- **FR-09/FR-14:** cobertura e KPIs passam a existir **por cargo** além do total; o heatmap é filtrável por cargo ("Todos", cada cargo, "só substituições").
+- **FR-13:** o folguista sugerido tem cargo; o motor só o posiciona onde a matriz permite (folguista técnico não cobre déficit de enfermeiro) e prefere o cargo de menor prioridade de substituição.
+- **FR-22:** comparador ganha "horas cobertas por substituição" e "horas sem qualificado".
+
 ### Módulo 6 — Financeiro (P2 — fase futura, opcional)
 
 > Mantido para não perder o trabalho de especificação, mas **fora do MVP**. Só entra após decisões Q1/Q3 e planilha de referência do DP.
@@ -215,6 +281,47 @@ Fórmula geral de cobertura exata com turmas inteiras de mesmo tamanho:
 | **4x2** | 3 × 8 h | L=6 (4 trab. + 2 F) | 4,5 → **5** ou **9 meias** | 37,33 | 42 dias | Não fecha com 4 turmas |
 | **5 turmas** | 3 × 8 h | `[M,M,T,T,N,N,F,F,F,F]` (L=10), offset 2 | 5 | **33,6** | 70 dias | 21 dias trab./35; folga 96 h após N |
 | **6x1 baseline** | 3 × 8 h | `[X×6, F]` (L=7) | 3,5 → 4 + folguistas | 48 (8 h) | 7 dias | Ver C9/Q8 |
+
+### 6.1 Catálogo ampliado (v3.2, FR-28)
+
+Convenções: `s` = turnos/dia a cobrir, `L` = ciclo da turma, `w` = dias trabalhados no ciclo; **K\* = s × L / w** turmas (por posto); h/sem = `w × h_turno × 7 / L`. "Exato" = existe offset com turmas inteiras de mesmo tamanho que cobre cada turno-dia exatamente uma vez (verificado por enumeração dos offsets `i·L/K` no ciclo calendário). Coluna *não contínuo* = turmas para 1 turno/dia na janela indicada. Viabilidade é a padrão (sem CCT); ver Apêndice A.
+
+| Código | Modelo | Sequência (por turma) | h/turno | h/sem | K\* 24/7 | 24/7 exato? | K não contínuo | Aplicação | Observações legais (padrão) |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| `5X2` | 5x2 | `[X×5,F,F]` L=7 | 8 (ou 8h48) | 40 (44) | 3×7/5 = 4,2 | Não (5 turmas, +19% excesso) | 1 (seg–sex) | Administrativo, reforço | Viável; folga fixa sáb/dom |
+| `5X1` | 5x1 | `[X×5,F]` L=6 | 8 | 46,67 | 3,6 | Não (4 turmas, +11,1%) | 1,2 → 2 (seg–dom) | Varejo, logística | `CLT_MEDIA_SEMANAL` se contrato 44 h; usar 7h20 (36,7 h) ou 7h20+HE |
+| `6X1_BASE` | 6x1 | `[X×6,F]` L=7 | 8 / 7h20 | 48 / 44 | 3,5 | Não; **exato com 7 meias-turmas** L=21 `[M×6,F,T×6,F,N×6,F]` | 1,17 → 2 (seg–dom) | Baseline | Ver C9/Q8; 7º dia sempre folga |
+| `4X3` | 4x3 | `[X×4,F,F,F]` L=7 | 10 | 40 | — (10 h não divide 24 h) | n/a | 1 (seg–qui) + 1 (qui–dom) = 2 para 7 d | Manutenção, não contínuo | Compensação semanal (art. 59 §2º, acordo); 12 h → `CLT_JORNADA_DIARIA` |
+| `4X2` | 4x2 | L=6 (4 + 2 F) | 8 | 37,33 | 4,5 | Não (5 turmas +11,1%) / **exato com 9 meias** L=18 | 1,5 → 2 | Indústria | Revezamento: ACT p/ 8 h |
+| `6X2` | 6x2 | `[M,M,T,T,N,N,F,F]` L=8 | 8 | 42 | 4 | **Sim** | 1,33 → 2 | Indústria | ACT p/ 8 h; `CLT_MEDIA_SEMANAL` se 40 h |
+| `6X3` | 6x3 | `[M×2,T×2,N×2,F×3]` L=9 | 8 | 37,33 | 4,5 | Não (5 turmas +11,1%) / **exato com 9 meias** L=27 `[M×6,F×3,T×6,F×3,N×6,F×3]` | 1,5 → 2 | Mineração, offshore curto | ACT p/ 8 h |
+| `3X1` | 3x1 | `[M,T,N,F]` L=4 (para frente) | 8 | 42 | 3×4/3 = 4 | **Sim** | 1,33 → 2 | Indústria, segurança | ACT p/ 8 h; rotação diária (fadiga) |
+| `3X2` | 3x2 | `[M,T,N,F,F]` L=5 | 8 | 33,6 | 5 | **Sim** | 1,67 → 2 | Indústria, saneamento | ACT p/ 8 h |
+| `2X2_12H` | 2x2 (12 h) | `[D,D,F,F]` L=4, turmas fixas D/N | 12 | 42 | 2×4/2 = 4 | **Sim** (2 D + 2 N) | 2 | Saúde, segurança | 12 h fora de 12x36 ⇒ `CLT_JORNADA_DIARIA` ERRO salvo CCT (override documentado) |
+| `PITMAN` | Pitman 2-2-3 | `[D,D,F,F,D,D,D,F,F,D,D,F,F,F]` L=14, fixas D/N | 12 | 42 | 4 | **Sim** (offset 7) | 2 | Polícia privada, utilities | Idem 2x2; fim de semana de 3 dias alternado |
+| `PANAMA` | Continental 2-2-3 / Panamá (12 h rotativo) | Pitman em D por 14 d, depois em N por 14 d, L=28 | 12 | 42 | 4 | **Sim** (offset 7) | — | Plantas químicas | Revezamento > 8 h ⇒ `CLT_REVEZAMENTO_6H` **ERRO** (Súmula 423) — inviável |
+| `DUPONT` | DuPont | `[N×4,F×3,D×3,F,N×3,F×3,D×4,F×7]` L=28 | 12 | 42 | 2×28/14 = 4 | **Sim** (offset 7) | — | Refinarias | Rotativo D/N 12 h ⇒ `CLT_REVEZAMENTO_6H` ERRO — inviável |
+| `CONTINENTAL_8H` | Continental (8 h) | `[M,M,T,T,N,N,N,F,F,M,M,T,T,T,N,N,F,F,M,M,M,T,T,N,N,F,F,F]` L=28 | 8 | 42 | 3×28/21 = 4 | **Sim** (offset 7) | — | Siderurgia | Tem 7 dias seguidos (`MMMTTNN`) ⇒ `CLT_SETIMO_DIA` ERRO; derivar no construtor |
+| `12X36` | 12x36 | `[D,F]`/`[N,F]` L=2 | 12 | 42 | 4 | **Sim** | 2 | Saúde, vigilância | Art. 59-A; dia absoluto |
+| `12X60` | 12x60 | `[D,F,F]` L=3, fixas D/N | 12 | 28 | 2×3/1 = 6 | **Sim** | 3 | Saúde (plantonista) | Descanso 60 h ≥ 36 h; enquadrar como 12x36 por CCT (ALERTA de enquadramento) |
+| `24X48` | 24x48 | `[P24,F,F]` L=3 | 24 | 56 | 1×3/1 = 3 | **Sim** | — | Bombeiro/serviço público (não CLT) | `CLT_JORNADA_DIARIA` ERRO + `CLT_MEDIA_SEMANAL` — inviável na CLT |
+| `24X72` | 24x72 | `[P24,F,F,F]` L=4 | 24 | 42 | 4 | **Sim** | — | Idem | `CLT_JORNADA_DIARIA` ERRO — inviável salvo lei específica |
+| `18X36` | 18x36 | ciclo de **54 h** (18 trab. + 36 F) | 18 | 56 | 54/18 = 3 | **Sim** em horas; ciclo calendário `mmc(54,24)` = 216 h = 9 d | — | Embarcações | > 12 h ⇒ ERRO; exige ciclo em horas (`cycle_unit = 'hours'`) |
+| `5T` | 5 turmas | `[M,M,T,T,N,N,F,F,F,F]` L=10 | 8 | 33,6 | 5 | **Sim** | 2 | Indústria | ACT p/ 8 h |
+| `5T_FR` | 5 turmas francesa (5×8) | `[M,M,T,T,N,N,R,F,F,F]` L=10 (`R` = reserva/formação) | 8 | 33,6 (+8 h R) | 5 | **Sim** (R não conta como posto) | — | Química, papel | R vira reserva para FR-11/FR-13 |
+| `6T` | 6 turmas (8 h) | `[M,M,T,T,N,N,F×6]` L=12 | 8 | 28 | 6 | **Sim** | — | Alta fadiga | Horas baixas: avaliar contrato |
+| `6T_6H` | 6 turmas (4 × 6 h) | `[M,M,T,T,V,V,F,N,N,F,F,F]` L=12 (M 06–12, T 12–18, V 18–24, N 00–06) | 6 | 28 | 4×12/8 = 6 | **Sim** | — | Revezamento sem ACT | Revezamento ≤ 6 h: dispensa ACT (art. 7º XIV) |
+| `SDF_12H` | Fim de semana 12 h | `[F×5,D,D]` L=7 (D e/ou N) | 12 | 24 | complementar | — | 1 por turno de sáb–dom | Complementa 5x2 | Domingo toda semana ⇒ `CLT_DOMINGO_PERIODICIDADE`; 12 h ⇒ CCT |
+| `PARCIAL_20/25/30` | Jornada parcial | `5x2` de 4 h / 5 h / 6 h | 4–6 | 20/25/30 | — | — | 1 por faixa | Picos, varejo | Art. 58-A (≤ 30 h sem HE ou ≤ 26 h + 6 HE) ⇒ `CLT_TEMPO_PARCIAL` |
+| `FIXO_N` / `FIXO_D` | Turno fixo noturno / diurno | qualquer sequência com um único turno | — | — | por modelo base | — | — | Saúde, vigilância | Fixo não é revezamento (FR-18 não se aplica) |
+| `ROT_FRENTE` / `ROT_TRAS` | Rotação para frente × para trás | M→T→N (frente) / N→T→M (trás) | — | — | — | — | — | Qualquer | Para trás exige folga entre N e T (N 06h → T 14h = 8 h ⇒ `CLT_INTERJORNADA`) |
+| `INT_PICO` | Intermediário / reforço de pico | turno `INT` (ex.: 10–18) em camada adicional (FR-30) | 6–8 | — | — | — | por pico | Picos diurnos | Só reforço; não substitui núcleo |
+| `ESCALONADO` | Entradas escalonadas | subgrupos com entradas defasadas (ex.: 06, 07, 08 h) | 8 | — | — | — | — | Rampas de demanda, cobertura de intervalos | Cobre intervalo sem volante (FR-10 escalonado) |
+| `SPLIT` | Jornada fracionada (split shift) | 2 blocos no dia (ex.: 07–11 + 17–21) | 8 | 40 | — | — | — | Transporte, restaurantes | Intervalo > 2 h exige acordo escrito/CCT (art. 71) ⇒ `CLT_INTRAJORNADA` |
+
+**Resumo de exatidão 24/7 (turmas inteiras):** exatos — 6x2, 3x1, 3x2, 2x2, Pitman, Panamá, DuPont, Continental 8 h, 12x36, 12x60, 24x48, 24x72, 18x36 (em horas), 5T, 5T francesa, 6T, 6T 6 h. Não exatos — 5x2, 5x1, 6x1, 4x2, 6x3 (os três últimos fecham com meias-turmas). **Exato em cobertura não é viável na CLT:** DuPont, Panamá (revezamento > 8 h), Continental 8 h (7º dia), 24x48, 24x72, 18x36 (jornada) — o produto os mostra para comparação com selo "inviável" e permite derivá-los no construtor.
+
+**MVP × fase:** todos os modelos da tabela entram no **MVP** como dados de catálogo (o motor M2 é genérico; cada modelo é uma linha de `schedule_models` + `rotation_patterns` + teste golden). `18X36` (ciclo em horas) e `SPLIT` (dois blocos/dia) exigem extensões do gerador e são **P1**.
 
 **4x2 — duas opções no MVP:**
 - **(a) 5 turmas**, padrão 4 trabalhados + 2 folgas (L=6), mesmo turno no bloco e rotação M→T→N a cada bloco; em média 3,33 turmas trabalham por dia → excedente de 11,1% (heatmap mostra excesso; usável como reserva de absenteísmo). O motor garante ≥ 1 turma por turno em todos os dias.
@@ -255,6 +362,8 @@ Fórmula geral de cobertura exata com turmas inteiras de mesmo tamanho:
 | Q9 | Shrinkage em postos fixos: reserva por turma ou turma de folguistas como padrão? | Produto | Não (FR-11 suporta ambos) |
 | Q10 | Agregação do heatmap 7×24 sobre horizonte > 1 semana: pior caso (padrão) ou média? | Produto | Não |
 | Q11 | Política padrão em feriado: escala corre normalmente ou turma de folga é convocada? | Operações | Não (FR-12) |
+| Q12 | Substituição por cargo superior (enfermeiro cobrindo técnico) conta 100% do posto por padrão ou exige fator configurado? | Operações + RH | Não (padrão 1,0, FR-35) |
+| Q13 | Modelos 12 h fora do 12x36 (2x2, Pitman, SDF): aceitar override por CCT com ALERTA, ou manter ERRO? | Jurídico | Não (padrão ERRO + override documentado) |
 | Q1 | (P2) Divisor padrão para revezamento 8 h com ACT (220? 180?) | Jurídico/DP | Só para Módulo 6 |
 | Q6 | (P2) Encargos: % único aceitável? | Produto/Financeiro | Só para Módulo 6 |
 
@@ -283,8 +392,8 @@ Resolvida: **Q7** (persistência) → PostgreSQL 16 (decisão do `02-TRD.md` / `
 
 ## 11. Fases e dependências
 
-- **Fase 1 (MVP — cobertura):** FR-01–03 e FR-05–24 (FR-07 e FR-24 são P1). Dependências: Q2, Q3 (só para FR-20), Q8; casos golden de cobertura e de viabilidade.
-- **Fase 2:** Módulo 6 financeiro (FR-25–27), Erlang-C/UPH (FR-04), ILP, catálogo ampliado, alocação nominal e calendário pessoal, FR-07 completo.
+- **Fase 1 (MVP — cobertura):** FR-01–03, FR-05–24 e FR-28–36 (FR-07, FR-24, FR-29 avançado, FR-30, FR-31 e FR-35 parcial são P1). Dependências: Q2, Q3 (só para FR-20), Q8; casos golden de cobertura e de viabilidade.
+- **Fase 2:** Módulo 6 financeiro (FR-25–27), Erlang-C/UPH (FR-04), ILP (CP-SAT completo, inclusive K e cargos), proporções e multi-skill (FR-37, FR-38), alocação nominal e calendário pessoal, FR-07 completo.
 - **Fase 3:** integrações WFM/ponto (TOTVS, Senior, ADP, SAP) e avaliação de AFDT/ACJEF.
 
 ## Apêndice A — Catálogo canônico de códigos de achado
@@ -306,7 +415,20 @@ Resolvida: **Q7** (persistência) → PostgreSQL 16 (decisão do `02-TRD.md` / `
 | `CLT_REGIME_12X36` | ERRO | FR-19 |
 | `CLT_JORNADA_DIARIA` | ALERTA (ERRO se > 10 h fora de 12x36) | FR-20 |
 | `CLT_MEDIA_SEMANAL` | ALERTA | FR-20 |
-| `CLT_INTRAJORNADA` | ALERTA | FR-10, FR-20 |
+| `CLT_INTRAJORNADA` | ALERTA | FR-10, FR-20, FR-28 (split > 2 h) |
+| `CLT_TEMPO_PARCIAL` | ALERTA | FR-28 |
+| `COB_PADRAO_NAO_EXATO` | INFO | FR-28, FR-29 |
+| `COB_K_INSUFICIENTE` | ALERTA (ERRO se posto crítico) | FR-32, FR-33 |
+| `COB_K_ACIMA_NECESSARIO` | INFO | FR-32 |
+| `COB_TURMA_ABAIXO_MINIMO` | ERRO | FR-33 |
+| `COB_TURMA_ACIMA_MAXIMO` | ALERTA | FR-33 |
+| `COB_CARGO_SEM_QUALIFICADO` | ERRO | FR-34, FR-36 |
+| `COB_DEFICIT_CARGO` | ALERTA | FR-35 |
+| `COB_COBERTURA_POR_SUBSTITUICAO` | INFO | FR-35 |
+| `COB_LIMITE_FORA_CARGO` | ALERTA | FR-35 (P1), FR-38 |
+| `COB_PROPORCAO_VIOLADA` | ALERTA (ERRO se obrigatória) | FR-37 (P2) |
 | `INFO_DIVERGENCIA_59A_SUMULA60` | INFO | FR-20 |
 
 Severidades: **ERRO** (escala inviável / bloqueia homologação), **ALERTA** (exige ciência e justificativa), **INFO**.
+
+**Distinções (v3.2):** `COB_TURMAS_INSUFICIENTES` = o K **informado no cenário** é menor que o K\* do modelo (pré-checagem do FR-08); `COB_K_INSUFICIENTE` = a **restrição** de K da operação/posto/cargo (fixo ou `K_max`) impede zerar o déficit (FR-32). `COB_DEFICIT_CARGO` = déficit de um cargo após aplicar a matriz de substituição; `COB_CARGO_SEM_QUALIFICADO` = mínimo de cargo/habilidade obrigatório (FR-36) ou certificação de posto (FR-34) não atendido.

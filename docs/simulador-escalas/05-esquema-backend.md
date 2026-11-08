@@ -1,6 +1,6 @@
 # 05 — Esquema de Backend: Simulador de Escalas 24/7 (CLT Brasil)
 
-> Base: `01-PRD.md` (PRD v3.1 — simulador operacional de cobertura; IDs FR-xx canônicos) e `02-TRD.md` (módulos M1–M6). **Este documento é a fonte da verdade de tabelas e endpoints.** Backend alvo: o FastAPI existente em `backend/` (hoje `app/main.py`, `app/api/v1/escalas/endpoints/atas.py`, `app/schemas/ata.py`, `app/services/ata_excel_service.py`). O simulador entra como um **novo módulo** sob o prefixo **`/api/v1/escalas`**, sem quebrar o router `atas` (`/api/v1/atas`).
+> Base: `01-PRD.md` (PRD v3.2 — simulador operacional de cobertura; IDs FR-xx canônicos) e `02-TRD.md` (módulos M1–M6). **Este documento é a fonte da verdade de tabelas e endpoints.** Backend alvo: o FastAPI existente em `backend/` (hoje `app/main.py`, `app/api/v1/escalas/endpoints/atas.py`, `app/schemas/ata.py`, `app/services/ata_excel_service.py`). O simulador entra como um **novo módulo** sob o prefixo **`/api/v1/escalas`**, sem quebrar o router `atas` (`/api/v1/atas`).
 
 ## Sumário
 1. Princípios de modelagem
@@ -72,6 +72,22 @@ erDiagram
     scenarios ||--o{ simulation_jobs : processa
     scenarios ||--o{ exports : exporta
     organizations ||--o{ audit_log : registra
+    organizations ||--o{ roles : "cargos (v3.2)"
+    organizations ||--o{ skills : habilidades
+    roles ||--o{ role_skills : ""
+    skills ||--o{ role_skills : ""
+    positions ||--o{ position_skills : "exige certificação"
+    employees ||--o{ employee_skills : "Fase 2"
+    roles ||--o{ substitution_rules : "cobre A→B"
+    roles ||--o{ positions : "cargo exigido"
+    operations ||--o{ role_coverage_requirements : "mínimos/proporções"
+    operations ||--o{ team_constraints : "K e tamanho"
+    organizations ||--o{ custom_schedule_patterns : templates
+    custom_schedule_patterns ||--o{ custom_schedule_pattern_versions : versões
+    scenarios ||--o{ scenario_layers : "camadas (mix)"
+    scenario_layers ||--o{ teams : ""
+    teams ||--o{ team_role_composition : "pessoas por cargo"
+    scenarios ||--o{ coverage_role_results : "cobertura por cargo"
 ```
 
 ---
@@ -308,7 +324,7 @@ INSERT INTO shift_templates (organization_id, code, name, start_time, duration_m
  (NULL,'N12','Noturno 19-07','19:00',720,60,420),
  (NULL,'INT','Intermediário 10-18','10:00',480,60,0);
 
-CREATE TABLE schedule_models (                            -- MVP: 6X1_BASE, 12X36, 6X2, 4X2, 5T; Fase 2: 3X1, 3X2, 5X2_CONT, 4X3_CONT
+CREATE TABLE schedule_models (                            -- MVP (v3.2): catálogo ampliado do 01 §6.1 (colunas extras e seeds em §3.12)
   id                 bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   code               text NOT NULL UNIQUE CHECK (code ~ '^[A-Z0-9_]{2,24}$'),  -- '12X36','6X2','4X2','5T','6X1_BASE'
   name               text NOT NULL,
@@ -739,6 +755,223 @@ CREATE TRIGGER trg_demand_slots_gran BEFORE INSERT OR UPDATE ON demand_slots
   FOR EACH ROW EXECUTE FUNCTION check_slot_granularity();
 ```
 
+### 3.12 Repertório de escalas, turmas como restrição e cargos (v3.2 — FR-28–FR-38)
+
+```sql
+CREATE TYPE team_count_mode AS ENUM ('fixo','faixa','livre');                    -- FR-32
+CREATE TYPE constraint_scope AS ENUM ('operacao','posto','cargo','camada');
+CREATE TYPE rotation_direction AS ENUM ('frente','tras','nenhuma');               -- FR-29
+CREATE TYPE cycle_unit AS ENUM ('days','hours');                                  -- 18x36 (P1)
+CREATE TYPE requirement_kind AS ENUM ('minimo','proporcao');                      -- FR-36 / FR-37 (P2)
+
+-- Catálogo ampliado: colunas novas em schedule_models (FR-28)
+ALTER TABLE schedule_models
+  ADD COLUMN catalog_group        text NOT NULL DEFAULT 'continuo'
+       CHECK (catalog_group IN ('continuo','nao_continuo','complementar','variacao')),
+  ADD COLUMN shifts_per_day       smallint NOT NULL DEFAULT 3,           -- s
+  ADD COLUMN teams_24x7           numeric(18,6),                         -- K* = s·L/w (NULL se n/a)
+  ADD COLUMN exact_24x7           boolean NOT NULL DEFAULT false,        -- verificado pelo golden
+  ADD COLUMN exact_alternative    text,                                  -- '9_meias', '7_meias', '5_turmas_excesso_11'
+  ADD COLUMN teams_non_continuous numeric(18,6),
+  ADD COLUMN legal_status         text NOT NULL DEFAULT 'viavel'
+       CHECK (legal_status IN ('viavel','exige_cct','inviavel_clt')),
+  ADD COLUMN cycle_unit           cycle_unit NOT NULL DEFAULT 'days',   -- 'hours': cycle_length_days passa a guardar horas (18X36 = 54)
+  ADD COLUMN phase                text NOT NULL DEFAULT 'mvp' CHECK (phase IN ('mvp','p1','fase2'));
+
+CREATE TABLE custom_schedule_patterns (                    -- templates do construtor (FR-29, FR-31)
+  id                 bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  public_id          uuid NOT NULL DEFAULT gen_random_uuid() UNIQUE,
+  organization_id    bigint NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  name               text NOT NULL,
+  derived_from_code  text REFERENCES schedule_models(code),  -- "duplicar do catálogo"
+  current_version    integer NOT NULL DEFAULT 1,
+  is_shared          boolean NOT NULL DEFAULT true,          -- visível para toda a org
+  created_by         bigint REFERENCES users(id),
+  created_at         timestamptz NOT NULL DEFAULT now(),
+  updated_at         timestamptz NOT NULL DEFAULT now(),
+  deleted_at         timestamptz,
+  UNIQUE (organization_id, name)
+);
+
+CREATE TABLE custom_schedule_pattern_versions (            -- imutável; cenários apontam para a versão
+  id                 bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  organization_id    bigint NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  pattern_id         bigint NOT NULL REFERENCES custom_schedule_patterns(id) ON DELETE CASCADE,
+  version            integer NOT NULL,
+  sequence           text[] NOT NULL CHECK (cardinality(sequence) BETWEEN 1 AND 84),  -- {M,M,T,T,N,N,F,F,F}
+  cycle_unit         cycle_unit NOT NULL DEFAULT 'days',
+  shifts             jsonb NOT NULL,       -- [{"code":"M","start":"06:00","duration_min":480,"break_min":60,"break_policy":"escalonado","stagger_min":30}]
+  team_offsets       jsonb NOT NULL DEFAULT '{}'::jsonb,   -- {"A":0,"B":2,...}
+  rotation           rotation_direction NOT NULL DEFAULT 'frente',
+  anchor_date        date,                 -- dia absoluto 0 do ciclo
+  fixed_off_weekdays smallint[] NOT NULL DEFAULT '{}',     -- ISO 1..7 (P1)
+  holiday_rule       holiday_policy,                         -- NULL = herda do cenário (P1)
+  validation         jsonb NOT NULL DEFAULT '{}'::jsonb,   -- último relatório do :validate (K*, exato, h/sem, achados)
+  created_by         bigint REFERENCES users(id),
+  created_at         timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (pattern_id, version)
+);
+
+CREATE TABLE scenario_layers (                             -- mix de modelos na mesma operação (FR-30)
+  id                 bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  organization_id    bigint NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  scenario_id        bigint NOT NULL REFERENCES scenarios(id) ON DELETE CASCADE,
+  code               text NOT NULL CHECK (code ~ '^[A-Z0-9_]{1,16}$'),   -- 'NUCLEO','REFORCO'
+  schedule_model_id  bigint REFERENCES schedule_models(id),
+  pattern_version_id bigint REFERENCES custom_schedule_pattern_versions(id),
+  position_id        bigint REFERENCES positions(id),
+  active_weekdays    smallint[] NOT NULL DEFAULT '{1,2,3,4,5,6,7}',
+  sort_order         smallint NOT NULL DEFAULT 0,
+  CHECK (num_nonnulls(schedule_model_id, pattern_version_id) = 1),
+  UNIQUE (scenario_id, code)
+);
+ALTER TABLE teams ADD COLUMN layer_id bigint REFERENCES scenario_layers(id) ON DELETE CASCADE,
+                  ADD COLUMN parent_team_code text,          -- meia-turma: A1/A2 → 'A' (FR-33)
+                  ADD COLUMN size_min integer, ADD COLUMN size_max integer;
+
+CREATE TABLE roles (                                       -- cargos/funções (FR-34)
+  id                 bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  public_id          uuid NOT NULL DEFAULT gen_random_uuid() UNIQUE,
+  organization_id    bigint NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  code               text NOT NULL CHECK (code ~ '^[A-Z0-9_]{2,24}$'),  -- 'ENF','TEC_ENF','OP_CALD','SUP'
+  name               text NOT NULL,
+  hierarchy_level    smallint NOT NULL DEFAULT 1 CHECK (hierarchy_level BETWEEN 1 AND 9),
+  cbo_code           char(6),
+  created_at         timestamptz NOT NULL DEFAULT now(),
+  deleted_at         timestamptz,
+  UNIQUE (organization_id, code)
+);
+ALTER TABLE positions ADD COLUMN required_role_id bigint REFERENCES roles(id);   -- posto exige cargo
+
+CREATE TABLE team_constraints (                            -- K e tamanho como restrição (FR-32, FR-33)
+  id                 bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  organization_id    bigint NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  operation_id       bigint NOT NULL REFERENCES operations(id) ON DELETE CASCADE,
+  scope              constraint_scope NOT NULL DEFAULT 'operacao',
+  position_id        bigint REFERENCES positions(id) ON DELETE CASCADE,
+  role_id            bigint REFERENCES roles(id) ON DELETE CASCADE,
+  mode               team_count_mode NOT NULL DEFAULT 'livre',
+  k_min              smallint CHECK (k_min BETWEEN 1 AND 12),
+  k_max              smallint CHECK (k_max BETWEEN 1 AND 12),
+  team_size_min      integer CHECK (team_size_min >= 0),
+  team_size_max      integer CHECK (team_size_max >= 1),
+  allow_half_teams   boolean NOT NULL DEFAULT true,
+  source_note        text,                                   -- "ACT 2026 cláusula 12"
+  CHECK (k_min IS NULL OR k_max IS NULL OR k_min <= k_max),
+  CHECK (mode <> 'fixo' OR k_min = k_max),
+  CHECK (team_size_min IS NULL OR team_size_max IS NULL OR team_size_min <= team_size_max),
+  CHECK ((scope = 'posto') = (position_id IS NOT NULL) AND (scope = 'cargo') = (role_id IS NOT NULL))
+);
+CREATE UNIQUE INDEX ux_team_constraints_scope ON team_constraints
+  (operation_id, scope, COALESCE(position_id,0), COALESCE(role_id,0));
+
+
+CREATE TABLE skills (                                      -- habilidades/certificações
+  id                 bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  organization_id    bigint NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  code               text NOT NULL CHECK (code ~ '^[A-Z0-9_]{2,32}$'),  -- 'NR13_CALDEIRA','COREN_ENF'
+  name               text NOT NULL,
+  requires_expiry    boolean NOT NULL DEFAULT false,
+  UNIQUE (organization_id, code)
+);
+
+CREATE TABLE role_skills (                                 -- habilidades padrão do cargo
+  organization_id    bigint NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  role_id            bigint NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
+  skill_id           bigint NOT NULL REFERENCES skills(id) ON DELETE CASCADE,
+  PRIMARY KEY (role_id, skill_id)
+);
+
+CREATE TABLE position_skills (                             -- posto exige certificação (FR-34)
+  organization_id    bigint NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  position_id        bigint NOT NULL REFERENCES positions(id) ON DELETE CASCADE,
+  skill_id           bigint NOT NULL REFERENCES skills(id) ON DELETE CASCADE,
+  min_count          smallint NOT NULL DEFAULT 1 CHECK (min_count >= 1),
+  PRIMARY KEY (position_id, skill_id)
+);
+
+CREATE TABLE employee_skills (                             -- Fase 2 (alocação nominal; multi-skill FR-38)
+  organization_id    bigint NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  employee_id        bigint NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+  skill_id           bigint NOT NULL REFERENCES skills(id) ON DELETE CASCADE,
+  valid_until        date,
+  PRIMARY KEY (employee_id, skill_id)
+);
+ALTER TABLE employees ADD COLUMN role_id bigint REFERENCES roles(id);            -- Fase 2
+
+CREATE TABLE substitution_rules (                          -- matriz "quem cobre quem" (FR-35)
+  id                 bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  organization_id    bigint NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  from_role_id       bigint NOT NULL REFERENCES roles(id) ON DELETE CASCADE,   -- quem cobre
+  to_role_id         bigint NOT NULL REFERENCES roles(id) ON DELETE CASCADE,   -- quem é coberto
+  coverage_factor    numeric(18,6) NOT NULL DEFAULT 1 CHECK (coverage_factor > 0 AND coverage_factor <= 1),  -- < 1: P1
+  priority           smallint NOT NULL DEFAULT 1 CHECK (priority BETWEEN 1 AND 9),   -- 1 = preferida
+  counts_for_minimum boolean NOT NULL DEFAULT false,         -- vale para FR-36
+  max_hours_per_week numeric(18,6) CHECK (max_hours_per_week >= 0),                -- P1
+  substitution_cost  numeric(18,6) CHECK (substitution_cost >= 0),                 -- P2 (FR-38)
+  CHECK (from_role_id <> to_role_id),                       -- diagonal implícita = 1
+  UNIQUE (from_role_id, to_role_id)
+);
+
+CREATE TABLE role_coverage_requirements (                  -- mínimos por turno e proporções (FR-36, FR-37)
+  id                 bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  organization_id    bigint NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  operation_id       bigint NOT NULL REFERENCES operations(id) ON DELETE CASCADE,
+  position_id        bigint REFERENCES positions(id) ON DELETE CASCADE,       -- NULL = operação inteira
+  kind               requirement_kind NOT NULL DEFAULT 'minimo',
+  role_id            bigint REFERENCES roles(id),                              -- cargo exigido ...
+  skill_id           bigint REFERENCES skills(id),                             -- ... ou habilidade exigida
+  min_count          smallint CHECK (min_count >= 1),                          -- kind = minimo
+  ratio_per_role_id  bigint REFERENCES roles(id),                              -- kind = proporcao: 1 role para cada N ratio_per
+  ratio_denominator  smallint CHECK (ratio_denominator >= 1),
+  accepts_substitute boolean NOT NULL DEFAULT false,
+  shift_codes        text[],                                                   -- NULL = todos os turnos
+  weekdays           smallint[] NOT NULL DEFAULT '{1,2,3,4,5,6,7}',
+  severity           finding_severity NOT NULL DEFAULT 'erro',
+  CHECK (num_nonnulls(role_id, skill_id) = 1),
+  CHECK ((kind = 'minimo') = (min_count IS NOT NULL)),
+  CHECK ((kind = 'proporcao') = (ratio_per_role_id IS NOT NULL AND ratio_denominator IS NOT NULL))
+);
+
+CREATE TABLE team_role_composition (                       -- pessoas por cargo em cada turma (FR-34)
+  organization_id    bigint NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  team_id            bigint NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+  role_id            bigint NOT NULL REFERENCES roles(id),
+  headcount          integer NOT NULL CHECK (headcount >= 0),
+  PRIMARY KEY (team_id, role_id)
+);
+
+CREATE TABLE coverage_role_results (                       -- heatmap por cargo (FR-09 + FR-35)
+  organization_id    bigint NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  scenario_id        bigint NOT NULL REFERENCES scenarios(id) ON DELETE CASCADE,
+  role_id            bigint NOT NULL REFERENCES roles(id),
+  slot_index         smallint NOT NULL CHECK (slot_index BETWEEN 0 AND 335),
+  required_worst     numeric(18,6) NOT NULL,
+  own_worst          numeric(18,6) NOT NULL,       -- coberto pelo próprio cargo
+  substituted_worst  numeric(18,6) NOT NULL,       -- coberto por substituição (já com fator)
+  qualified_present  smallint NOT NULL DEFAULT 0,  -- p/ mínimos (FR-36)
+  status             text NOT NULL CHECK (status IN ('deficit','exata','excesso')),
+  PRIMARY KEY (scenario_id, role_id, slot_index)
+);
+
+ALTER TABLE scenarios ADD COLUMN substitution_post_hours numeric(18,6),   -- KPI: h-posto cobertas por substituição
+                      ADD COLUMN unqualified_hours      integer,          -- KPI: horas sem qualificado
+                      ADD COLUMN team_count_achievable_pct numeric(18,6); -- cobertura alcançável com K fixo
+
+-- RLS: todas as tabelas acima recebem a mesma política tenant_isolation do §4.
+```
+
+Seeds do catálogo ampliado: uma linha por código da `01` §6.1 (`5X2`, `5X1`, `6X1_BASE`, `4X3`, `4X2`, `6X2`, `6X3`, `3X1`, `3X2`, `2X2_12H`, `PITMAN`, `PANAMA`, `DUPONT`, `CONTINENTAL_8H`, `12X36`, `12X60`, `24X48`, `24X72`, `18X36`, `5T`, `5T_FR`, `6T`, `6T_6H`, `SDF_12H`, `PARCIAL_20`, `PARCIAL_25`, `PARCIAL_30`, `FIXO_N`, `FIXO_D`, `ROT_FRENTE`, `ROT_TRAS`, `INT_PICO`, `ESCALONADO`, `SPLIT`), cada uma com o `rotation_patterns` canônico. Exemplo:
+
+```sql
+INSERT INTO schedule_models (code,name,work_days,off_days,cycle_length_days,typical_teams,calendar_cycle_days,daily_hours,avg_weekly_hours,
+  is_continuous_24x7,is_rotating,requires_agreement,legal_basis,catalog_group,shifts_per_day,teams_24x7,exact_24x7,exact_alternative,teams_non_continuous,legal_status,phase,cycle_unit) VALUES
+ ('3X1','3x1 (M→T→N)',3,1,4,'{4}',28,8,42,true,true,true,'CF art. 7º XIV; Súmula 423','continuo',3,4,true,NULL,1.333333,'exige_cct','mvp','days'),
+ ('6X3','6x3',6,3,9,'{5,9}',63,8,37.333333,true,true,true,'Súmula 423','continuo',3,4.5,false,'9_meias',1.5,'exige_cct','mvp','days'),
+ ('DUPONT','DuPont 12 h',14,14,28,'{4}',28,12,42,true,true,true,'Súmula 423 (> 8 h em revezamento)','continuo',2,4,true,NULL,NULL,'inviavel_clt','mvp','days'),
+ ('18X36','18x36',1,0,54,'{3}',63,18,56,true,false,true,'CLT arts. 58/59','continuo',1,3,true,NULL,NULL,'inviavel_clt','p1','hours');
+```
+
 ---
 
 ## 4. Multi-tenancy com RLS
@@ -914,6 +1147,26 @@ Notas:
 | POST | `/scenarios/{id}/exports` | gera exportação (202 + job) |
 | GET | `/exports/{id}` | status + URL assinada (expira em 15 min) |
 
+**Repertório, turmas e cargos (v3.2)**
+
+| Método | Rota | Descrição | FR |
+|---|---|---|---|
+| GET | `/schedule-models?group=continuo|nao_continuo|complementar|variacao&exact_24x7=true&legal_status=` | Catálogo ampliado (leitura) | FR-28 |
+| GET/POST | `/custom-schedule-patterns` | Lista/cria template da organização | FR-29, FR-31 |
+| GET/PATCH/DELETE | `/custom-schedule-patterns/{id}` | PATCH cria nova versão (`current_version+1`) | FR-31 |
+| GET | `/custom-schedule-patterns/{id}/versions` | Histórico de versões | FR-31 |
+| POST | `/custom-schedule-patterns/{id}:derive` | Duplica de um código do catálogo (`{id}` = código) ou de outro template | FR-31 |
+| POST | `/custom-schedule-patterns:validate` | Validação em tempo real (sem persistir), ≤ 300 ms | FR-29 |
+| GET/POST/PATCH/DELETE | `/operations/{operation_id}/team-constraints` | K fixo/faixa/livre e tamanho de turma por escopo | FR-32, FR-33 |
+| CRUD | `/roles`, `/skills` | Cargos e habilidades | FR-34 |
+| GET/PUT | `/roles/{id}/skills` | Habilidades padrão do cargo | FR-34 |
+| GET/PUT | `/positions/{id}/skills` | Certificações exigidas pelo posto | FR-34 |
+| GET/PUT | `/substitution-rules` | Matriz completa (PUT substitui atomicamente; `If-Match`) | FR-35 |
+| CRUD | `/operations/{operation_id}/role-requirements` | Mínimos por cargo/habilidade; proporções (P2) | FR-36, FR-37 |
+| GET/PUT | `/scenarios/{id}/layers` | Camadas do cenário (mix de modelos) | FR-30 |
+| PUT | `/scenarios/{id}/teams/{code}/composition` | Pessoas por cargo na turma | FR-34 |
+| GET | `/scenarios/{id}/coverage?role=ENF&layer=NUCLEO` | Heatmap/KPIs por cargo ou camada | FR-09, FR-35 |
+
 **Comparações, jobs e auditoria**
 
 | Método | Rota | Descrição |
@@ -1080,6 +1333,78 @@ Pequeno (≤ 300 colaboradores e ≤ 12 semanas): `200` com resumo. Grande: `202
 ```
 → `202` com `job_id` e `export_id`; `GET /exports/{id}` devolve `download_url` quando pronto.
 
+**POST `/api/v1/escalas/custom-schedule-patterns:validate`** (FR-29)
+```json
+{
+  "sequence": ["M","M","T","T","N","N","F","F","F"],
+  "shifts": [
+    {"code":"M","start":"06:00","duration_min":480,"break_min":60,"break_policy":"computado_rendicao"},
+    {"code":"T","start":"14:00","duration_min":480,"break_min":60,"break_policy":"computado_rendicao"},
+    {"code":"N","start":"22:00","duration_min":480,"break_min":60,"break_policy":"escalonado","stagger_min":30}
+  ],
+  "shifts_per_day": 3, "rotation": "frente", "anchor_date": "2026-12-07"
+}
+```
+```json
+{ "data": {
+  "cycle_length": 9, "work_days": 6, "teams_required": "4.500000", "exact": false,
+  "exact_alternatives": [{"kind":"meias_turmas","teams":9}, {"kind":"turmas_inteiras","teams":5,"excess_pct":"0.111111"}],
+  "avg_weekly_hours": "37.333333", "max_consecutive_work_days": 6, "min_rest_between_shifts_h": "24.000000",
+  "max_weekly_rest_h": "80.000000", "calendar_cycle_days": 63,
+  "findings": [{"rule_code":"COB_PADRAO_NAO_EXATO","severity":"info","message":"Sequência exige 4,5 turmas"}]
+} }
+```
+
+**PUT `/api/v1/escalas/operations/{id}/team-constraints`** (FR-32, FR-33)
+```json
+{ "items": [
+  {"scope":"operacao","mode":"fixo","k_min":4,"k_max":4,"team_size_min":3,"team_size_max":6,"allow_half_teams":false,"source_note":"ACT 2026 cl. 12"},
+  {"scope":"cargo","role_code":"SUP","mode":"faixa","k_min":2,"k_max":4}
+] }
+```
+
+**PUT `/api/v1/escalas/substitution-rules`** (FR-35)
+```json
+{ "rules": [
+  {"from_role":"ENF","to_role":"TEC_ENF","coverage_factor":"1.000000","priority":2,"counts_for_minimum":false},
+  {"from_role":"SUP","to_role":"ENF","coverage_factor":"1.000000","priority":1,"counts_for_minimum":true},
+  {"from_role":"OP","to_role":"OP_LIDER","coverage_factor":"0.500000","priority":3,"max_hours_per_week":"8.000000"}
+] }
+```
+`422 validation_failed` se `from_role = to_role`, fator fora de (0, 1] ou cargo inexistente; ciclo A↔B é aceito e devolvido em `meta.warnings`.
+
+**POST `/api/v1/escalas/operations/{id}/role-requirements`** (FR-36)
+```json
+{"kind":"minimo","role_code":"ENF","min_count":1,"accepts_substitute":true,"shift_codes":["D12","N12"],"severity":"erro"}
+```
+
+**POST `/api/v1/escalas/scenarios/{id}/simulate`** — trecho v3.2 (camadas, K, composição)
+```json
+{
+  "layers": [
+    {"code":"NUCLEO","schedule_model":"12X36","teams":[
+      {"code":"A","composition":{"ENF":1,"TEC_ENF":4}}, {"code":"B","composition":{"ENF":1,"TEC_ENF":4}},
+      {"code":"C","composition":{"ENF":2,"TEC_ENF":3}}, {"code":"D","composition":{"ENF":0,"TEC_ENF":5}}]},
+    {"code":"REFORCO","pattern_version_id":"6f1c…","active_weekdays":[1,2,3,4,5]}
+  ],
+  "team_count": {"mode":"fixo","k":4}
+}
+```
+**200** (trecho):
+```json
+{ "data": {
+  "team_count": {"mode":"fixo","k_used":4,"k_required":"4.000000","achievable_pct":"1.000000"},
+  "coverage_by_role": [
+    {"role":"TEC_ENF","pct_hours_covered":"1.000000","own_post_hours":"658.000000","substituted_post_hours":"14.000000","deficit_post_hours":"0.000000"},
+    {"role":"ENF","pct_hours_covered":"0.750000","deficit_post_hours":"42.000000","unqualified_hours":42}
+  ],
+  "findings": [
+    {"rule_code":"COB_CARGO_SEM_QUALIFICADO","severity":"erro","team":"D","role":"ENF","hours":42},
+    {"rule_code":"COB_COBERTURA_POR_SUBSTITUICAO","severity":"info","role":"TEC_ENF","post_hours":"14.000000"}
+  ] } }
+```
+> Números ilustrativos (não golden), como os demais exemplos desta seção.
+
 ---
 
 ## 6. Estrutura de pastas FastAPI proposta
@@ -1112,6 +1437,9 @@ backend/
 │   │           ├── demand_curves.py
 │   │           ├── shrinkage_profiles.py
 │   │           ├── catalog.py         # shift-templates, schedule-models, rotation-patterns, compliance-rules
+│   │           ├── custom_patterns.py # construtor/templates + :validate, :derive (FR-29–31)
+│   │           ├── roles.py           # roles, skills, substitution-rules, role-requirements (FR-34–37)
+│   │           ├── team_constraints.py # K e tamanho de turma (FR-32/33)
 │   │           ├── employees.py
 │   │           ├── scenarios.py       # CRUD, versions, simulate, approve, teams, assignments
 │   │           ├── scenario_results.py # coverage, sizing, findings (financials: P2)
@@ -1146,7 +1474,9 @@ backend/
 │   │       ├── version.py            # ENGINE_VERSION = "1.0.0"
 │   │       ├── demanda.py, shrinkage.py          # M1 (FR-01–03); erlang_c.py Fase 2 (FR-04)
 │   │       ├── gerador.py                        # M2 (FR-05–07): padrões 6x1, 12x36, 6x2, 4x2, 5T
+│   │       ├── catalogo.py, construtor.py         # M2b catálogo ampliado e validação do construtor (FR-28–31)
 │   │       ├── cobertura.py, dimensionamento.py, folguistas.py   # M3 núcleo (FR-08–14)
+│   │       ├── turmas_k.py, cobertura_cargos.py   # M3 K como restrição (FR-32/33) e matriz de cargos (FR-34–38)
 │   │       ├── noturno.py                        # Fraction(8,7), Súmula 60 (FR-20)
 │   │       ├── compliance/                       # M4 (FR-15–20)
 │   │       │   ├── registro.py       # @regra("CLT_INTERJORNADA", ...)

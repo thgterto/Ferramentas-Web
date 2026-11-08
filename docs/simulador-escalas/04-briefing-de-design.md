@@ -1,6 +1,6 @@
 # 04 — Briefing de Design · Simulador Operacional de Cobertura 24/7
 
-> Documento para o(a) designer de produto. Base: `01-PRD.md` (PRD v3.1, IDs FR-xx) e `03-fluxo-do-app.md` (telas T0–T7, rotas e passos do wizard). **Posicionamento:** simulador **operacional** — a tela-herói é o heatmap de cobertura; viabilidade CLT aparece como restrição; custos são módulo P2. Stack-alvo: React 19 + Tailwind (`frontend/`, hoje com `tailwind.config.js` sem extensões — este briefing propõe os tokens).
+> Documento para o(a) designer de produto. Base: `01-PRD.md` (PRD v3.2, IDs FR-xx) e `03-fluxo-do-app.md` (telas T0–T9, rotas e passos do wizard). **Posicionamento:** simulador **operacional** — a tela-herói é o heatmap de cobertura; viabilidade CLT aparece como restrição; custos são módulo P2. Stack-alvo: React 19 + Tailwind (`frontend/`, hoje com `tailwind.config.js` sem extensões — este briefing propõe os tokens).
 
 ---
 
@@ -54,6 +54,11 @@ Severidades canônicas (`01-PRD.md` Apêndice A): **Erro** (escala inviável / b
 | Erro | `CLT_INTERJORNADA` | Descanso entre jornadas abaixo de 11 h | A Turma C sai às 22:00 de terça e volta às 06:00 de quarta — só 8 h. | CLT art. 66 | **Ajustar rotação** |
 | Alerta | `CLT_REVEZAMENTO_6H` | Turno ininterrupto acima de 6 h sem negociação coletiva | Turnos de 8 h em revezamento exigem acordo ou convenção coletiva. | CF/88 art. 7º, XIV · Súmula 423 TST | **Informar ACT/CCT** |
 | Alerta | `CLT_DOMINGO_PERIODICIDADE` | Domingo sem folga há 8 semanas | A Turma E não folga em um domingo desde a semana 1 (limite: 7). | Portaria MTP 671/2021 · CCT | Redistribuir folgas |
+| Alerta | `COB_K_INSUFICIENTE` | 4 turmas não bastam para a 4x2 | O acordo limita a operação a 4 turmas; com elas 88,9% das horas-posto ficam cobertas (56 h-posto/sem em déficit). | FR-32 | **Ver alternativas com 4 turmas** |
+| Erro | `COB_CARGO_SEM_QUALIFICADO` | Plantão sem enfermeiro | Turma D, noite de quinta: 5 técnicos e nenhum enfermeiro. O mínimo é 1 por plantão. | FR-36 | **Ajustar composição** |
+| Erro | `COB_TURMA_ABAIXO_MINIMO` | Turma C abaixo do mínimo | A Turma C tem 2 pessoas; o mínimo definido é 3. | FR-33 | Ajustar tamanho |
+| Info | `COB_COBERTURA_POR_SUBSTITUICAO` | Técnico coberto por enfermeiro | 14 h-posto de técnico nesta semana são cobertas por enfermeiros excedentes. | FR-35 | Ver horas |
+| Info | `COB_PADRAO_NAO_EXATO` | Sequência não fecha com turmas inteiras | Esta sequência precisa de 4,5 turmas. Use 5 turmas (11% de sobra) ou 9 meias-turmas. | FR-29 | **Usar 9 meias-turmas** |
 | Info | `INFO_DIVERGENCIA_59A_SUMULA60` | Prorrogação noturna na 12x36 | Há divergência entre art. 59-A e Súmula 60; usamos o parâmetro da CCT. | CLT art. 59-A · Súmula 60 TST | Ver detalhe |
 
 ### Outros exemplos
@@ -183,12 +188,43 @@ Validadas com `dataviz/scripts/validate_palette.js` (claro: todos PASS; escuro: 
 
 ### 8.7 Wizard stepper
 - Etapas (iguais a `03-fluxo-do-app.md` T3): 1 Operação e regras (CCT/ACT) → 2 Demanda (postos fixos ou grade 168 h) → 3 Shrinkage e reserva → 4 Modelo de escala e turmas → 5 Revisão e simular. Parâmetros de custo: seção recolhida "Fase 2" no passo 5.
+- v3.2: passo 2 ganha "Demanda por cargo + mínimos"; passo 4 ganha blocos "Turmas (K)", "Composição por cargo" e "Camadas", e o botão "Personalizar" abre o construtor (T9) em tela cheia, voltando ao passo 4 ao salvar. O nº de passos não muda.
 - Stepper horizontal no desktop, vertical/compacto no tablet; estado por etapa (pendente, atual, completa, com erro). Salvamento automático; "Voltar" nunca perde dados.
 
 ### 8.8 Grid editável 168 h
 - 7×24 de inputs numéricos (pessoas por posto/hora). Seleção por arraste/shift, preencher série, copiar dia → dias, colar do Excel, atalhos (Ctrl+Z, Ctrl+D).
 - Pré-sets: "24/7 constante", "pico comercial", "noite reduzida".
 - Validação inline (inteiro ≥ 0) com mensagem textual; totais por linha/coluna fixos.
+
+### 8.9 Editor de sequência do ciclo (construtor, T9 — FR-29)
+- **Trilha horizontal de chips** (um por dia do ciclo, 40×40 px, rolagem horizontal acima de 28 posições, contador `L = 9` fixo à direita). Chip = código do turno (M/T/N/D12/N12/INT/F/R) com cor **do turno** (neutros + ícone: ☀ M, ◐ T, ☾ N, F hachurado) — **nunca** a cor da turma (§5.4) nem de severidade.
+- **Arrastar** para reordenar, **paleta** de turnos à esquerda para soltar, `Alt+arrastar` duplica, seleção múltipla com Shift. Teclado: setas movem o foco, `Ctrl+←/→` move o chip, letras M/T/N/F trocam o código, `Del` remove, `Insert` adiciona. Anúncio `aria-live`: "Posição 5 alterada para Noite. K necessário 4,5 — não exato."
+- **Gerador rápido** acima da trilha: "Bloco de [2] dias por turno · ordem [M→T→N | N→T→M] · [3] folgas" → preenche a trilha.
+- **Marcadores de achado** sob o chip afetado: sublinhado + ícone de severidade (ex.: transição N→T com `CLT_INTERJORNADA`), tooltip com a regra.
+- **Mini-calendário de turmas** abaixo (turmas × `mmc(L,7)` dias, células 12 px) atualizado ao vivo; linha de turma arrastável para mudar o **offset**.
+- **Painel de validação ao vivo** (lado direito, fixo): K\* (com "exato ✓" ou "não exato — 5 turmas (+11%) ou 9 meias-turmas"), h/sem, maior sequência trabalhada, menor interjornada, maior descanso em 7 dias, domingos de folga no ciclo; cada linha com ícone ok/alerta/erro + texto.
+
+### 8.10 Régua de turnos (construtor, T9)
+- Linha do tempo 00–24 h (estende a 36 h para turnos que cruzam a meia-noite); cada turno é uma barra arrastável (início) com alças (duração, passo 15 min); **sobreposições** empilham em faixas e mostram o total de pessoas na faixa sobreposta.
+- Intervalo intrajornada como recorte na barra; política (rendição / não computado / volante / escalonado) em ícone + rótulo; "escalonado" mostra subgrupos defasados.
+
+### 8.11 Matriz cargo × cargo (T8.2 — FR-35)
+- Grade quadrada: linhas = **quem cobre**, colunas = **quem é coberto**; cabeçalho de linha com nível hierárquico (badge "N3"). Rótulos explícitos nos eixos ("pode cobrir →", "↓ cargo que cobre") — a direção é a informação mais importante.
+- Célula: vazio = "não cobre" (traço cinza, `—`); ✓ = cobre 100%; fração ("0,5") = parcial (P1); número pequeno = prioridade; ícone escudo = vale para mínimo. Diagonal travada e hachurada.
+- Clique/Enter abre popover (fator, prioridade, vale para mínimo, limite de horas fora do cargo — P1). Atalho "Nível superior cobre inferior" preenche o triângulo e destaca as células alteradas antes de confirmar.
+- Painel de leitura em linguagem natural (lista sincronizada): "Enfermeiro → Técnico de enfermagem · 100% · prioridade 2". Assimetria A→B sem B→A é mostrada com seta ↗ na célula espelho vazia (tooltip "Técnico não cobre Enfermeiro").
+- Acessível como `role="grid"` com `aria-label` por célula ("Enfermeiro cobre Técnico: sim, 100%, prioridade 2").
+
+### 8.12 Visualização de cobertura por cargo (T4 `cobertura`)
+- Seletor segmentado acima do heatmap: **Todos · Enfermeiro · Técnico · Supervisor · Só substituições**. Com um cargo selecionado, o heatmap usa a mesma semântica déficit/exato/excesso (§5.2) **daquele cargo**; células cobertas por substituição recebem o glifo ↺ e textura pontilhada (não muda a cor — continua "exato").
+- **Barra empilhada por hora** (variante compacta abaixo do heatmap): próprio cargo (sólido) + por substituição (pontilhado) + déficit (contorno vermelho tracejado, só contorno — não compete com a semântica do heatmap).
+- **Tabela cargo × KPI**: demanda (h-posto), coberto pelo próprio cargo, por substituição, déficit, horas sem qualificado (ERRO em destaque).
+- Cores de cargo: **não** usar as cores de turma; cargo é identificado por **rótulo + ícone** (estetoscópio, chave, escudo) e, quando precisar de cor, pela escala neutra/primária com padrão.
+
+### 8.13 Controle de turmas (K) e tamanho (T2.2, passo 3.4)
+- Segmented **Fixo | Faixa | Livre**; Fixo = stepper numérico; Faixa = slider de dois polegares 1–12 com marca vertical em **K\*** do modelo ("K\* = 4,5"); Livre = texto "o motor sugere o menor K".
+- Abaixo, "cobertura alcançável com K = 4: 88,9% · déficit 56 h-posto/sem" (atualiza ao mover). Tamanho por turma: par de inputs mín./máx. + toggle "permitir meias-turmas" (mostra A1/A2 nos badges).
+- Turmas com tamanhos diferentes: tabela turma × cargo (composição), totais por turma e alerta inline `COB_TURMA_ABAIXO_MINIMO`.
 
 ### Outros
 Botões (primário, secundário, fantasma, destrutivo), inputs com máscara pt-BR, select de escala com descrição, badge de turma, chip de filtro, toast, modal, drawer de detalhes, tooltip, skeleton, banner de premissas, trilha de auditoria (timeline).
@@ -287,6 +323,36 @@ Para cada componente documentar: **padrão, hover, foco (visível), ativo, desab
  Total                                                 R$ 820.400  100,0
 ```
 
+### 11.5 Construtor de escala (T9)
+
+```
+┌─ Construtor · "6x2 UTI" (derivado de 6x2) ───────────────────────── [Salvar template] [Usar no cenário] ┐
+│ Gerador: bloco [2] dias · ordem [M→T→N ▾] · folgas [2]  (aplicar)                                       │
+│ Sequência (L = 8)                                                                                        │
+│  [☀M][☀M][◐T][◐T][☾N][☾N][ F ][ F ]   + │ Paleta: ☀M ◐T ☾N D12 N12 INT F R                              │
+│ Turnos            00   04   08   12   16   20   24   04                    │ Validação ao vivo            │
+│  M  06–14 ▐████████▌ intervalo 1h · rendição                                 │ K* = 4  ✓ exato              │
+│  T  14–22          ▐████████▌                                               │ 42,0 h/sem                   │
+│  N  22–06                    ▐████████▌                                     │ máx. 6 dias seguidos ✓       │
+│  INT 10–18 (camada reforço) ▐██████▌  ⧉ sobreposição +1                     │ menor interjornada 24 h ✓    │
+│ Turmas  K = 4 (restrição: fixo 4)  tamanho 3–4  [ ] meias-turmas            │ descanso 7 d ≥ 72 h ✓        │
+│  A off 0 ▮▮▮▮▮▮▯▯▮▮…   B off 2 …   C off 4 …   D off 6 …                     │ domingo folga 1/8 sem ⚠ N=7  │
+└──────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 11.6 Matriz de substituição (T8.2)
+
+```
+┌─ Quem pode cobrir quem ───────────────────── [Nível superior cobre inferior] [Salvar] ┐
+│                 é coberto →  Supervisor  Enfermeiro  Técnico enf.  │ Leitura            │
+│ ↓ cobre                                                             │ Supervisor → Enf.  │
+│ Supervisor (N4)              ▨▨▨▨       ✓ 1 🛡       ✓ 3           │  100% · p1 · mín.  │
+│ Enfermeiro (N3)               —          ▨▨▨▨       ✓ 2           │ Enfermeiro → Téc.  │
+│ Técnico enf. (N2)             —            — ↗       ▨▨▨▨         │  100% · p2         │
+│ Legenda: ✓ cobre 100% · 0,5 parcial (P1) · nº prioridade · 🛡 vale p/ mínimo · — não cobre │
+└───────────────────────────────────────────────────────────────────────────────────────┘
+```
+
 ## 12. Referências
 
 - Visualização: Datawrapper, Observable Plot, IBM Carbon Data Viz, ferramenta `dataviz` (validador de paleta usado aqui).
@@ -299,7 +365,7 @@ Para cada componente documentar: **padrão, hover, foco (visível), ativo, desab
 
 1. Biblioteca Figma com tokens (variáveis claro/escuro) espelhando a seção 14.
 2. Componentes da seção 8 com todas as variantes e estados da seção 9.
-3. Protótipo navegável: wizard completo → resultado (heatmap) → déficit → "Como fechar o déficit" → ajuste de escala → comparador → export.
+3. Protótipo navegável: wizard completo → resultado (heatmap) → déficit → "Como fechar o déficit" → ajuste de escala → comparador → export; e (v3.2) cadastro de cargos → matriz de substituição → construtor de escala → heatmap filtrado por cargo.
 4. Telas em 1440, 1024 (tablet paisagem) e 768 (retrato); estados vazio/carregando/erro.
 5. Especificação de interação do heatmap e da grade 168 h (teclado, seleção, tooltip).
 6. Guia de microcopy (alertas por regra) e glossário.

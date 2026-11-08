@@ -14,9 +14,9 @@ Este é um **simulador operacional**. A pergunta central é: **"minha operação
 | Doc | Conteúdo | Fonte da verdade para |
 |---|---|---|
 | [`00-prd-original.md`](00-prd-original.md) | PRD v2.0 original (só referência, não editado) | — |
-| [`01-PRD.md`](01-PRD.md) | PRD v3.1: problema, personas, KPIs, escopo, **FR-01…FR-27**, modelos de escala, NFRs, perguntas abertas, correções, **catálogo de códigos de achado (Apêndice A)** | IDs de requisito, códigos de achado, números dos modelos, escopo/fases |
+| [`01-PRD.md`](01-PRD.md) | PRD v3.2: problema, personas, KPIs, escopo, **FR-01…FR-38**, modelos de escala e **catálogo ampliado (§6.1)**, NFRs, perguntas abertas, correções, **catálogo de códigos de achado (Apêndice A)** | IDs de requisito, códigos de achado, números dos modelos, escopo/fases |
 | [`02-TRD.md`](02-TRD.md) | Arquitetura, stack, **módulos do motor M1–M6**, algoritmos, performance, precisão, segurança, testes, ADRs | Módulos do motor e stack |
-| [`03-fluxo-do-app.md`](03-fluxo-do-app.md) | Sitemap, **telas T0–T7, rotas**, passos do wizard, fluxos e edge cases, rastreabilidade FR → tela | Telas, rotas, abas, passos do wizard |
+| [`03-fluxo-do-app.md`](03-fluxo-do-app.md) | Sitemap, **telas T0–T9, rotas**, passos do wizard, fluxos e edge cases, rastreabilidade FR → tela | Telas, rotas, abas, passos do wizard |
 | [`04-briefing-de-design.md`](04-briefing-de-design.md) | Objetivos de design, microcopy, paleta (cobertura, severidade, turmas), componentes, wireframes, tokens Tailwind | Tokens visuais |
 | [`05-esquema-backend.md`](05-esquema-backend.md) | ER, **DDL PostgreSQL**, RLS, **contratos REST** (`/api/v1/escalas`), pastas, jobs, versionamento | Tabelas e endpoints |
 | [`06-plano-de-implementacao.md`](06-plano-de-implementacao.md) | Fases, backlog, caminho crítico, Gantt, riscos, DoD, ordem para agentes | Cronograma e backlog |
@@ -24,12 +24,36 @@ Este é um **simulador operacional**. A pergunta central é: **"minha operação
 ## Convenções canônicas (resumo)
 
 - **Modelos MVP:** 6x1 baseline (K = 3,5 → 4 turmas + folguistas, 48 h), 12x36 (4 turmas, 42 h, ciclo 14 d, **dia absoluto**), 6x2 (4 turmas, **42 h**, 56 d), 4x2 (**5 turmas** ou 9 meias-turmas, 37,33 h, 42 d), 5 turmas (**33,6 h**, 70 d). Fórmula `K = turnos/dia × L / dias_trabalhados`. Hora noturna: fator exato **8/7**.
-- **Motor:** M1 Demanda+shrinkage · M2 Gerador cíclico · **M3 Cobertura e dimensionamento** · M4 Viabilidade CLT · M5 ILP (Fase 2) · M6 Financeiro (P2). Código em `backend/app/services/engine/`.
+- **Catálogo v3.2 (MVP, FR-28):** + 5x2, 5x1, 4x3, 6x3, 3x1, 3x2, 2x2 12 h, Pitman, Panamá, DuPont, Continental 8 h, 12x60, 24x48, 24x72, 18x36 (P1), 5T francesa, 6 turmas (8 h e 4×6 h), fim de semana 12 h, parcial 20/25/30 h, fixo/rotativo, reforço, escalonado, split (P1). Exatos em 24/7 e viabilidade padrão: `01` §6.1.
+- **Motor:** M1 Demanda+shrinkage · M2 Gerador cíclico (+ M2b catálogo/construtor) · **M3 Cobertura e dimensionamento** (+ K como restrição e cobertura por cargo) · M4 Viabilidade CLT · M5 ILP (Fase 2) · M6 Financeiro (P2). Código em `backend/app/services/engine/`.
 - **Códigos de achado:** `COB_*` (cobertura, M3) e `CLT_*` (viabilidade, M4) + `INFO_DIVERGENCIA_59A_SUMULA60`; severidades `erro` / `alerta` / `info`.
-- **Telas:** T0 Login · T1 Organização · T2 Operações · T2.1 Detalhe · T3 Wizard (5 passos) · T4 Resultado (abas `cobertura`, `escala`, `viabilidade`, `custos`=P2) · T5 Ajuste de escala · T6 Comparador · T7 Homologação & export.
-- **Stack:** React 19 + TS + Vite 7 + Tailwind 4; FastAPI + Pydantic v2 + SQLAlchemy 2 + Alembic; PostgreSQL 16 com RLS; NumPy; Celery/Redis; OR-Tools só na Fase 2.
+- **Telas:** T0 Login · T1 Organização · T2 Operações · T2.1 Detalhe · **T2.2 Restrições de turmas** · T3 Wizard (5 passos) · T4 Resultado (abas `cobertura`, `escala`, `viabilidade`, `custos`=P2) · T5 Ajuste de escala · T6 Comparador · T7 Homologação & export · **T8 Cadastros (T8.1 cargos, T8.2 matriz de substituição, T8.3 modelos)** · **T9 Construtor de escala**.
+- **Stack:** React 19 + TS + Vite 7 + Tailwind 4; FastAPI + Pydantic v2 + SQLAlchemy 2 + Alembic; PostgreSQL 16 com RLS; NumPy; Celery/Redis; OR-Tools: `min_cost_flow`/GLOP no MVP (alocação por cargo, ADR-009), CP-SAT na Fase 2.
 
 ## Registro de revisão
+
+### Revisão v3.2 — repertório de escalas, construtor, turmas (K) e cargos
+
+**Pedido:** ampliar o repertório de escalas e a personalização do gestor; número de turmas e "quem pode cobrir quem" entre cargos como restrições.
+
+| Doc | Mudanças |
+|---|---|
+| `01` | PRD v3.2. Novos **Módulo 7** (FR-28 catálogo ampliado, FR-29 construtor, FR-30 camadas P1, FR-31 templates P1), **Módulo 8** (FR-32 K fixo/faixa/livre, FR-33 tamanho de turma/meias-turmas) e **Módulo 9** (FR-34 cargos/habilidades, FR-35 matriz direcional, FR-36 mínimos por turno, FR-37 proporções P2, FR-38 multi-skill P2). §6.1 catálogo com K\*, exatidão 24/7, K não contínuo e observação legal (verificado por enumeração de offsets). FR-07 absorvido pelo FR-29. Apêndice A: `COB_PADRAO_NAO_EXATO`, `COB_K_INSUFICIENTE`, `COB_K_ACIMA_NECESSARIO`, `COB_TURMA_ABAIXO_MINIMO`, `COB_TURMA_ACIMA_MAXIMO`, `COB_CARGO_SEM_QUALIFICADO`, `COB_DEFICIT_CARGO`, `COB_COBERTURA_POR_SUBSTITUICAO`, `COB_LIMITE_FORA_CARGO`, `COB_PROPORCAO_VIOLADA`, `CLT_TEMPO_PARCIAL`. Q12–Q13. |
+| `02` | §5.3.1 M2b (catálogo como dados, ciclo em horas, multibloco, `R`, folga fixa, validação do construtor, camadas); §5.4.1 K como restrição; §5.4.2 cobertura por cargo (min-cost-flow por hora + cache de perfis; LP para frações); §5.6 extensão CP-SAT (K, tamanho, autômato, substituição, mínimos, proporção, limite fora do cargo); ADR-009 (OR-Tools no MVP só fluxo/LP) e ADR-010 (padrões como dados); ER e API. |
+| `03` | T2.2 restrições de turmas, T8.1 cargos, T8.2 matriz, T8.3 modelos, T9 construtor; rotas novas; passo 3.2 com demanda por cargo e mínimos; passo 3.4 com catálogo ampliado, K, composição e camadas (wizard continua com 5 passos); fluxos 4.4 (UTI enfermeiro→técnico) e 4.5 (K fixo por ACT); edge cases E19–E24; rastreabilidade FR-28–38. |
+| `04` | Componentes §8.9 editor de sequência arrastável, §8.10 régua de turnos, §8.11 matriz cargo × cargo, §8.12 cobertura por cargo, §8.13 controle de K; microcopy dos novos códigos; wireframes §11.5–11.6. |
+| `05` | §3.12: `roles`, `skills`, `role_skills`, `position_skills`, `employee_skills` (Fase 2), `substitution_rules`, `role_coverage_requirements`, `team_constraints`, `custom_schedule_patterns` + `_versions`, `scenario_layers`, `team_role_composition`, `coverage_role_results`; colunas novas em `schedule_models`/`teams`/`positions`/`scenarios`; seeds do catálogo; endpoints e exemplos JSON. |
+| `06` | F1-18..F1-24, F2-9..F2-11, F3-11..F3-15, F4-7..F4-11 (P1), FX-8..FX-10; agentes A35–A43; MVP continua em **10 sprints** (S5 ≈ 10% acima da capacidade; P1 cortáveis). |
+
+**Decisões de consistência**
+- `COB_TURMAS_INSUFICIENTES` (K do cenário < K\* do modelo) ≠ `COB_K_INSUFICIENTE` (restrição de K da operação/posto/cargo impede zerar o déficit).
+- Modelos exatos em cobertura mas inviáveis na CLT (DuPont, Panamá, Continental 8 h, 24x48, 24x72, 18x36) ficam no catálogo com selo "inviável" para comparação.
+- Correção de achados de catálogo: 6x1 e 6x3 fecham exatos com meias-turmas (7 e 9); 6 turmas em 4×6 h usa `[M,M,T,T,V,V,F,N,N,F,F,F]` (a variante sem F entre V e N tinha 8 dias seguidos e interjornada 0 h).
+
+**Validação de diagramas:** blocos mermaid alterados/novos (ER do `02` e `05`, sitemap, wizard e fluxo 4.4 do `03`, Gantt do `06`): os 12 blocos dos docs `02`, `03`, `05` e `06` foram renderizados sem erro com `@mermaid-js/mermaid-cli`.
+
+**Em aberto (v3.2):** Q12 (fator padrão de substituição), Q13 (12 h fora do 12x36 com CCT); golden dos novos modelos a assinar pelo SME; `18X36` e `SPLIT` exigem extensão do gerador (P1).
+
 
 ### Revisão de 08/11/2026 — reposicionamento operacional + consistência cruzada
 

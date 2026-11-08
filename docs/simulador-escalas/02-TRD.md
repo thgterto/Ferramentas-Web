@@ -3,7 +3,7 @@
 | Metadado | Detalhe |
 | :--- | :--- |
 | **Documento** | Technical Requirements Document (TRD) |
-| **Base** | `01-PRD.md` (PRD v3.1 — simulador operacional de cobertura; IDs FR-xx canônicos). Esquema e API detalhados: `05-esquema-backend.md` |
+| **Base** | `01-PRD.md` (PRD v3.2 — simulador operacional de cobertura; catálogo ampliado, construtor, K e cargos como restrições; IDs FR-xx canônicos). Esquema e API detalhados: `05-esquema-backend.md` |
 | **Repositório** | `Ferramentas-Web` — `frontend/` (React 19 + TS + Vite 7 + Tailwind 4) e `backend/` (FastAPI) |
 | **Status** | Proposto |
 | **Data** | Novembro de 2026 |
@@ -83,8 +83,9 @@ flowchart LR
 ```
 backend/app/services/engine/
   demanda.py  shrinkage.py                          # M1
-  gerador.py                                        # M2
+  gerador.py  catalogo.py  construtor.py             # M2 (+ M2b catálogo/construtor, FR-28–31)
   cobertura.py  dimensionamento.py  folguistas.py   # M3 (núcleo)
+  turmas_k.py  cobertura_cargos.py                  # M3 restrição de K (FR-32/33) e matriz de cargos (FR-34–38)
   noturno.py  compliance/ (regras, registro.py)     # M4
   otimizador.py                                     # M5 (Fase 2)
   financeiro.py                                     # M6 (P2)
@@ -103,7 +104,7 @@ frontend/src/features/escalas/
 | API | FastAPI, Uvicorn | REST `/api/v1/escalas` |
 | Contratos | Pydantic v2 (`ConfigDict(frozen=True, strict=True)`), `pydantic-settings` | Validação, OpenAPI → tipos TS gerados (`openapi-typescript`) |
 | Persistência | SQLAlchemy 2 (estilo `Mapped`), Alembic, PostgreSQL 16 (JSONB para matrizes) | Cenários, turmas, CCTs, resultados versionados |
-| Otimização | **OR-Tools CP-SAT** (Fase 2) | ILP de turnos livres (M5) e posicionamento ótimo de folguistas — inteiro nativo, multi-thread, limite de tempo |
+| Otimização | **OR-Tools**: `min_cost_flow` + GLOP no **MVP** (alocação por cargo, ADR-009); **CP-SAT** na Fase 2 | Transporte cargo→posto por hora (M3); ILP de turnos livres, K e cargos (M5) |
 | Numérico | **NumPy** (`int16/int32`) | Matriz 168h/10080 min, cobertura vetorizada |
 | Dinheiro (P2) | `decimal.Decimal` (contexto `prec=28`, `ROUND_HALF_EVEN` interno, `ROUND_HALF_UP` contábil 2 casas) e `fractions.Fraction` para 8/7 | NFR-02 |
 | Assíncrono | Celery + Redis (já no requirements) | Horizontes longos, export, ILP (Fase 2) |
@@ -116,7 +117,7 @@ frontend/src/features/escalas/
 | Gráficos | **Plotly** (`react-plotly.js`, já instalado) para heatmap 7x24; **Recharts** para séries de cobertura/déficit e (P2) custo | NFR-06 |
 | Testes FE | Vitest, Testing Library, Playwright (E2E), MSW | |
 
-**Dependências a adicionar (backend):** `numpy`, `ortools` (Fase 2), `alembic`, `pydantic-settings`, `pyjwt[crypto]`, `passlib[argon2]`, `structlog`, `opentelemetry-*`, `hypothesis`, `pytest-benchmark`, `syrupy`.
+**Dependências a adicionar (backend):** `numpy`, `ortools` (MVP: só `min_cost_flow`/GLOP; CP-SAT na Fase 2), `alembic`, `pydantic-settings`, `pyjwt[crypto]`, `passlib[argon2]`, `structlog`, `opentelemetry-*`, `hypothesis`, `pytest-benchmark`, `syrupy`.
 **Frontend:** `@tanstack/react-query`, `react-hook-form`, `zod`, `@hookform/resolvers`, `recharts`, `react-router`.
 
 ---
@@ -141,6 +142,16 @@ erDiagram
   scenarios ||--o{ coverage_results : "cobertura 168h"
   scenarios ||--o{ compliance_findings : "achados de viabilidade"
   scenarios ||--o| financial_results : "custos (P2)"
+  organizations ||--o{ roles : "cargos"
+  organizations ||--o{ skills : "habilidades"
+  roles ||--o{ role_skills : ""
+  roles ||--o{ substitution_rules : "cobre (A→B)"
+  positions ||--o{ role_coverage_requirements : "mínimos/proporções"
+  operations ||--o{ team_constraints : "K e tamanho"
+  organizations ||--o{ custom_schedule_patterns : "templates"
+  scenarios ||--o{ scenario_layers : "camadas (mix)"
+  teams ||--o{ team_role_composition : "pessoas por cargo"
+  scenarios ||--o{ coverage_role_results : "cobertura por cargo"
 ```
 
 - Toda tabela de negócio tem `organization_id` + **Row-Level Security** (`current_setting('app.org_id')`).
@@ -149,6 +160,7 @@ erDiagram
 - `teams.kind`: `regular` | `folguista` (FR-13).
 - `scenarios`: `inputs_hash` (SHA-256 do JSON canônico), `engine_version`, `rules_version`, KPIs de cobertura desnormalizados — reprodutibilidade e cache.
 - `coverage_results`: por slot, `required_net`, `required_gross`, `scheduled`, `expected` (com shrinkage), `break_gap`, `status`.
+- v3.2: `roles`, `skills`, `role_skills`, `employee_skills` (Fase 2), `substitution_rules`, `role_coverage_requirements`, `team_constraints`, `custom_schedule_patterns` (+ `_versions`), `scenario_layers`, `team_role_composition`, `coverage_role_results` — DDL em `05` §3.12.
 - `labor_agreements`: `night_premium_pct`, `allows_8h_rotating`, `sunday_off_max_interval_weeks`, vigência.
 
 ---
@@ -217,6 +229,33 @@ Construção de offsets: `offset_i = i·L/K` quando inteiro; senão busca por ba
 
 **12x36:** usar índice de **dia absoluto** (`(data − data_ancora).days mod 2`), nunca `dia_do_mês mod 2` (o PRD usa `d mod 2` com `d ∈ 1..30`: em meses de 31 dias, dias 31 e 1 são ambos ímpares → a turma trabalharia 12x12 e outra folgaria 60h).
 
+### 5.3.1 M2b — Catálogo ampliado e construtor de padrões (FR-28–FR-31)
+
+**Catálogo como dados.** Cada modelo da `01` §6.1 é uma linha de `schedule_models` + um `rotation_patterns` canônico; o gerador (§5.3) é o mesmo para todos. Extensões do gerador:
+- **Ciclo em horas** (`cycle_unit = 'hours'`, P1): para 18x36 o estado é indexado por `(h_abs + offset_h) mod L_h` (L = 54 h); o ciclo calendário é `mmc(L_h, 24·7)/24` dias (18x36: `mmc(54,168)` = 1.512 h = 63 dias para alinhar à semana; 9 dias para alinhar ao dia).
+- **Turno multibloco** (`SPLIT`, P1): `Turno.blocos = [(ini, dur), …]`; máscaras de cobertura somam os blocos; M4 calcula intrajornada entre blocos.
+- **Estado `R`** (reserva, 5T francesa): presença sem posto — entra como capacidade de reserva no FR-11/FR-13, não em `cob`.
+- **Folga fixa** (P1): máscara de calendário `fixed_off[weekday]` aplicada **depois** do índice cíclico (`estado = F se weekday ∈ fixed_off`), o que quebra a exatidão; o validador recalcula cobertura.
+
+**Construtor — validação em tempo real** (`POST /custom-schedule-patterns:validate`, ≤ 300 ms; também executável no cliente em TS para feedback por tecla, com o backend como fonte da verdade):
+
+```python
+def validar_padrao(seq, turnos, s, offsets=None, rotacao="frente") -> RelatorioPadrao:   # O(L·K + L_cal·K)
+    L, w = len(seq), sum(e not in (F, R) for e in seq)
+    k_star = Fraction(s * L, w)                       # exato se denominador == 1
+    offs = offsets or offsets_uniformes(L, k_star)     # i·L/K ou busca (≤ 8 turmas, L ≤ 84)
+    cob = contagem_por_turno_dia(seq, offs, mmc(L, 7)) # turnos-dia cobertos; exato ⇔ todas == 1
+    gaps = interjornadas_ciclicas(seq, turnos)         # timestamps absolutos, inclui a volta do ciclo
+    return RelatorioPadrao(k_star, exato, h_sem=w*h*7/L, max_consecutivos, min_interjornada=min(gaps),
+                           max_descanso_7d, domingos_folga, achados=[COB_PADRAO_NAO_EXATO, CLT_INTERJORNADA, CLT_SETIMO_DIA, …])
+```
+
+**Rotação para frente/para trás:** o construtor gera a sequência a partir de blocos (`n` dias por turno, ordem M→T→N ou N→T→M, `f` folgas por bloco). Para trás sem folga entre blocos produz `N(06h) → T(14h)` = 8 h → `CLT_INTERJORNADA`; o construtor sugere inserir 1 F.
+
+**Mix de camadas (FR-30):** um cenário tem `layers[]`; cada camada é um `(padrão, turnos, K, tamanho por turma, cargo, máscara de dias)` gerado independentemente; `cob_total[h] = Σ_camadas cob_c[h]`, mantendo `cob_c` para o heatmap por camada. Interjornada/DSR são validadas por turma **dentro** da camada (pessoas não migram entre camadas no MVP).
+
+**Templates (FR-31):** `custom_schedule_patterns` versionados; o cenário grava `pattern_version_id` + a sequência materializada em `rotation_patterns.matrix` (reprodutibilidade, NFR-03).
+
 ### 5.4 M3 — Cobertura e dimensionamento (FR-08–FR-14) — núcleo
 
 Entrada: matriz turma × dia (M2), turnos (início, duração, política de intervalo), pessoas por turma, folguistas, `N_req`/`S` (M1), calendário do horizonte (feriados + política). Saída: vetores por hora absoluta do horizonte e agregados 7×24.
@@ -248,7 +287,39 @@ heat_media = gap.reshape(-1, 7, 24).mean(axis=0)
 
 **Folguistas (FR-13):** heurística gulosa determinística — ordenar horas de déficit por (data, hora); para cada bloco de déficit, alocar um folguista no turno que o cobre, se `M4.valida_incremental(folguista, turno)` não gerar `ERRO`; repetir até zerar ou esgotar folguistas (`COB_FOLGUISTA_INSUFICIENTE`). "Calcular mínimo" = busca incremental de 0..F_max folguistas (F_max ≤ K). Na Fase 2, CP-SAT (M5) substitui a heurística.
 
-Achados de cobertura: `COB_DEFICIT`, `COB_DEFICIT_POSTO_CRITICO`, `COB_EXCESSO`, `COB_FURO_INTERVALO`, `COB_DEFICIT_ESPERADO_SHRINKAGE`, `COB_TURMAS_INSUFICIENTES`, `COB_FOLGUISTA_INSUFICIENTE` (catálogo: `01-PRD.md` Apêndice A).
+Achados de cobertura: `COB_DEFICIT`, `COB_DEFICIT_POSTO_CRITICO`, `COB_EXCESSO`, `COB_FURO_INTERVALO`, `COB_DEFICIT_ESPERADO_SHRINKAGE`, `COB_TURMAS_INSUFICIENTES`, `COB_FOLGUISTA_INSUFICIENTE` e, v3.2, `COB_PADRAO_NAO_EXATO`, `COB_K_INSUFICIENTE`, `COB_K_ACIMA_NECESSARIO`, `COB_TURMA_ABAIXO_MINIMO`, `COB_TURMA_ACIMA_MAXIMO`, `COB_CARGO_SEM_QUALIFICADO`, `COB_DEFICIT_CARGO`, `COB_COBERTURA_POR_SUBSTITUICAO`, `COB_LIMITE_FORA_CARGO`, `COB_PROPORCAO_VIOLADA` (catálogo: `01-PRD.md` Apêndice A).
+
+### 5.4.1 M3 — Turmas (K) como restrição (FR-32, FR-33)
+
+Entrada: `TeamConstraint{escopo: operação|posto|cargo|camada, modo: fixo|faixa|livre, k_min, k_max, k_fixo, tamanho_min, tamanho_max, permite_meias}`.
+
+1. **Tamanho → multiplicador:** postos do turno `p`; com `tamanho_max = m`, cada turno-dia precisa de `g = ceil(p/m)` grupos ⇒ `K_req = g · K*` (meias-turmas: `g = 2`, tamanho `p/2`). Turmas de tamanhos diferentes: `pessoas[k]` vetorial (já suportado em `cobertura_horizonte`). `tamanho < tamanho_min` ⇒ `COB_TURMA_ABAIXO_MINIMO`.
+2. **K fixo:** gera com `k` turmas, offsets por busca que **maximiza cobertura** (lexicográfico: postos críticos, horas-posto, pico) — `O(C(L,k))` limitado: `L ≤ 84`, `k ≤ 12`, busca com poda + memo; acima disso, offsets uniformes `round(i·L/k)`. Reporta cobertura alcançável e `COB_K_INSUFICIENTE` se déficit > 0.
+3. **K faixa/livre:** varre `K = max(k_min, ceil(K_req)) … k_max` e para no primeiro K com déficit 0 (custo `O((k_max − k_min + 1) · custo_M3)` ≈ ≤ 12 × 20 ms). Nenhum ⇒ `COB_K_INSUFICIENTE` com o melhor K. `K > K_req` exato ⇒ `COB_K_ACIMA_NECESSARIO` (INFO, excesso).
+4. **Hierarquia:** restrição de cargo/posto ≤ restrição da operação (o mais restritivo vence); o wizard valida a faixa antes de simular.
+
+### 5.4.2 M3 — Cobertura por cargo e matriz de substituição (FR-34–FR-38)
+
+Dados: cargos `R` (≤ 20), postos com cargo exigido e habilidades exigidas, composição por cargo de cada turma `comp[k][r]`, regras `sub[a→b] = (fator, prioridade, aceita_em_minimo)`, mínimos `min_req[(cargo|habilidade), janela]`.
+
+Por hora absoluta `h`: oferta `sup[r,h] = Σ_k ativo[k,h]·comp[k][r]` e demanda `dem[b,h]` (postos do cargo `b`). Alocação = problema de transporte:
+
+```
+max  Σ_b cobertos[b,h] − ε·Σ_{a≠b} prioridade[a→b]·x[a,b]
+s.a. Σ_b x[a,b] ≤ sup[a,h]                         ∀a        (uma pessoa cobre um posto)
+     cobertos[b,h] = Σ_a fator[a→b]·x[a,b] ≤ dem[b,h]   ∀b   (diagonal fator 1)
+     Σ_{a ∈ Q(req)} x[a, ·] ≥ min_req[h]            ∀ mínimos (FR-36; Q = cargo + substitutos aceitos)
+     x ≥ 0 inteiro
+```
+- **Caminho rápido (MVP, todos os fatores = 1):** grafo bipartido cargo→cargo ⇒ **min-cost max-flow** (`ortools.graph.python.min_cost_flow`), integral por construção, `O(R²·log)` por hora. Mínimos por cargo checados antes (contagem de qualificados presentes ≥ mínimo, reservando-os ao próprio posto).
+- **Fatores < 1 ou mínimos que concorrem com a demanda (P1):** LP pequeno (GLOP, `|R|² ≤ 400` variáveis) com arredondamento para baixo (conservador).
+- **Deduplicação:** horas com o mesmo `(sup, dem)` têm a mesma solução; o ciclo calendário repete perfis ⇒ cache por perfil (tipicamente < 200 perfis únicos em 1.680 h). Custo total `O(U · R²)`, U = perfis únicos — ≤ 50 ms para 20 cargos.
+- **Limite de horas fora do cargo (P1):** acumulado por turma/semana; quando excede, `x[a,b]` da hora seguinte recebe capacidade 0 e emite `COB_LIMITE_FORA_CARGO`.
+- **Proporções (P2, FR-37):** `q·n_enf[h] ≥ n_tec[h]` exige variáveis inteiras acopladas ⇒ resolvido no M5 (CP-SAT); no MVP o M3 apenas **verifica** a proporção sobre a alocação e emite `COB_PROPORCAO_VIOLADA`.
+
+Saídas: `coverage_role_results` (por slot × cargo: demanda, próprio, por substituição, déficit), achados `COB_DEFICIT_CARGO`, `COB_CARGO_SEM_QUALIFICADO`, `COB_COBERTURA_POR_SUBSTITUICAO` (agregado por cargo/semana, não por hora, para não poluir), `COB_LIMITE_FORA_CARGO`.
+
+**Folguistas (FR-13) com cargo:** a heurística gulosa itera por cargo em ordem de déficit; candidato = folguista de cargo `a` tal que `sub[a→b]` existe para o cargo em déficit `b`, preferindo `a = b` e depois menor prioridade; o mínimo de folguistas é calculado **por cargo**.
 
 ### 5.5 M4 — Viabilidade CLT: validador de restrições (FR-15–FR-20)
 
@@ -267,8 +338,9 @@ Códigos canônicos (`01-PRD.md` Apêndice A). Severidade: `ERRO` = escala invi�
 | `CLT_REVEZAMENTO_6H` | ALERTA (ERRO se > 8h) | Turma alterna turnos que cobrem dia e noite e jornada > 6h sem `allows_8h_rotating` | CF art. 7º, XIV; Súmula 423 TST | FR-18 |
 | `CLT_REGIME_12X36` | ERRO | Em turma 12x36: jornada > 12h, repouso < 36h após cada plantão, ou dobra | CLT art. 59-A | FR-19 |
 | `CLT_JORNADA_DIARIA` | ALERTA (ERRO se > 10h fora de 12x36) | Jornada computada (com hora noturna reduzida) > 8h | CLT arts. 58, 59, 73 | FR-20 |
-| `CLT_INTRAJORNADA` | ALERTA | Jornada > 6h com intervalo < 1h (ou < 30 min com CCT) | CLT art. 71; 611-A, III | FR-10, FR-20 |
+| `CLT_INTRAJORNADA` | ALERTA | Jornada > 6h com intervalo < 1h (ou < 30 min com CCT); intervalo > 2 h (split) sem acordo | CLT art. 71; 611-A, III | FR-10, FR-20, FR-28 |
 | `CLT_MEDIA_SEMANAL` | ALERTA | Média no ciclo > carga contratual (alimenta HE no M6, P2) | CF art. 7º, XIII | FR-20 |
+| `CLT_TEMPO_PARCIAL` | ALERTA | Contrato parcial > 30 h/sem, ou > 26 h com HE > 6 h | CLT art. 58-A | FR-28 |
 | `INFO_DIVERGENCIA_59A_SUMULA60` | INFO | §5.5.1 | | FR-20 |
 
 Achados de cobertura (`COB_*`, incluindo `COB_DEFICIT_POSTO_CRITICO`) são emitidos pelo M3 (§5.4), não pelo M4.
@@ -330,7 +402,26 @@ s.a. Σ_{j,d} A[(j,d),h]·x[j,d] + u[h] − o[h] = N_req[h]      ∀h ∈ 0..167
 3. `c_j` mistura salário mensal com custo horário. Definir `c_j` como **custo semanal marginal de uma pessoa no turno j** = `horas_pagas_j · valor_hora · (1 + %adic·frac_noturna_ficta_j) · (1 + encargos)`, pré-calculado em `Decimal` e escalado para inteiro (centavos) porque CP-SAT só aceita coeficientes inteiros.
 4. O ILP dimensiona **postos por turno/dia**; não garante que esses postos sejam preenchíveis por um padrão cíclico de turmas. O pipeline correto é: ILP (M5) → `y_j = max_d x[j,d]` → M2 escolhe o padrão que realiza `y_j` (ou o ILP é resolvido com restrição de forma cíclica, modo avançado).
 
-Complexidade: problema NP-difícil em geral, mas instâncias são pequenas (`J ≤ 20`, `7·J ≤ 140` variáveis inteiras, 168 restrições). CP-SAT resolve em ms–centenas de ms. Limite `max_time_in_seconds=1.5`, `num_workers=8`; se `FEASIBLE` e não `OPTIMAL`, devolve gap e achado `INFO_SOLUCAO_SUBOTIMA`. Entrada com `INFEASIBLE` → erro de API `demand_infeasible` (ver 05 §5.3).
+**Extensão v3.2 — K, tamanho de turma e cargos como restrições CP-SAT (modo "escala livre", Fase 2):**
+
+Variáveis adicionais: `y[k] ∈ {0,1}` (turma k usada, k ≤ K_max), `n[k,r] ∈ ℤ≥0` (pessoas do cargo r na turma k), `st[k,d,j] ∈ {0,1}` (turma k no turno j no dia d), `s[a,b,h] ∈ ℤ≥0` (pessoas do cargo a cobrindo posto do cargo b na hora h), `u[b,h] ≥ 0`.
+
+```
+K:          K_min ≤ Σ_k y[k] ≤ K_max      (K fixo: igualdade);  y[k] ≥ y[k+1]  (quebra de simetria)
+Tamanho:    tam_min·y[k] ≤ Σ_r n[k,r] ≤ tam_max·y[k]
+Padrão:     AddAutomaton(st[k,·], autômato da sequência/regras)  ou  st[k,d,·] = seq[(d+off_k) mod L]  com off_k ∈ 0..L−1 (AddElement)
+Interjornada/DSR/7º dia: proibições de transição no autômato (N→T, > 6 trabalhados) — M4 vira restrição dura
+Oferta:     sup[a,h] = Σ_k Σ_j A[j,h]·st[k,d(h),j]·n[k,a]      (produto linearizado: z[k,j,d,a] ≤ n[k,a], z ≤ M·st, z ≥ n − M(1−st))
+Substituição: Σ_b s[a,b,h] ≤ sup[a,h];  s[a,b,h] = 0 se não existe a→b
+Cobertura:  Σ_a ⌊100·fator[a→b]⌋·s[a,b,h] + 100·u[b,h] ≥ 100·dem[b,h]        (fatores escalados a inteiros)
+Mínimos:    Σ_{a∈Q(req)} s[a,·,h] ≥ min_req[h]
+Proporção:  q·Σ_{a∈Q(enf)} s[a,enf,h] ≥ Σ_a s[a,tec,h]           (FR-37)
+Fora do cargo: Σ_{h∈semana} Σ_{b≠a} s[a,b,h] ≤ limite_a · n_total[a]   (FR-38, agregado por turma)
+Objetivo (lexicográfico): 1) Σ u críticos  2) Σ u  3) Σ y (menor K)  4) Σ n (headcount)  5) Σ custo_sub·s
+```
+Complexidade: `st` tem `K_max·L_cal·J` binárias (12·56·4 ≈ 2,7 mil); `s` tem `R²·D·24` — explode com `D·24`, por isso a cobertura usa **uma semana-tipo cíclica** (`h ∈ 0..167`) quando o padrão tem `mmc(L,7)` = 7·m e o modelo agrega por hora da semana; com 10 cargos ≈ 17 mil inteiras. Viável em segundos com `max_time_in_seconds = 10` em job assíncrono (ADR-006); sem `OPTIMAL`, devolve gap + `INFO_SOLUCAO_SUBOTIMA`. No MVP, o mesmo problema é resolvido em duas etapas (padrão cíclico por enumeração de K → transporte por hora, §5.4.1–5.4.2), o que é exato para K e cargos com fator 1 e conservador para fatores < 1.
+
+Complexidade (formulação base): problema NP-difícil em geral, mas instâncias são pequenas (`J ≤ 20`, `7·J ≤ 140` variáveis inteiras, 168 restrições). CP-SAT resolve em ms–centenas de ms. Limite `max_time_in_seconds=1.5`, `num_workers=8`; se `FEASIBLE` e não `OPTIMAL`, devolve gap e achado `INFO_SOLUCAO_SUBOTIMA`. Entrada com `INFEASIBLE` → erro de API `demand_infeasible` (ver 05 §5.3).
 
 ### 5.7 M6 — Motor financeiro (FR-25–FR-27) — P2, fase futura
 
@@ -479,6 +570,13 @@ Contrato completo em **`05-esquema-backend.md` §5** (fonte da verdade). Base: *
 | `POST` | `/scenarios/{id}/exports` | XLSX/CSV (async) | FR-23 |
 | `GET` | `/scenarios/{id}/financials` | Extrato de custos (P2) | FR-26 |
 | `GET` | `/jobs/{id}` | Status do job | — |
+| `GET` | `/schedule-models?group=` | Catálogo ampliado com `exact_24x7`, `teams_24x7`, `teams_non_continuous`, `legal_status` | FR-28 |
+| `CRUD` | `/custom-schedule-patterns`, `POST …:validate`, `POST …/{id}:derive` | Construtor e templates da organização | FR-29, FR-31 |
+| `CRUD` | `/roles`, `/skills`, `/roles/{id}/skills` | Cargos e habilidades | FR-34 |
+| `GET/PUT` | `/substitution-rules` (matriz completa) | Matriz cargo × cargo | FR-35 |
+| `CRUD` | `/positions/{id}/role-requirements` | Mínimos por cargo/habilidade e proporções | FR-36, FR-37 |
+| `CRUD` | `/operations/{id}/team-constraints` | K fixo/faixa/livre e tamanho de turma | FR-32, FR-33 |
+| `GET` | `/scenarios/{id}/coverage?role=` | Cobertura/heatmap por cargo | FR-09, FR-35 |
 
 Exemplo (resumido):
 ```json
@@ -528,6 +626,12 @@ POST /api/v1/escalas/scenarios/{id}/simulate
 
 ---
 
+### ADR-009: OR-Tools no MVP só para fluxo/LP; CP-SAT segue na Fase 2
+**Status:** Aceito (v3.2). **Contexto:** a matriz de substituição (FR-35/36) exige uma alocação ótima cargo→posto por hora; heurística gulosa erra em cadeias (A→B→C). **Opções:** (A) guloso por prioridade; (B) min-cost-flow/LP do `ortools` por hora com cache de perfis; (C) CP-SAT completo já no MVP. **Decisão:** B — exato para fatores 1, polinomial, ≤ 50 ms; reaproveita a dependência que o M5 usará. **Consequência:** `ortools` entra no MVP; K e cargos no CP-SAT (§5.6) ficam para a Fase 2.
+
+### ADR-010: Padrões de escala como dados, não código
+**Status:** Aceito (v3.2). Todo modelo do catálogo e todo template do construtor é `seq + turnos + offsets + flags` em `rotation_patterns`/`custom_schedule_patterns`; novos modelos = seed + golden, sem código. Extensões de gerador (ciclo em horas, multibloco, `R`, folga fixa) são flags versionadas no `engine_version`.
+
 ## 14. Riscos técnicos
 
 | Risco | Mitigação |
@@ -536,4 +640,6 @@ POST /api/v1/escalas/scenarios/{id}/simulate
 | Divergência de interpretação jurídica (59-A × Súmula 60; periodicidade dominical) | Regras parametrizáveis, default conservador, revisão do Jurídico em cada versão de regras |
 | Divergência de esquemas FE/BE | Tipos gerados do OpenAPI + teste de contrato |
 | Formatos WFM proprietários (TOTVS, Senior, SAP) sem especificação pública estável | Fase 3; MVP só CSV/XLSX; adaptadores isolados por formato |
+| Matriz de substituição com fatores < 1 e mínimos concorrentes gera LP fracionário | Arredondamento conservador (para baixo) + achado; CP-SAT na Fase 2 |
+| Busca de offsets com K fixo explode (L grande) | Poda + limite `L ≤ 84`, `k ≤ 12`; fallback de offsets uniformes com aviso |
 | Heurística de folguistas subótima em demandas irregulares | Reportar "mínimo encontrado" (não "ótimo"); CP-SAT (M5) na Fase 2 |

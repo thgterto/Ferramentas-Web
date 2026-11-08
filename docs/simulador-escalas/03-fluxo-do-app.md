@@ -1,7 +1,7 @@
 # 03 — Fluxo do App: Sitemap, Telas e Fluxos de Usuário
 
 > Simulador Operacional de Cobertura 24/7 — CLT Brasil
-> Fonte: `01-PRD.md` (PRD v3.1; IDs FR-xx canônicos). Este documento descreve navegação, telas, estados e fluxos (felizes, de erro e edge cases). O núcleo é **cobertura**: a tela de resultado abre no heatmap; viabilidade CLT é um painel de restrições; custos são módulo P2 (fase futura).
+> Fonte: `01-PRD.md` (PRD v3.2; IDs FR-xx canônicos). Este documento descreve navegação, telas, estados e fluxos (felizes, de erro e edge cases). O núcleo é **cobertura**: a tela de resultado abre no heatmap; viabilidade CLT é um painel de restrições; custos são módulo P2 (fase futura).
 
 ---
 
@@ -13,6 +13,14 @@ flowchart TD
     ORG --> PROJ["T2 · Operações"]
     PROJ --> OP["T2.1 · Detalhe da Operação<br/>(lista de cenários)"]
     OP --> WIZ["T3 · Wizard Novo Cenário"]
+    OP --> RK["T2.2 · Restrições de turmas (K)"]
+    ORG --> CAD["T8 · Cadastros da organização"]
+    CAD --> C1["T8.1 Cargos e habilidades"]
+    CAD --> C2["T8.2 Matriz de substituição"]
+    CAD --> C3["T8.3 Modelos de escala"]
+    C3 --> CB["T9 · Construtor de escala"]
+    W4 -. "personalizar" .-> CB
+    CB -. "usar no cenário" .-> W4
     WIZ --> W1["3.1 Operação + regras CCT/ACT"]
     W1 --> W2["3.2 Demanda: postos fixos ou curva 168h"]
     W2 --> W3["3.3 Shrinkage e reserva"]
@@ -41,6 +49,11 @@ Navegação global (header): Organização ▸ Operação ▸ Cenário (breadcru
 | `/orgs` | T1 | `GET /me` |
 | `/o/:org/operacoes` | T2 | `GET /operations` |
 | `/o/:org/operacoes/:op` | T2.1 | `GET /scenarios?operation_id=` |
+| `/o/:org/operacoes/:op/restricoes` | T2.2 | `GET/POST/PATCH /operations/{id}/team-constraints` |
+| `/o/:org/cadastros/cargos` | T8.1 | `/roles`, `/skills`, `/roles/{id}/skills` |
+| `/o/:org/cadastros/matriz-substituicao` | T8.2 | `GET/PUT /substitution-rules` |
+| `/o/:org/escalas/modelos` | T8.3 | `GET /schedule-models`, `GET /custom-schedule-patterns` |
+| `/o/:org/escalas/modelos/novo?de=:codigo` · `/o/:org/escalas/modelos/:pid/editar` | T9 | `POST /custom-schedule-patterns/{id}:derive`, `POST /custom-schedule-patterns:validate`, `PATCH /custom-schedule-patterns/{id}` |
 | `/o/:org/operacoes/:op/cenarios/novo?passo=1..5` | T3 | `POST /scenarios`, `PATCH /scenarios/{id}` |
 | `/o/:org/operacoes/:op/cenarios/:id/:aba` (aba ∈ `cobertura` (padrão), `escala`, `viabilidade`, `custos`*) | T4 | `GET /scenarios/{id}/coverage`, `/assignments`, `/compliance-findings`, `/financials`* |
 | `/o/:org/operacoes/:op/cenarios/:id/ajustar` | T5 | `PATCH /scenarios/{id}/assignments/{aid}` |
@@ -62,7 +75,7 @@ Navegação global (header): Organização ▸ Operação ▸ Cenário (breadcru
 
 Status do cenário (enum `scenario_status`, `05` §3.1): `rascunho`, `calculando`, `calculado`, `em_revisao`, `homologado`, `arquivado`, `erro`. Um cenário `calculado` com achados `ERRO` exibe o selo **"inviável"**.
 
-Códigos de achado exibidos (catálogo canônico: `01-PRD.md` Apêndice A), sempre com tradução humana + referência: cobertura `COB_DEFICIT`, `COB_DEFICIT_POSTO_CRITICO`, `COB_EXCESSO`, `COB_FURO_INTERVALO`, `COB_DEFICIT_ESPERADO_SHRINKAGE`, `COB_TURMAS_INSUFICIENTES`, `COB_FOLGUISTA_INSUFICIENTE`; viabilidade `CLT_INTERJORNADA`, `CLT_DSR_35H`, `CLT_SETIMO_DIA`, `CLT_DOMINGO_PERIODICIDADE`, `CLT_REVEZAMENTO_6H`, `CLT_REGIME_12X36`, `CLT_JORNADA_DIARIA`, `CLT_MEDIA_SEMANAL`, `CLT_INTRAJORNADA`, `INFO_DIVERGENCIA_59A_SUMULA60`.
+Códigos de achado exibidos (catálogo canônico: `01-PRD.md` Apêndice A), sempre com tradução humana + referência: cobertura `COB_DEFICIT`, `COB_DEFICIT_POSTO_CRITICO`, `COB_EXCESSO`, `COB_FURO_INTERVALO`, `COB_DEFICIT_ESPERADO_SHRINKAGE`, `COB_TURMAS_INSUFICIENTES`, `COB_FOLGUISTA_INSUFICIENTE`, `COB_PADRAO_NAO_EXATO`, `COB_K_INSUFICIENTE`, `COB_K_ACIMA_NECESSARIO`, `COB_TURMA_ABAIXO_MINIMO`, `COB_TURMA_ACIMA_MAXIMO`, `COB_CARGO_SEM_QUALIFICADO`, `COB_DEFICIT_CARGO`, `COB_COBERTURA_POR_SUBSTITUICAO`, `COB_LIMITE_FORA_CARGO`, `COB_PROPORCAO_VIOLADA` (P2); viabilidade `CLT_INTERJORNADA`, `CLT_DSR_35H`, `CLT_SETIMO_DIA`, `CLT_DOMINGO_PERIODICIDADE`, `CLT_REVEZAMENTO_6H`, `CLT_REGIME_12X36`, `CLT_JORNADA_DIARIA`, `CLT_MEDIA_SEMANAL`, `CLT_INTRAJORNADA`, `CLT_TEMPO_PARCIAL`, `INFO_DIVERGENCIA_59A_SUMULA60`.
 
 Severidades: **ERRO** (escala inviável; impede homologação), **ALERTA** (exige ciência/justificativa), **INFO**.
 
@@ -89,6 +102,24 @@ Papéis (enum `member_role`, `05` §3.1): `owner`, `admin`, `planner` (planejado
 ### T2.1 · Detalhe da Operação
 - Lista de cenários (status §2, % cobertura, horas-posto em déficit, headcount, selo "inviável"), checkbox para comparar (2–5), "Novo cenário", "Duplicar".
 - Vazio: "Nenhum cenário. Comece pelo baseline 6x1." Comparar desabilitado com < 2 selecionados.
+- Atalho "Restrições de turmas" → T2.2 (mostra a faixa de K vigente no cabeçalho).
+
+### T2.2 · Restrições de turmas da operação (v3.2)
+- **Objetivo:** fixar o número de turmas e o tamanho das turmas como **restrição** (FR-32, FR-33) antes de qualquer cenário.
+- **Componentes:** escopo (operação | posto | cargo | camada); modo **Fixo / Faixa / Livre** (segmented); `K_min`/`K_max` ou `K`; tamanho mín./máx. por turma; "permitir meias-turmas"; tabela de exceções por posto/cargo. Indicador: "K\* do modelo atual" ao lado do limite.
+- **Validações:** `K_min ≤ K_max ≤ 12`; restrição do posto/cargo dentro da faixa da operação; `tamanho_min ≤ tamanho_max`.
+- **Efeito:** no passo 3.4, modelos que exigem K fora da faixa aparecem com selo "excede limite de turmas" (desabilitados em modo Fixo; selecionáveis com aviso em Faixa).
+
+### T8 · Cadastros da organização: cargos, habilidades e matriz (v3.2)
+- **T8.1 Cargos e habilidades (FR-34):** tabela de cargos (nome, nível 1–9, CBO, cor, habilidades padrão) e de habilidades/certificações (código, nome, exige validade). Seeds sugeridos por setor (saúde: enfermeiro, técnico de enfermagem, supervisor; indústria: operador, operador de caldeira NR-13, operador líder, supervisor). Exclusão bloqueada se o cargo está em uso (lista onde).
+- **T8.2 Matriz de substituição (FR-35):** grade **cargo × cargo** (linhas = quem cobre, colunas = quem é coberto); cada célula: vazio (não cobre), ✓ 1,0, fração (P1), prioridade, "vale para mínimo"; diagonal travada. Atalhos: "nível superior cobre inferior" (preenche direcional pelo nível), "limpar linha". Painel lateral explica em linguagem natural: "Enfermeiro pode cobrir Técnico (prioridade 2). Técnico **não** cobre Enfermeiro." Validações: fator 0 < f ≤ 1; aviso em ciclos A↔B ("ambos se cobrem — confirme").
+- **T8.3 Modelos de escala:** catálogo ampliado (`01` §6.1) em grupos (contínuos, não contínuos, complementares, variações) com filtros "cobre 24/7 exato", "viável sem CCT", nº de turmas; aba "Da organização" com templates (FR-31). Ações: "Duplicar e editar" → T9; "Usar em cenário".
+
+### T9 · Construtor de escala (v3.2, FR-29)
+- **Componentes:** (1) **editor de sequência do ciclo** — trilha de chips arrastáveis M/T/N/D12/N12/INT/F/R com contador `L`; (2) **turnos** — tabela código/início/duração/intervalo/política (rendição, não computado, volante, escalonado) com régua 0–24 h mostrando sobreposições; (3) **turmas** — K, offsets por turma (arrastar a linha da turma no mini-calendário), tamanho por turma, meias-turmas; (4) **regras** — sentido da rotação, data-âncora, folgas fixas (P1), regra de feriado (P1); (5) **camadas** (P1, FR-30) — adicionar camada (ex.: reforço 5x2 INT); (6) **painel de validação ao vivo**: K\* e "exato/não exato", h/sem, maior sequência trabalhada, menor interjornada, maior descanso em 7 dias, domingos de folga, mini-heatmap de cobertura do ciclo.
+- **Estados:** inválido (sequência vazia, sem F, código inexistente) → salvar desabilitado; validando (≤ 300 ms, spinner discreto); com achados (chip vermelho/amarelo apontando a posição da sequência).
+- **Ações:** "Salvar template" (nova versão se já existe), "Usar neste cenário", "Restaurar modelo de origem".
+
 
 ### T3 · Wizard de Novo Cenário
 Stepper de 5 passos com autosalvamento; "Voltar" preserva dados; "Simular" só no passo 5. Painel lateral "Resumo" mostra demanda total (horas-posto/semana) e **estimativa de turmas/headcount** (FR-08) ao vivo.
@@ -100,6 +131,7 @@ Stepper de 5 passos com autosalvamento; "Voltar" preserva dados; "Simular" só n
 #### 3.2 Demanda
 - **Postos fixos** (FR-02): `P(d,t)=k` por faixa; atalho "igual em todas as 168 h"; marcação de **posto crítico**.
 - **Curva 168 h** (FR-01): grade 7×24 editável (colar do Excel, arrastar, copiar dia), upload CSV/XLSX com template. Erlang-C/UPH (FR-04) aparece desabilitado com selo "Fase 2".
+- **Demanda por cargo (v3.2, FR-34/36):** cada posto declara o cargo exigido e habilidades exigidas (ex.: posto "Caldeira" = Operador + `NR13_CALDEIRA`); bloco "Mínimos por turno" (ex.: ≥ 1 Enfermeiro por plantão; "aceita substituto" sim/não); proporções (FR-37) com selo "Fase 2". Sem cargos cadastrados, o passo funciona como antes (cargo único implícito).
 - **Validações:** inteiros ≥ 0; 168 células; ≥ 1 célula > 0.
 - **Erros de upload:** formato não suportado; > 5 MB; cabeçalho ausente; ≠ 168 linhas (formato longo) ou ≠ 7×24; não numérico/negativo (lista "linha X" e destaca no grid); separador decimal; XLSX com várias abas (perguntar qual).
 
@@ -109,9 +141,11 @@ Stepper de 5 passos com autosalvamento; "Voltar" preserva dados; "Simular" só n
 - **Dados exibidos:** demanda nominal vs. demanda bruta com reserva, ao vivo.
 
 #### 3.4 Modelo de escala e turmas
-- **Componentes:** cards do catálogo MVP — **6x1 (baseline), 12x36, 6x2, 4x2, 5 turmas** (3x1, 3x2, 5x2, 4x3 e Personalizado avançado com selo "Fase 2"; Personalizado básico FR-07 é P1). Cada card mostra turnos/dia, padrão, **K necessário**, h/sem média e ciclo calendário (`01` §6). Campos: nº de turmas (A, B, C…), horários dos turnos, **intervalo intrajornada** (computado com rendição | não computado sem rendição | coberto por volantes — FR-10), nº de folguistas (ou "calcular mínimo").
+- **Componentes:** catálogo ampliado (FR-28, `01` §6.1) em grupos — *contínuos 24/7* (6x1, 12x36, 6x2, 4x2, 5 turmas, 3x1, 3x2, 6x3, 2x2, Pitman, Panamá, DuPont, Continental, 12x60, 24x48, 24x72, 5T francesa, 6 turmas), *não contínuos* (5x2, 5x1, 4x3), *complementares* (fim de semana 12 h, parcial 20/25/30 h, reforço de pico) e *variações* (fixo × rotativo, escalonado; 18x36 e split com selo P1); filtros "cobre 24/7 exato" e "viável sem CCT"; grupo "Da organização" (templates FR-31); botão **"Personalizar" → T9** (FR-29). Bloco **"Turmas"**: modo K herdado de T2.2 (editável se Livre), tamanho mín./máx., meias-turmas, **composição por cargo** de cada turma (FR-34). Bloco **"Camadas"** (P1, FR-30): "+ adicionar camada" (ex.: reforço 5x2). Cada card mostra turnos/dia, padrão, **K necessário**, h/sem média e ciclo calendário (`01` §6). Campos: nº de turmas (A, B, C…), horários dos turnos, **intervalo intrajornada** (computado com rendição | não computado sem rendição | coberto por volantes — FR-10), nº de folguistas (ou "calcular mínimo").
 - **Pré-checagem (antes de simular):**
   - `K` informado < `K` necessário → `COB_TURMAS_INSUFICIENTES` com sugestão (ex.: 4x2 → 5 turmas ou 9 meias-turmas). Permite seguir para ver o déficit.
+  - Modelo exige K fora da restrição (T2.2) → `COB_K_INSUFICIENTE` previsto e card desabilitado (modo Fixo) ou com aviso (Faixa).
+  - Turma com tamanho fora de mín./máx. → `COB_TURMA_ABAIXO_MINIMO` / `COB_TURMA_ACIMA_MAXIMO`; mínimo de cargo impossível com a composição (ex.: 0 enfermeiros) → `COB_CARGO_SEM_QUALIFICADO` previsto.
   - Personalizado com transição < 11 h → `CLT_INTERJORNADA` já no editor; sem folga ≥ 35 h → `CLT_DSR_35H`.
 - **Recomendação:** selo "Recomendado" no modelo com menor headcount que zera o déficit sem `ERRO`.
 
@@ -137,6 +171,8 @@ flowchart TD
     S3 --> S4["Passo 4: Modelo e turmas"]
     S4 --> V4{"Pré-checagem<br/>K e restrições"}
     V4 -- "Interjornada no editor" --> S4
+    S4 -. "Personalizar" .-> T9["T9 Construtor"] -. "usar" .-> S4
+    V4 -- "K fora da restrição" --> AK["Aviso COB_K_INSUFICIENTE<br/>+ K sugerido"] --> S4
     V4 -- "Turmas insuficientes" --> AV["Aviso + sugestão de K"] --> S5
     V4 -- OK --> S5["Passo 5: Revisão"]
     S5 --> C(("Simular")) --> R["T4 aba cobertura"]
@@ -145,8 +181,9 @@ flowchart TD
 ### T4 · Resultado do Cenário
 - **Objetivo:** mostrar **se a operação está coberta**, onde estão os furos e o que é preciso para fechá-los.
 - **Cabeçalho de KPIs (FR-14):** % horas-posto cobertas · horas-posto em déficit · pico de subcobertura (dia/hora) · headcount (atual / mínimo) · turmas (atual / necessárias) · furos no intervalo · violações ERRO/ALERTA. Ações: "Ajustar escala", "Comparar", "Duplicar", "Recalcular", "Homologar".
-  - **Aba `cobertura` (padrão; FR-09, FR-10, FR-11, FR-12):** heatmap 7×24 de **déficit / exato / excesso**; alternância **"postos" | "postos + reserva"** e **"pior caso" | "média"** do horizonte; filtro por posto; camada "furos no intervalo"; tooltip com demanda, cobertura, diferença, turmas presentes e feriado; lista "Top 10 horas em déficit"; card **"Como fechar o déficit"** (ex.: "+1 turma", "+2 folguistas", "trocar para 5 turmas") (FR-08, FR-13). Clique em célula de déficit → T5 filtrado.
+  - **Aba `cobertura` (padrão; FR-09, FR-10, FR-11, FR-12):** heatmap 7×24 de **déficit / exato / excesso**; alternância **"postos" | "postos + reserva"** e **"pior caso" | "média"** do horizonte; filtro por posto e **por cargo** ("Todos", cada cargo, "só substituições" — FR-35); camada por **camada de escala** (FR-30); camada "furos no intervalo"; tooltip com demanda, cobertura, diferença, turmas presentes e feriado; lista "Top 10 horas em déficit"; card **"Como fechar o déficit"** (ex.: "+1 turma", "+2 folguistas", "trocar para 5 turmas") (FR-08, FR-13). Clique em célula de déficit → T5 filtrado.
   - **Aba `escala` (FR-21):** calendário turma × dia do ciclo calendário completo (`mmc(L,7)`: 14/56/42/70/7 dias), códigos M/T/N/D/N12/F, domingos e feriados destacados, folguistas como linha própria, marcadores de déficit/violação.
+  - **Cobertura por cargo (v3.2):** tabela cargo × KPIs (demanda, próprio, por substituição, déficit, horas sem qualificado); bloco "Turmas" mostra K usado vs. restrição e cobertura alcançável quando K é fixo (FR-32).
   - **Aba `viabilidade` (FR-15–FR-20):** restrições agrupadas por severidade com código, regra, fonte normativa, turma/data, "Ver no calendário" / "Corrigir".
   - **Aba `custos` (P2, FR-25–27):** oculta no MVP.
 - **Estados:** carregando (progresso M1→M4); rascunho não calculado → "Simular agora"; inviável (sem escala sem `ERRO` para os parâmetros) → "Não há escala viável com N turmas: aumente turmas, reduza postos ou troque o modelo" + atalho para 3.4; timeout → reprocessar.
@@ -261,6 +298,39 @@ sequenceDiagram
 
 ---
 
+### 4.4 Cenário 4 — UTI com cargos: enfermeiro cobre técnico, não o contrário (v3.2)
+
+1. Gestor cadastra cargos em T8.1 (Enfermeiro nível 3, Técnico de enfermagem nível 2, Supervisor nível 4) e em T8.2 marca **Enfermeiro → Técnico ✓ 1,0 (prioridade 2)**, **Supervisor → Enfermeiro ✓ (vale para mínimo)**.
+2. Em T2.2 fixa **K = 4** (modo Fixo) e tamanho máx. 6 por turma.
+3. Wizard 3.2: demanda por cargo — 1 enfermeiro + 4 técnicos 24/7; mínimo "≥ 1 enfermeiro por plantão".
+4. Wizard 3.4: escolhe 12x36 (K\* = 4 ✓ dentro do limite). Composição por turma: 1 enfermeiro + 4 técnicos.
+5. T4 `cobertura`, filtro "Técnico": exato. Com shrinkage noturno, visão "postos + reserva" mostra déficit de técnico; card sugere **folguista técnico** (não enfermeiro, por prioridade).
+6. Gestor reduz técnicos da turma C para 3 e sobe enfermeiros para 2 → filtro "Técnico" exato com marcador ↺ (substituição), `COB_COBERTURA_POR_SUBSTITUICAO` (INFO).
+7. Teste inverso: turma D com 0 enfermeiros e 5 técnicos → `COB_CARGO_SEM_QUALIFICADO` (ERRO) nos plantões da D; selo "inviável" e homologação bloqueada.
+
+```mermaid
+flowchart TD
+    A["T8.1 Cargos e habilidades"] --> B["T8.2 Matriz de substituição"]
+    B --> C["T2.2 Restrição K = 4"]
+    C --> D["Wizard 3.2 Demanda por cargo + mínimos"]
+    D --> E["Wizard 3.4 Modelo 12x36 + composição por turma"]
+    E --> F(("Simular"))
+    F --> G{"Mínimo de enfermeiro atendido?"}
+    G -- Não --> H["COB_CARGO_SEM_QUALIFICADO (ERRO)"] --> E
+    G -- Sim --> I{"Déficit de técnico?"}
+    I -- "Sim, há enfermeiro excedente" --> J["Coberto por substituição (INFO)"]
+    I -- "Sim, sem substituto" --> K["COB_DEFICIT_CARGO + folguista técnico"] --> E
+    I -- Não --> L["T4 cobertura por cargo: exato"]
+    J --> L
+```
+
+### 4.5 Cenário 5 — K fixo pelo sindicato e escala personalizada (v3.2)
+
+1. ACT limita a operação a **K = 4 turmas** (T2.2 modo Fixo). Demanda 3 postos 24/7.
+2. Passo 3.4: 5 turmas e 3x2 aparecem "excede limite de turmas"; 4x2 com K = 4 mostra `COB_K_INSUFICIENTE` (11,1% dos turnos-dia descobertos).
+3. Gestor abre T9 a partir do 6X2 ("Duplicar e editar"), troca para `[M,M,T,T,N,N,F,F]` com intervalo escalonado e adiciona camada de reforço 5x2 INT 10–18 (FR-30).
+4. Validação ao vivo: K\* = 4 exato, 42 h/sem, menor interjornada 24 h → salva template "6x2 + reforço" para a organização (FR-31) e simula.
+
 ## 5. Fluxo de Homologação e Exportação
 
 ```mermaid
@@ -297,6 +367,12 @@ flowchart TD
 | E7 | Nº de turmas < K necessário (ex.: 4x2 com 4) | 3.4/T4 | `COB_TURMAS_INSUFICIENTES` + heatmap com déficit + sugestão de K. |
 | E8 | Intervalo não computado sem rendição | T4 | `COB_FURO_INTERVALO`; camada "furos no intervalo"; sugestão de volantes. |
 | E9 | Feriado com política "folga coberta" e sem folguistas | T4 | `COB_DEFICIT` com contexto "feriado"; sugestão de folguistas. |
+| E19 | K fixo menor que K\* | T2.2/3.4/T4 | `COB_K_INSUFICIENTE` com cobertura alcançável e déficit; sugestões com o mesmo K (folguistas, meias-turmas, outro modelo). |
+| E20 | Nenhum qualificado no turno | 3.4/T4 | `COB_CARGO_SEM_QUALIFICADO` (ERRO) por turno/hora; bloqueia homologação. |
+| E21 | Matriz com ciclo A↔B | T8.2 | Aviso de confirmação; permitido. |
+| E22 | Excluir cargo em uso | T8.1 | Bloqueado com lista de postos/turmas/regras que o usam. |
+| E23 | Template editado usado em cenários | T9 | Nova versão; cenários antigos mantêm a versão usada. |
+| E24 | Sequência inválida no construtor (sem F, código inexistente) | T9 | Salvar desabilitado; posição destacada. |
 | E10 | Shrinkage derruba cobertura esperada | T4 | `COB_DEFICIT_ESPERADO_SHRINKAGE` na visão "postos + reserva". |
 | E11 | Déficit em posto crítico | T4/T7 | `COB_DEFICIT_POSTO_CRITICO` (ERRO) bloqueia homologação. |
 | E12 | Nenhuma escala viável sem `ERRO` | T4 | Mensagem explicativa + K mínimo teórico. |
@@ -329,5 +405,14 @@ flowchart TD
 | FR-22 Comparador operacional | T6 |
 | FR-23 Export | T7 |
 | FR-24 Salvar/duplicar/versionar | T2.1, T3, T5 |
+| FR-28 Catálogo ampliado | 3.4, T8.3 |
+| FR-29 Construtor de escala | T9, 3.4 |
+| FR-30 Mix de camadas (P1) | 3.4, T9, T4 `cobertura` |
+| FR-31 Templates da organização (P1) | T8.3, T9 |
+| FR-32/33 K e tamanho de turma | T2.2, 3.4, T4 |
+| FR-34 Cargos e habilidades | T8.1, 3.2, 3.4 |
+| FR-35 Matriz de substituição | T8.2, T4 `cobertura` (filtro por cargo) |
+| FR-36 Mínimo por cargo | 3.2, T4 |
+| FR-37/38 Proporções, multi-skill (P2) | 3.2 (desabilitado), T8.2 |
 | FR-25–27 Financeiro (P2) | T4 `custos`, 3.5 (oculto no MVP) |
 | NFR-01/03/06 | T4 (desempenho, auditoria, acessibilidade) |
