@@ -1,6 +1,6 @@
 # 05 — Esquema de Backend: Simulador de Escalas 24/7 (CLT Brasil)
 
-> Base: `00-prd-original.md` (PRD v2.0). Backend alvo: o FastAPI existente em `backend/` (hoje `app/main.py`, `app/api/v1/endpoints/atas.py`, `app/schemas/ata.py`, `app/services/ata_excel_service.py`). O simulador entra como um **novo módulo** sob o mesmo `/api/v1`, sem quebrar o router `atas`.
+> Base: `01-PRD.md` (PRD v3.1 — simulador operacional de cobertura; IDs FR-xx canônicos) e `02-TRD.md` (módulos M1–M6). **Este documento é a fonte da verdade de tabelas e endpoints.** Backend alvo: o FastAPI existente em `backend/` (hoje `app/main.py`, `app/api/v1/escalas/endpoints/atas.py`, `app/schemas/ata.py`, `app/services/ata_excel_service.py`). O simulador entra como um **novo módulo** sob o prefixo **`/api/v1/escalas`**, sem quebrar o router `atas` (`/api/v1/atas`).
 
 ## Sumário
 1. Princípios de modelagem
@@ -92,11 +92,14 @@ SET search_path = wss, public;
 
 CREATE TYPE member_role       AS ENUM ('owner','admin','planner','legal_reviewer','viewer');
 CREATE TYPE scenario_status   AS ENUM ('rascunho','calculando','calculado','em_revisao','homologado','arquivado','erro');
-CREATE TYPE demand_mode       AS ENUM ('postos_fixos','volume_uph','erlang_c');
+CREATE TYPE demand_mode       AS ENUM ('postos_fixos','curva_168h','volume_uph','erlang_c');  -- volume_uph/erlang_c: Fase 2 (FR-04)
 CREATE TYPE slot_granularity  AS ENUM ('60','30');            -- minutos: 168 ou 336 slots
-CREATE TYPE finding_severity  AS ENUM ('info','alerta','erro','critico');
+CREATE TYPE finding_severity  AS ENUM ('info','alerta','erro');   -- erro = escala inviável / bloqueia homologação
 CREATE TYPE job_status        AS ENUM ('queued','running','succeeded','failed','cancelled');
-CREATE TYPE export_format     AS ENUM ('xlsx','csv','pdf','totvs_rm','totvs_protheus','senior_ronda','adp','sap_sf','afdt','acjef');
+CREATE TYPE export_format     AS ENUM ('xlsx','csv','pdf','totvs_rm','totvs_protheus','senior_ronda','adp','sap_sf','afdt','acjef');  -- MVP: xlsx, csv (FR-23); demais Fase 2/3
+CREATE TYPE break_policy      AS ENUM ('computado_rendicao','nao_computado','volante');  -- FR-10
+CREATE TYPE team_kind         AS ENUM ('regular','folguista');                           -- FR-13
+CREATE TYPE holiday_policy    AS ENUM ('escala_normal','folga_coberta');                 -- FR-12
 CREATE TYPE sunday_rule_basis AS ENUM ('lei_10101_comercio','lei_605_1949','portaria_mte','cct_especifica');
 ```
 
@@ -153,13 +156,13 @@ CREATE TABLE labor_agreements (
   registration_number       text,                              -- Mediador MTE
   valid_from                date NOT NULL,
   valid_to                  date,
-  -- Adicionais (fração)
+  -- Adicionais (fração) — usados só pelo M6 financeiro (P2)
   night_premium_pct         numeric(18,6) NOT NULL DEFAULT 0.200000
                             CHECK (night_premium_pct BETWEEN 0.200000 AND 1.000000), -- mín. legal 20% urbano
   night_start               time NOT NULL DEFAULT '22:00',
   night_end                 time NOT NULL DEFAULT '05:00',
-  night_hour_factor         numeric(18,6) NOT NULL DEFAULT 1.142857, -- 60/52,5 (FR-08)
-  apply_sumula_60           boolean NOT NULL DEFAULT true,          -- prorrogação noturna (FR-09)
+  night_hour_factor         numeric(18,6) NOT NULL DEFAULT 1.142857, -- só exibição; motor usa Fraction(8,7) exato (FR-20, NFR-02)
+  apply_sumula_60           boolean NOT NULL DEFAULT true,          -- prorrogação noturna (FR-20, Q3/Q4)
   overtime_pct              numeric(18,6) NOT NULL DEFAULT 0.500000 CHECK (overtime_pct >= 0.500000),
   overtime_sunday_pct       numeric(18,6) NOT NULL DEFAULT 1.000000 CHECK (overtime_sunday_pct >= 0),
   hazard_pct                numeric(18,6) NOT NULL DEFAULT 0 CHECK (hazard_pct BETWEEN 0 AND 1),     -- periculosidade
@@ -168,13 +171,13 @@ CREATE TABLE labor_agreements (
   -- Jornada
   weekly_hours_limit        numeric(18,6) NOT NULL DEFAULT 44.000000,
   daily_overtime_max_hours  numeric(18,6) NOT NULL DEFAULT 2.000000,
-  allows_8h_rotating        boolean NOT NULL DEFAULT false,         -- Art. 7º XIV CF (FR-11)
+  allows_8h_rotating        boolean NOT NULL DEFAULT false,         -- Art. 7º XIV CF (FR-18)
   allows_12x36              boolean NOT NULL DEFAULT true,          -- Art. 59-A CLT
   min_interjornada_hours    numeric(18,6) NOT NULL DEFAULT 11.000000 CHECK (min_interjornada_hours >= 11),
-  min_weekly_rest_hours     numeric(18,6) NOT NULL DEFAULT 35.000000, -- 24h DSR + 11h (FR-12)
+  min_weekly_rest_hours     numeric(18,6) NOT NULL DEFAULT 35.000000, -- 24h DSR + 11h (FR-16)
   -- Domingo
   sunday_rule_basis         sunday_rule_basis NOT NULL DEFAULT 'lei_605_1949',
-  sunday_off_max_interval_weeks smallint NOT NULL DEFAULT 7 CHECK (sunday_off_max_interval_weeks BETWEEN 1 AND 12), -- W_limite
+  sunday_off_max_interval_weeks smallint NOT NULL DEFAULT 7 CHECK (sunday_off_max_interval_weeks BETWEEN 1 AND 12), -- N de FR-17
   holiday_calendar          text NOT NULL DEFAULT 'BR-NACIONAL',     -- ex. 'BR-SP-SAO_PAULO'
   extra_rules               jsonb NOT NULL DEFAULT '{}'::jsonb,      -- cláusulas não modeladas
   rules_version             integer NOT NULL DEFAULT 1,
@@ -213,11 +216,11 @@ CREATE TABLE positions (                                   -- postos de trabalho
   operation_id       bigint NOT NULL REFERENCES operations(id) ON DELETE CASCADE,
   name               text NOT NULL,                        -- "Operador de Caldeira"
   cbo_code           char(6),
-  base_salary        numeric(18,6) NOT NULL CHECK (base_salary > 0),
+  base_salary        numeric(18,6) CHECK (base_salary > 0),        -- opcional; usado só pelo M6 (P2)
   monthly_hours      numeric(18,6) NOT NULL DEFAULT 220.000000 CHECK (monthly_hours > 0), -- CargaMensal
   hazard_applies     boolean NOT NULL DEFAULT false,
   unhealthy_applies  boolean NOT NULL DEFAULT false,
-  is_mandatory_presence boolean NOT NULL DEFAULT false,   -- FR-02 postos fixos
+  is_mandatory_presence boolean NOT NULL DEFAULT false,   -- posto crítico: déficit gera COB_DEFICIT_POSTO_CRITICO (FR-02)
   created_at         timestamptz NOT NULL DEFAULT now(),
   updated_at         timestamptz NOT NULL DEFAULT now(),
   deleted_at         timestamptz,
@@ -233,7 +236,7 @@ CREATE TABLE demand_curves (
   name             text NOT NULL,
   mode             demand_mode NOT NULL,
   granularity      slot_granularity NOT NULL DEFAULT '60',
-  -- parâmetros do modo (UPH, TMA, nível de serviço, tempo-alvo) - FR-03
+  -- parâmetros do modo (UPH, TMA, nível de serviço, tempo-alvo) - FR-04 (Fase 2)
   params           jsonb NOT NULL DEFAULT '{}'::jsonb,
   source           text NOT NULL DEFAULT 'manual' CHECK (source IN ('manual','upload_csv','upload_xlsx','api')),
   checksum         char(64),                               -- sha256 dos slots (cache do motor)
@@ -257,14 +260,14 @@ CREATE TABLE demand_slots (
 );
 -- Coerência slot ↔ granularidade é validada por trigger (slot_index < 168 quando granularity='60').
 
-CREATE TABLE shrinkage_profiles (                         -- FR-04
+CREATE TABLE shrinkage_profiles (                         -- FR-03, FR-11
   id               bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   public_id        uuid NOT NULL DEFAULT gen_random_uuid() UNIQUE,
   organization_id  bigint NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
   operation_id     bigint REFERENCES operations(id) ON DELETE CASCADE,
   name             text NOT NULL,
-  day_pct          numeric(18,6) NOT NULL CHECK (day_pct   >= 0 AND day_pct   < 0.9),
-  night_pct        numeric(18,6) NOT NULL CHECK (night_pct >= 0 AND night_pct < 0.9),
+  day_pct          numeric(18,6) NOT NULL CHECK (day_pct   >= 0 AND day_pct   < 0.6),
+  night_pct        numeric(18,6) NOT NULL CHECK (night_pct >= 0 AND night_pct < 0.6),
   breakdown        jsonb NOT NULL DEFAULT '{}'::jsonb,  -- {"absenteismo":0.05,"ferias":0.083,"treinamento":0.01,...}
   created_at       timestamptz NOT NULL DEFAULT now(),
   updated_at       timestamptz NOT NULL DEFAULT now(),
@@ -279,12 +282,12 @@ CREATE TABLE shift_templates (
   id                 bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   public_id          uuid NOT NULL DEFAULT gen_random_uuid() UNIQUE,
   organization_id    bigint REFERENCES organizations(id) ON DELETE CASCADE, -- NULL = catálogo global
-  code               text NOT NULL CHECK (code ~ '^[A-Z0-9_]{1,12}$'),     -- T1,T2,T3,D12,N12,INT
+  code               text NOT NULL CHECK (code ~ '^[A-Z0-9_]{1,12}$'),     -- M,T,N,D12,N12,INT (mesmos códigos do calendário e do export)
   name               text NOT NULL,
   start_time         time NOT NULL,
   duration_minutes   smallint NOT NULL CHECK (duration_minutes BETWEEN 60 AND 1440),
   break_minutes      smallint NOT NULL DEFAULT 60 CHECK (break_minutes BETWEEN 0 AND 120),
-  break_counts_as_work boolean NOT NULL DEFAULT false,
+  break_policy       break_policy NOT NULL DEFAULT 'computado_rendicao',  -- FR-10; 'nao_computado' gera COB_FURO_INTERVALO
   -- derivados, calculados na aplicação e persistidos para consulta
   night_clock_minutes  smallint NOT NULL DEFAULT 0,
   crosses_midnight   boolean GENERATED ALWAYS AS
@@ -298,25 +301,26 @@ CREATE UNIQUE INDEX ux_shift_templates_code ON shift_templates (COALESCE(organiz
 
 -- Seeds globais
 INSERT INTO shift_templates (organization_id, code, name, start_time, duration_minutes, break_minutes, night_clock_minutes) VALUES
- (NULL,'T1','Manhã 06-14','06:00',480,60,0),
- (NULL,'T2','Tarde 14-22','14:00',480,60,0),
- (NULL,'T3','Noite 22-06','22:00',480,60,420),
+ (NULL,'M','Manhã 06-14','06:00',480,60,0),
+ (NULL,'T','Tarde 14-22','14:00',480,60,0),
+ (NULL,'N','Noite 22-06','22:00',480,60,420),
  (NULL,'D12','Diurno 07-19','07:00',720,60,0),
  (NULL,'N12','Noturno 19-07','19:00',720,60,420),
  (NULL,'INT','Intermediário 10-18','10:00',480,60,0);
 
-CREATE TABLE schedule_models (                            -- catálogo 12x36, 6x2, 4x2, 5x2, 4x3, 3x1, 5T...
+CREATE TABLE schedule_models (                            -- MVP: 6X1_BASE, 12X36, 6X2, 4X2, 5T; Fase 2: 3X1, 3X2, 5X2_CONT, 4X3_CONT
   id                 bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  code               text NOT NULL UNIQUE CHECK (code ~ '^[A-Z0-9_]{2,24}$'),  -- '12X36','6X2','5T_FRANCES'
+  code               text NOT NULL UNIQUE CHECK (code ~ '^[A-Z0-9_]{2,24}$'),  -- '12X36','6X2','4X2','5T','6X1_BASE'
   name               text NOT NULL,
   work_days          smallint NOT NULL CHECK (work_days > 0),
   off_days           smallint NOT NULL CHECK (off_days >= 0),
   cycle_length_days  smallint NOT NULL CHECK (cycle_length_days > 0),
-  typical_teams      smallint[] NOT NULL,                  -- {4} ou {4,5}
+  typical_teams      smallint[] NOT NULL,                  -- K necessário: 12X36 {4}, 6X2 {4}, 4X2 {5} (ou 9 meias), 5T {5}, 6X1 {4}+folguistas
+  calendar_cycle_days smallint NOT NULL,                   -- mmc(L,7): 14, 56, 42, 70, 7
   daily_hours        numeric(18,6) NOT NULL,
-  avg_weekly_hours   numeric(18,6) NOT NULL,               -- 42, 36, 33.6...
+  avg_weekly_hours   numeric(18,6) NOT NULL,               -- 12X36 42, 6X2 42, 4X2 37.333333, 5T 33.6, 6X1 48
   is_continuous_24x7 boolean NOT NULL,
-  is_rotating        boolean NOT NULL,                     -- dispara FR-11
+  is_rotating        boolean NOT NULL,                     -- dispara FR-18
   requires_agreement boolean NOT NULL DEFAULT false,
   legal_basis        text,                                 -- 'CLT art. 59-A'
   default_params     jsonb NOT NULL DEFAULT '{}'::jsonb,
@@ -331,7 +335,7 @@ CREATE TABLE rotation_patterns (
   name               text NOT NULL,
   cycle_length_days  smallint NOT NULL CHECK (cycle_length_days BETWEEN 1 AND 730),
   team_count         smallint NOT NULL CHECK (team_count BETWEEN 1 AND 12),
-  -- matriz turma × dia do ciclo: {"A":["T1","T1","T2","T2","T3","T3","F","F"], "B":[...]}
+  -- matriz turma × dia do ciclo: {"A":["M","M","T","T","N","N","F","F"], "B":[...]}
   matrix             jsonb NOT NULL,
   team_offsets       jsonb NOT NULL DEFAULT '{}'::jsonb,  -- {"A":0,"B":2,"C":4,"D":6}
   is_generated       boolean NOT NULL DEFAULT false,      -- true = produzido pelo motor
@@ -345,6 +349,7 @@ CREATE INDEX ix_rotation_patterns_org   ON rotation_patterns (organization_id);
 ### 3.6 Colaboradores
 
 ```sql
+-- Fase 2 (alocação nominal, NFR-08): no MVP a tabela existe mas não é usada; o motor trabalha por turma.
 CREATE TABLE employees (
   id               bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   public_id        uuid NOT NULL DEFAULT gen_random_uuid() UNIQUE,
@@ -393,17 +398,24 @@ CREATE TABLE scenarios (
   team_count          smallint NOT NULL CHECK (team_count BETWEEN 1 AND 12),
   horizon_start       date NOT NULL,
   horizon_weeks       smallint NOT NULL DEFAULT 8 CHECK (horizon_weeks BETWEEN 1 AND 104),
-  agreement_8h_confirmed boolean NOT NULL DEFAULT false,   -- aceite explícito (risco FR-11)
+  agreement_8h_confirmed boolean NOT NULL DEFAULT false,   -- ACT/CCT autoriza 8h em revezamento (FR-18)
+  holiday_policy      holiday_policy NOT NULL DEFAULT 'escala_normal', -- FR-12
+  floater_count       smallint CHECK (floater_count BETWEEN 0 AND 50), -- NULL = motor calcula o mínimo (FR-13)
   params              jsonb NOT NULL DEFAULT '{}'::jsonb,   -- solver, tolerâncias, pesos
   inputs_snapshot     jsonb,          -- cópia congelada de CCT, curva, turnos no cálculo
   inputs_hash         char(64),       -- sha256 do snapshot (cache/idempotência)
   engine_version      text,           -- '1.4.0'
   rules_version       text,           -- 'compliance-2026.11'
   -- KPIs desnormalizados para listagem
-  required_headcount  numeric(18,6),
-  coverage_pct        numeric(18,6),
-  critical_findings   integer NOT NULL DEFAULT 0,
-  total_monthly_cost  numeric(18,2),
+  -- KPIs de cobertura desnormalizados para listagem (FR-14)
+  coverage_pct        numeric(18,6),   -- % horas-posto cobertas
+  deficit_post_hours  numeric(18,6),   -- horas-posto em déficit no horizonte
+  peak_undercoverage  numeric(18,6),   -- maior déficit numa hora
+  deficit_hours       integer,         -- nº de horas com déficit
+  headcount_min       integer,         -- headcount mínimo que zera o déficit
+  teams_required      numeric(18,6),   -- K*
+  blocking_findings   integer NOT NULL DEFAULT 0,  -- achados severidade 'erro' não dispensados
+  total_monthly_cost  numeric(18,2),   -- P2 (M6); NULL no MVP
   calculated_at       timestamptz,
   approved_at         timestamptz,
   approved_by         bigint REFERENCES users(id),
@@ -412,7 +424,7 @@ CREATE TABLE scenarios (
   updated_at          timestamptz NOT NULL DEFAULT now(),
   row_version         integer NOT NULL DEFAULT 1,           -- otimistic locking (If-Match)
   UNIQUE (lineage_id, version),
-  CHECK (status <> 'homologado' OR (approved_at IS NOT NULL AND approved_by IS NOT NULL AND critical_findings = 0))
+  CHECK (status <> 'homologado' OR (approved_at IS NOT NULL AND approved_by IS NOT NULL AND blocking_findings = 0))
 );
 CREATE INDEX ix_scenarios_org_op_status ON scenarios (organization_id, operation_id, status, created_at DESC);
 CREATE INDEX ix_scenarios_lineage ON scenarios (lineage_id, version DESC);
@@ -432,8 +444,9 @@ CREATE TABLE teams (                                     -- turmas
   id               bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   organization_id  bigint NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
   scenario_id      bigint NOT NULL REFERENCES scenarios(id) ON DELETE CASCADE,
-  code             text NOT NULL CHECK (code ~ '^[A-Z]{1,2}$'),   -- A..F
-  label            text,                                          -- "Diurna A", "Noturna B"
+  code             text NOT NULL CHECK (code ~ '^[A-Z0-9]{1,3}$'), -- A..F; folguistas FL1..
+  kind             team_kind NOT NULL DEFAULT 'regular',          -- FR-13
+  label            text,                                          -- "Diurna A", "Folguista 1"
   cycle_offset_days smallint NOT NULL DEFAULT 0,
   size_required    numeric(18,6) NOT NULL DEFAULT 0,              -- FTE calculado
   size_assigned    integer NOT NULL DEFAULT 0,
@@ -502,15 +515,19 @@ ALTER TABLE assignments ADD CONSTRAINT ex_assign_no_overlap
 ### 3.9 Resultados: cobertura, compliance, financeiro, comparação
 
 ```sql
-CREATE TABLE coverage_results (                          -- heatmap 168/336 (NFR-03)
+CREATE TABLE coverage_results (                          -- heatmap 7×24 agregado do horizonte (FR-09–FR-12)
   organization_id  bigint NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
   scenario_id      bigint NOT NULL REFERENCES scenarios(id) ON DELETE CASCADE,
   slot_index       smallint NOT NULL CHECK (slot_index BETWEEN 0 AND 335),
   required_net     numeric(18,6) NOT NULL,   -- N_req com fator noturno
   required_gross   numeric(18,6) NOT NULL,   -- / (1 - shrinkage)
-  scheduled        numeric(18,6) NOT NULL,
-  gap              numeric(18,6) GENERATED ALWAYS AS (scheduled - required_gross) STORED,
-  status           text NOT NULL CHECK (status IN ('exata','sobre','sub','critica')),
+  scheduled_worst  numeric(18,6) NOT NULL,   -- menor cobertura dessa hora da semana no horizonte (Q10)
+  scheduled_mean   numeric(18,6) NOT NULL,   -- cobertura média dessa hora da semana
+  expected_worst   numeric(18,6) NOT NULL,   -- cobertura esperada após shrinkage (FR-11)
+  break_gap        numeric(18,6) NOT NULL DEFAULT 0,  -- postos descobertos por intervalo (FR-10)
+  deficit_occurrences smallint NOT NULL DEFAULT 0,    -- nº de semanas do horizonte com déficit nessa hora
+  gap              numeric(18,6) GENERATED ALWAYS AS (scheduled_worst - break_gap - required_net) STORED,
+  status           text NOT NULL CHECK (status IN ('deficit','exata','excesso')),
   PRIMARY KEY (scenario_id, slot_index)
 );
 
@@ -522,15 +539,26 @@ CREATE TABLE compliance_rules (                          -- catálogo versionado
   rules_version   text NOT NULL,
   is_blocking     boolean NOT NULL DEFAULT false
 );
+-- Catálogo canônico: 01-PRD.md Apêndice A (COB_* emitidos pelo M3; CLT_* pelo M4)
 INSERT INTO compliance_rules VALUES
- ('ERRO_CRITICO_QUEBRA_INTERJORNADA','critico','Interjornada < 11h','CLT art. 66','compliance-2026.11',true),
- ('ERRO_DSR_35H','erro','Repouso semanal < 35h (24h DSR + 11h)','CLT art. 67; Lei 605/1949','compliance-2026.11',true),
- ('ALERTA_CF_TURNO_REVEZAMENTO_6H','critico','Revezamento > 6h sem ACT/CCT','CF art. 7º, XIV; Súmula 423 TST','compliance-2026.11',true),
- ('ALERTA_DOMINGO_W_LIMITE','erro','Intervalo entre domingos de folga > W_limite','Lei 605/1949; Lei 10.101/2000 art. 6º; Portaria MTE 671/2021','compliance-2026.11',true),
- ('ALERTA_PRORROGACAO_NOTURNA','info','Prorrogação noturna com adicional','Súmula 60, II TST','compliance-2026.11',false),
- ('ALERTA_HE_LIMITE_DIARIO','erro','HE acima de 2h/dia','CLT art. 59','compliance-2026.11',true),
- ('ALERTA_12X36_SEM_PREVISAO','critico','12x36 sem previsão em acordo','CLT art. 59-A','compliance-2026.11',true),
- ('ALERTA_DOBRA_TURNO','critico','Dobra de turno (jornada > 12h)','CLT arts. 59 e 66','compliance-2026.11',true);
+ ('COB_DEFICIT','alerta','Cobertura abaixo da demanda','FR-09/FR-12','compliance-2026.11',false),
+ ('COB_DEFICIT_POSTO_CRITICO','erro','Déficit em posto crítico','FR-02','compliance-2026.11',true),
+ ('COB_EXCESSO','info','Cobertura acima da demanda','FR-09','compliance-2026.11',false),
+ ('COB_FURO_INTERVALO','alerta','Posto descoberto no intervalo intrajornada','FR-10; CLT art. 71','compliance-2026.11',false),
+ ('COB_DEFICIT_ESPERADO_SHRINKAGE','alerta','Déficit esperado após absenteísmo','FR-11','compliance-2026.11',false),
+ ('COB_TURMAS_INSUFICIENTES','erro','Nº de turmas abaixo do K necessário','FR-08','compliance-2026.11',true),
+ ('COB_FOLGUISTA_INSUFICIENTE','alerta','Folguistas não zeram o déficit','FR-13','compliance-2026.11',false),
+ ('CLT_INTERJORNADA','erro','Interjornada < 11h','CLT art. 66','compliance-2026.11',true),
+ ('CLT_DSR_35H','erro','Repouso semanal < 35h (24h DSR + 11h)','CLT art. 67; Lei 605/1949; Súmula 110 TST','compliance-2026.11',true),
+ ('CLT_SETIMO_DIA','erro','7 dias consecutivos de trabalho','OJ 410 SDI-1 TST','compliance-2026.11',true),
+ ('CLT_DOMINGO_PERIODICIDADE','alerta','Intervalo entre domingos de folga > N','Lei 605/1949; Lei 10.101/2000 art. 6º; Portaria MTP 671/2021','compliance-2026.11',false),
+ ('CLT_REVEZAMENTO_6H','alerta','Revezamento > 6h sem ACT/CCT (erro se > 8h)','CF art. 7º, XIV; Súmula 423 TST','compliance-2026.11',false),
+ ('CLT_REGIME_12X36','erro','12x36: dobra, jornada > 12h ou descanso < 36h','CLT art. 59-A','compliance-2026.11',true),
+ ('CLT_JORNADA_DIARIA','alerta','Jornada computada > 8h (erro se > 10h fora de 12x36)','CLT arts. 58, 59, 73','compliance-2026.11',false),
+ ('CLT_MEDIA_SEMANAL','alerta','Média semanal > carga contratual','CF art. 7º, XIII','compliance-2026.11',false),
+ ('CLT_INTRAJORNADA','alerta','Intervalo intrajornada insuficiente','CLT art. 71; 611-A, III','compliance-2026.11',false),
+ ('INFO_DIVERGENCIA_59A_SUMULA60','info','Divergência art. 59-A × Súmula 60 em 12x36','CLT art. 59-A; Súmula 60, II TST','compliance-2026.11',false);
+-- is_blocking = true apenas para severidade padrão 'erro'; regras com severidade dinâmica (CLT_REVEZAMENTO_6H, CLT_JORNADA_DIARIA) gravam severity no finding.
 
 CREATE TABLE compliance_findings (
   id               bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -543,7 +571,7 @@ CREATE TABLE compliance_findings (
   employee_id      bigint REFERENCES employees(id),
   occurs_on        date,
   message          text NOT NULL,
-  details          jsonb NOT NULL DEFAULT '{}'::jsonb,  -- {"rest_hours":8.0,"from":"T2","to":"T1"}
+  details          jsonb NOT NULL DEFAULT '{}'::jsonb,  -- {"rest_hours":8.0,"from":"T","to":"M"}
   waived           boolean NOT NULL DEFAULT false,      -- dispensado por jurídico c/ justificativa
   waived_by        bigint REFERENCES users(id),
   waiver_reason    text,
@@ -555,6 +583,7 @@ CREATE INDEX ix_findings_team ON compliance_findings (team_id);
 CREATE INDEX ix_findings_employee ON compliance_findings (employee_id);
 CREATE INDEX ix_findings_details ON compliance_findings USING gin (details jsonb_path_ops);
 
+-- P2 (M6 financeiro, FR-25–FR-27): tabela criada só na migração da Fase 2.
 CREATE TABLE financial_results (
   scenario_id            bigint PRIMARY KEY REFERENCES scenarios(id) ON DELETE CASCADE,
   organization_id        bigint NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
@@ -584,7 +613,7 @@ CREATE TABLE scenario_comparisons (
   organization_id    bigint NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
   name               text NOT NULL,
   baseline_scenario_id bigint NOT NULL REFERENCES scenarios(id),
-  result             jsonb,          -- deltas de custo, HC, cobertura, risco; breakeven 5ª turma
+  result             jsonb,          -- deltas de KPIs de cobertura, headcount, violações (FR-22); custo/breakeven só na P2
   created_by         bigint REFERENCES users(id),
   created_at         timestamptz NOT NULL DEFAULT now()
 );
@@ -610,7 +639,7 @@ CREATE TABLE simulation_jobs (
   status           job_status NOT NULL DEFAULT 'queued',
   idempotency_key  text,
   progress_pct     numeric(18,6) NOT NULL DEFAULT 0 CHECK (progress_pct BETWEEN 0 AND 100),
-  stage            text,                        -- 'demand','rotation','compliance','finance'
+  stage            text,                        -- 'demanda','gerador','cobertura','viabilidade' ('financeiro' na P2)
   payload          jsonb NOT NULL DEFAULT '{}'::jsonb,
   error            jsonb,
   attempts         smallint NOT NULL DEFAULT 0,
@@ -770,7 +799,7 @@ Notas:
 
 ### 5.1 Convenções
 
-- Base: `/api/v1` (já usada por `atas`). Recursos do simulador sob `/api/v1/` direto, com o tenant implícito pelo token (claim `org`) ou header `X-Organization-Id` para usuários multi-org.
+- Base: **`/api/v1/escalas`** (o `/api/v1` já é usado por `atas`). Todas as rotas abaixo são relativas a esse prefixo, com o tenant implícito pelo token (claim `org`) ou header `X-Organization-Id` para usuários multi-org.
 - Auth: `Authorization: Bearer <JWT>`. URLs kebab-case, plural; campos JSON `snake_case` (padrão Pydantic do projeto).
 - IDs públicos: `uuid` (`public_id`). Nunca expor `bigint`.
 - Números decimais trafegam como **string** (`"0.200000"`) para preservar NUMERIC(18,6); Pydantic `Decimal`.
@@ -788,7 +817,7 @@ Notas:
 {
   "data": [ { "id": "6c1e...", "name": "6x2 4 turmas v3", "status": "calculado" } ],
   "meta": { "page": 1, "per_page": 50, "total": 7, "total_pages": 1 },
-  "links": { "self": "/api/v1/scenarios?page=1&per_page=50", "next": null }
+  "links": { "self": "/api/v1/escalas/scenarios?page=1&per_page=50", "next": null }
 }
 ```
 ```json
@@ -822,8 +851,8 @@ Notas:
 | 409 | `job_in_progress` | já há simulação rodando para o cenário |
 | 412 | `precondition_failed` | `If-Match` divergente |
 | 422 | `validation_error` | regra de domínio (ex.: 336 slots em curva de 60 min) |
-| 422 | `agreement_confirmation_required` | revezamento 8h sem `agreement_8h_confirmed` (FR-11) |
-| 422 | `blocking_findings` | homologar com findings críticos não dispensados |
+| 422 | `demand_infeasible` | nenhuma escala sem achado `erro` para os parâmetros (ex.: K < K*) |
+| 422 | `blocking_findings` | homologar com findings `erro` não dispensados |
 | 429 | `rate_limit_exceeded` | com `Retry-After` |
 | 500 | `internal_error` | sem detalhes internos |
 | 503 | `engine_unavailable` | fila indisponível, com `Retry-After` |
@@ -855,7 +884,7 @@ Notas:
 | Turnos | `/shift-templates` (globais aparecem com `"scope":"global"`, somente leitura) |
 | Modelos de escala | `GET /schedule-models`, `GET /schedule-models/{code}` (catálogo, leitura) |
 | Padrões de rotação | `/rotation-patterns`, `POST /rotation-patterns:preview` |
-| Colaboradores | `/employees`, `POST /employees:bulk` (até 5.000) |
+| Colaboradores (Fase 2) | `/employees`, `POST /employees:bulk` (até 5.000) |
 | Regras de compliance | `GET /compliance-rules` |
 
 **Cenários**
@@ -874,13 +903,14 @@ Notas:
 | POST | `/scenarios/{id}/approve` | homologa (`legal_reviewer`/`admin`) |
 | POST | `/scenarios/{id}/reject` | `em_revisao → calculado` com comentário |
 | GET | `/scenarios/{id}/teams` | turmas e tamanhos |
-| PUT | `/scenarios/{id}/teams/{code}/members` | define colaboradores da turma |
+| PUT | `/scenarios/{id}/teams/{code}/members` | define colaboradores da turma (Fase 2) |
 | GET | `/scenarios/{id}/assignments` | cursor; filtros `employee_id`, `team`, `date[gte]`, `date[lte]` |
-| PATCH | `/scenarios/{id}/assignments/{assignment_id}` | override manual (só rascunho; recalcula compliance) |
-| GET | `/scenarios/{id}/coverage` | heatmap 168/336 |
-| GET | `/scenarios/{id}/compliance-findings` | cursor; filtros `severity`, `rule_code` |
+| PATCH | `/scenarios/{id}/assignments/{assignment_id}` | ajuste manual turma × dia (só rascunho; recalcula cobertura e viabilidade) — T5 |
+| POST | `/scenarios/{id}/sizing` | dimensionamento: K*, headcount mínimo, folguistas mínimos (FR-08, FR-13) |
+| GET | `/scenarios/{id}/coverage` | KPIs (FR-14) + heatmap 7×24 (`?view=postos|reserva&agg=pior|media`) — aba `cobertura` da T4 |
+| GET | `/scenarios/{id}/compliance-findings` | cursor; filtros `severity`, `rule_code` (`COB_*`, `CLT_*`) — aba `viabilidade` |
 | POST | `/scenarios/{id}/compliance-findings/{fid}/waive` | dispensa com justificativa |
-| GET | `/scenarios/{id}/financials` | extrato de custos |
+| GET | `/scenarios/{id}/financials` | extrato de custos — **P2** (FR-26) |
 | POST | `/scenarios/{id}/exports` | gera exportação (202 + job) |
 | GET | `/exports/{id}` | status + URL assinada (expira em 15 min) |
 
@@ -888,7 +918,7 @@ Notas:
 
 | Método | Rota | Descrição |
 |---|---|---|
-| POST | `/scenario-comparisons` | compara baseline × N cenários (≤ 6) |
+| POST | `/scenario-comparisons` | compara baseline × até 4 cenários (5 no total, FR-22) |
 | GET | `/scenario-comparisons/{id}` | resultado |
 | GET | `/jobs/{id}` | status/progresso |
 | POST | `/jobs/{id}/cancel` | cancela |
@@ -897,7 +927,7 @@ Notas:
 
 ### 5.5 Exemplos de payload
 
-**POST `/api/v1/labor-agreements`**
+**POST `/api/v1/escalas/labor-agreements`**
 ```json
 {
   "name": "ACT Petroquímica 2026/2027",
@@ -917,14 +947,14 @@ Notas:
   "holiday_calendar": "BR-BA-CAMACARI"
 }
 ```
-→ `201 Created`, `Location: /api/v1/labor-agreements/9b2d...`
+→ `201 Created`, `Location: /api/v1/escalas/labor-agreements/9b2d...`
 ```json
 { "data": { "id": "9b2d1f0a-...", "name": "ACT Petroquímica 2026/2027", "night_hour_factor": "1.142857",
   "min_interjornada_hours": "11.000000", "min_weekly_rest_hours": "35.000000", "rules_version": 1,
   "created_at": "2026-11-08T13:02:11Z" } }
 ```
 
-**PUT `/api/v1/demand-curves/{id}/slots`** (modo postos fixos, 168 slots)
+**PUT `/api/v1/escalas/demand-curves/{id}/slots`** (modo postos fixos, 168 slots)
 ```json
 {
   "granularity": "60",
@@ -936,7 +966,7 @@ Notas:
 ```
 Alternativa compacta aceita: `{ "granularity": "60", "values": ["4","4","4", "... 168 itens"] }`. Validação: exatamente 168 ou 336 itens. Resposta `200` com `{"data":{"checksum":"ab12...","slot_count":168,"night_slots":49}}`.
 
-**POST `/api/v1/scenarios`**
+**POST `/api/v1/escalas/scenarios`**
 ```json
 {
   "name": "Cenário B - 6x2 Revezamento 4 turmas",
@@ -945,7 +975,7 @@ Alternativa compacta aceita: `{ "granularity": "60", "values": ["4","4","4", "..
   "labor_agreement_id": "9b2d...",
   "demand_curve_id": "aa71...",
   "shrinkage_profile_id": "c0de...",
-  "shift_template_codes": ["T1","T2","T3"],
+  "shift_template_codes": ["M","T","N"],
   "team_count": 4,
   "horizon_start": "2027-01-04",
   "horizon_weeks": 8,
@@ -958,23 +988,23 @@ Alternativa compacta aceita: `{ "granularity": "60", "values": ["4","4","4", "..
 { "data": { "id": "51e0...", "lineage_id": "e2c4...", "version": 1, "status": "rascunho", "row_version": 1 } }
 ```
 
-**POST `/api/v1/scenarios/{id}/simulate`** (header `Idempotency-Key: 7d1c...`)
+**POST `/api/v1/escalas/scenarios/{id}/simulate`** (header `Idempotency-Key: 7d1c...`)
 ```json
-{ "mode": "auto", "stages": ["demand","rotation","compliance","finance"], "assign_employees": true }
+{ "mode": "auto", "stages": ["demanda","gerador","cobertura","viabilidade"], "assign_employees": false }
 ```
-Pequeno (≤ 300 colaboradores e ≤ 12 semanas): `200` com resumo. Grande: `202 Accepted`, `Location: /api/v1/jobs/8f3e...`
+Pequeno (≤ 300 colaboradores e ≤ 12 semanas): `200` com resumo. Grande: `202 Accepted`, `Location: /api/v1/escalas/jobs/8f3e...`
 ```json
 { "data": { "job_id": "8f3e...", "status": "queued", "scenario_status": "calculando",
-  "links": { "self": "/api/v1/jobs/8f3e...", "events": "/api/v1/jobs/8f3e.../events" } } }
+  "links": { "self": "/api/v1/escalas/jobs/8f3e...", "events": "/api/v1/escalas/jobs/8f3e.../events" } } }
 ```
 
-**GET `/api/v1/jobs/{id}`**
+**GET `/api/v1/escalas/jobs/{id}`**
 ```json
-{ "data": { "id": "8f3e...", "kind": "simulate", "status": "running", "stage": "compliance",
+{ "data": { "id": "8f3e...", "kind": "simulate", "status": "running", "stage": "cobertura",
   "progress_pct": "62.500000", "queued_at": "2026-11-08T13:10:00Z", "started_at": "2026-11-08T13:10:01Z" } }
 ```
 
-**GET `/api/v1/scenarios/{id}`** (calculado)
+**GET `/api/v1/escalas/scenarios/{id}`** (calculado)
 ```json
 {
   "data": {
@@ -982,34 +1012,40 @@ Pequeno (≤ 300 colaboradores e ≤ 12 semanas): `200` com resumo. Grande: `202
     "schedule_model": { "code": "6X2", "avg_weekly_hours": "42.000000" },
     "engine_version": "1.0.0", "rules_version": "compliance-2026.11",
     "kpis": {
-      "required_headcount": "26.000000", "theoretical_teams_k": "4.000000",
-      "coverage_pct": "0.982143", "critical_findings": 0, "warnings": 3,
-      "total_monthly_cost": "184532.17"
+      "teams_required": "4.000000",
+      "coverage_pct": "0.982143", "deficit_post_hours": "6.000000", "peak_undercoverage": "1.000000",
+      "deficit_hours": 6, "headcount_min": 12, "blocking_findings": 0, "warnings": 3,
+      "total_monthly_cost": null
     },
-    "teams": [ { "code": "A", "size_required": "6.500000", "size_assigned": 7, "cycle_offset_days": 0 } ],
+    "teams": [ { "code": "A", "kind": "regular", "size_required": "3.000000", "size_assigned": 3, "cycle_offset_days": 0 },
+               { "code": "FL1", "kind": "folguista", "size_required": "1.000000", "size_assigned": 1, "cycle_offset_days": 0 } ],
     "calculated_at": "2026-11-08T13:10:03Z"
   }
 }
 ```
 
-**GET `/api/v1/scenarios/{id}/coverage`**
+**GET `/api/v1/escalas/scenarios/{id}/coverage`**
 ```json
-{ "data": { "granularity": "60", "slots": [
-  { "slot_index": 22, "weekday": 1, "start": "22:00", "required_net": "4.571428", "required_gross": "5.442176",
-    "scheduled": "6.000000", "gap": "0.557824", "status": "sobre" } ] } }
+{ "data": { "granularity": "60", "view": "postos", "agg": "pior",
+  "kpis": { "pct_hours_covered": "0.982143", "deficit_post_hours": "6.000000", "peak_undercoverage": { "value": "1.000000", "at": "2027-01-10T03:00" },
+            "deficit_hours": 6, "excess_post_hours": "0.000000", "break_gap_post_hours": "0.000000", "headcount_min": 12, "teams_required": "4.000000" },
+  "slots": [
+  { "slot_index": 22, "weekday": 1, "start": "22:00", "required_net": "3.000000", "required_gross": "3.333333",
+    "scheduled_worst": "3.000000", "scheduled_mean": "3.000000", "expected_worst": "2.700000", "break_gap": "0.000000",
+    "deficit_occurrences": 0, "gap": "0.000000", "status": "exata" } ] } }
 ```
 
-**GET `/api/v1/scenarios/{id}/compliance-findings?severity=critico`**
+**GET `/api/v1/escalas/scenarios/{id}/compliance-findings?severity=erro`**
 ```json
 { "data": [ {
-  "id": "f01a...", "rule_code": "ERRO_CRITICO_QUEBRA_INTERJORNADA", "severity": "critico",
+  "id": "f01a...", "rule_code": "CLT_INTERJORNADA", "severity": "erro",
   "legal_reference": "CLT art. 66", "team": "C", "employee_id": null, "occurs_on": "2027-01-12",
-  "message": "Transição T2 (término 22:00) → T1 (início 06:00): descanso de 8h < 11h",
-  "details": { "rest_hours": "8.000000", "from_shift": "T2", "to_shift": "T1" }, "waived": false } ],
+  "message": "Transição T (término 22:00) → M (início 06:00): descanso de 8h < 11h",
+  "details": { "rest_hours": "8.000000", "from_shift": "T", "to_shift": "M" }, "waived": false } ],
   "meta": { "limit": 100, "has_next": false, "next_cursor": null } }
 ```
 
-**GET `/api/v1/scenarios/{id}/financials`**
+**GET `/api/v1/escalas/scenarios/{id}/financials`** — P2 (fase futura)
 ```json
 { "data": {
   "reference_month": "2027-01-01", "headcount": "26.000000",
@@ -1021,26 +1057,26 @@ Pequeno (≤ 300 colaboradores e ≤ 12 semanas): `200` com resumo. Grande: `202
   "business_days": 24, "sundays_holidays": 7 } }
 ```
 
-**POST `/api/v1/scenarios/{id}/approve`** (header `If-Match: "4"`)
+**POST `/api/v1/escalas/scenarios/{id}/approve`** (header `If-Match: "4"`)
 ```json
 { "comment": "Validado com jurídico; ACT cláusula 12 autoriza 8h em revezamento." }
 ```
 → `200` `{"data":{"status":"homologado","approved_at":"...","approved_by":"..."}}` ou `422 blocking_findings`.
 
-**POST `/api/v1/scenario-comparisons`**
+**POST `/api/v1/escalas/scenario-comparisons`**
 ```json
-{ "name": "4 turmas + HE vs 5ª turma", "baseline_scenario_id": "51e0...", "scenario_ids": ["77aa...","88bb..."] }
+{ "name": "6x2 4T vs 5 turmas", "baseline_scenario_id": "51e0...", "scenario_ids": ["77aa...","88bb..."] }
 ```
 → `201`
 ```json
 { "data": { "id": "cmp1...", "items": [
-  { "scenario_id": "77aa...", "label": "5 turmas 33,6h", "delta_cost": "-3120.550000", "delta_headcount": "6.000000",
-    "delta_overtime_hours": "-208.000000", "delta_critical_findings": 0, "breakeven_months": "11.400000" } ] } }
+  { "scenario_id": "77aa...", "label": "5 turmas 33,6h", "delta_coverage_pct": "0.017857", "delta_deficit_post_hours": "-6.000000",
+    "delta_headcount": "3.000000", "delta_avg_weekly_hours": "-8.400000", "delta_blocking_findings": 0 } ] } }
 ```
 
-**POST `/api/v1/scenarios/{id}/exports`**
+**POST `/api/v1/escalas/scenarios/{id}/exports`**
 ```json
-{ "format": "senior_ronda", "options": { "include_employees": true, "date_range": ["2027-01-04","2027-02-28"] } }
+{ "format": "xlsx", "options": { "sheets": ["Escala","Cobertura168h","KPIs","Violacoes","Parametros"], "date_range": ["2027-01-04","2027-02-28"] } }
 ```
 → `202` com `job_id` e `export_id`; `GET /exports/{id}` devolve `download_url` quando pronto.
 
@@ -1078,7 +1114,7 @@ backend/
 │   │           ├── catalog.py         # shift-templates, schedule-models, rotation-patterns, compliance-rules
 │   │           ├── employees.py
 │   │           ├── scenarios.py       # CRUD, versions, simulate, approve, teams, assignments
-│   │           ├── scenario_results.py # coverage, findings, financials
+│   │           ├── scenario_results.py # coverage, sizing, findings (financials: P2)
 │   │           ├── comparisons.py
 │   │           ├── exports.py
 │   │           ├── jobs.py            # status, cancel, SSE
@@ -1108,32 +1144,24 @@ backend/
 │   │       ├── __init__.py           # run_simulation(inputs: EngineInputs) -> EngineResult
 │   │       ├── types.py              # dataclasses imutáveis de entrada/saída
 │   │       ├── version.py            # ENGINE_VERSION = "1.0.0"
-│   │       ├── demand/
-│   │       │   ├── night_factor.py   # φ(t) = 60/52,5 em slots noturnos
-│   │       │   ├── fixed_posts.py    # FR-02
-│   │       │   ├── productivity.py   # UPH/TMA
-│   │       │   ├── erlang_c.py       # FR-03
-│   │       │   └── shrinkage.py      # N_bruto = N / (1 - s_dia|s_noite)
-│   │       ├── rotation/
-│   │       │   ├── teams_k.py        # K = 168 / J_sem
-│   │       │   ├── ilp_cover.py      # OR-Tools CP-SAT / PuLP
-│   │       │   ├── patterns.py       # 12x36, 6x2, 4x2, 5 turmas, 4x3...
-│   │       │   └── assign.py         # turma → colaboradores
-│   │       ├── compliance/
-│   │       │   ├── registry.py       # @rule("ERRO_CRITICO_QUEBRA_INTERJORNADA")
+│   │       ├── demanda.py, shrinkage.py          # M1 (FR-01–03); erlang_c.py Fase 2 (FR-04)
+│   │       ├── gerador.py                        # M2 (FR-05–07): padrões 6x1, 12x36, 6x2, 4x2, 5T
+│   │       ├── cobertura.py, dimensionamento.py, folguistas.py   # M3 núcleo (FR-08–14)
+│   │       ├── noturno.py                        # Fraction(8,7), Súmula 60 (FR-20)
+│   │       ├── compliance/                       # M4 (FR-15–20)
+│   │       │   ├── registro.py       # @regra("CLT_INTERJORNADA", ...)
 │   │       │   ├── rules_version.py  # RULES_VERSION = "compliance-2026.11"
-│   │       │   ├── interjornada.py, dsr_35h.py, sunday_wlimit.py,
-│   │       │   ├── rotating_6h.py, overtime_limits.py, sumula60.py
-│   │       ├── finance/
-│   │       │   ├── night_premium.py, dsr_reflex.py, overtime.py,
-│   │       │   ├── hazards.py, charges.py, rounding.py   # ROUND_HALF_EVEN só no final
+│   │       │   ├── interjornada.py, dsr_35h.py, setimo_dia.py, domingo.py,
+│   │       │   ├── revezamento.py, regime_12x36.py, jornada.py
+│   │       ├── otimizador.py                     # M5 CP-SAT (Fase 2)
+│   │       ├── financeiro.py                     # M6 (P2): AN, DSR reflexo, HE, encargos
 │   │       └── calendar/holidays.py  # feriados nacionais/estaduais/municipais
 │   ├── workers/
 │   │   ├── celery_app.py             # (ou arq) broker Redis
 │   │   └── tasks.py                  # simulate_scenario, run_comparison, build_export, import_demand
 │   └── writers/                      # exportadores: xlsx, csv, pdf, totvs, senior, adp, sap, afdt, acjef
 └── tests/
-    ├── engine/                       # testes de propriedade e golden files (casos do PRD §9)
+    ├── engine/                       # testes de propriedade e golden files (exemplos de aceite do 01-PRD §5)
     ├── api/                          # contrato (httpx AsyncClient)
     └── db/test_rls.py                # isolamento entre tenants
 ```
@@ -1148,7 +1176,7 @@ class Envelope(BaseModel, Generic[T]):
 class ScenarioCreate(BaseModel):
     name: str = Field(min_length=2, max_length=200)
     operation_id: UUID
-    schedule_model_code: Literal["12X36","6X2","4X2","3X1","3X2","5T_FRANCES","5X2_CONT","4X3_CONT","6X1_BASE"]
+    schedule_model_code: Literal["6X1_BASE","12X36","6X2","4X2","5T"]   # MVP; Fase 2 amplia o catálogo
     labor_agreement_id: UUID
     demand_curve_id: UUID
     shrinkage_profile_id: UUID | None = None
@@ -1157,6 +1185,8 @@ class ScenarioCreate(BaseModel):
     horizon_start: date
     horizon_weeks: int = Field(8, ge=1, le=104)
     agreement_8h_confirmed: bool = False
+    holiday_policy: Literal["escala_normal","folga_coberta"] = "escala_normal"
+    floater_count: int | None = Field(None, ge=0, le=50)   # None = motor calcula o mínimo
     params: dict[str, Any] = {}
     model_config = ConfigDict(json_encoders={Decimal: str})
 ```
@@ -1180,9 +1210,9 @@ RETURNING *;
 **Fluxo `simulate_scenario(job_id)`**:
 1. Transação curta: cenário `rascunho|calculado|erro → calculando`; grava `inputs_snapshot` + `inputs_hash`.
 2. Se outro cenário do mesmo tenant tiver o mesmo `inputs_hash` + `engine_version` + `rules_version` e estiver calculado → copia resultados (cache).
-3. `engine.run_simulation(inputs)` por estágios (`demand → rotation → compliance → finance`), publicando `progress_pct`/`stage` (Redis pub/sub → SSE `/jobs/{id}/events`).
-4. Transação de persistência: apaga resultados anteriores do cenário, `COPY` em `assignments`, `coverage_results`, `compliance_findings`; upsert `financial_results`; atualiza KPIs; status `calculado`. Tudo ou nada.
-5. Falha: status `erro`, `simulation_jobs.error = {"code":"solver_infeasible","message":"..."}`; até 3 tentativas com backoff exponencial só para erros transitórios (DB/rede); erros de domínio (inviável) não reexecutam.
+3. `engine.run_simulation(inputs)` por estágios (`demanda → gerador → cobertura → viabilidade`; `financeiro` só na P2), publicando `progress_pct`/`stage` (Redis pub/sub → SSE `/jobs/{id}/events`).
+4. Transação de persistência: apaga resultados anteriores do cenário, `COPY` em `assignments`, `coverage_results`, `compliance_findings`; (P2: upsert `financial_results`); atualiza KPIs de cobertura; status `calculado`. Tudo ou nada.
+5. Falha: status `erro`, `simulation_jobs.error = {"code":"demand_infeasible","message":"..."}`; até 3 tentativas com backoff exponencial só para erros transitórios (DB/rede); erros de domínio (inviável) não reexecutam.
 
 **Garantias**: `Idempotency-Key` único por org; um job `queued|running` por cenário (409 `job_in_progress`); cancelamento cooperativo (o motor checa flag entre estágios); `time_limit` do solver ILP vem de `params.time_limit_s` (máx. 120 s); jobs > 15 min são marcados `failed` por um reaper. Exports geram arquivo no storage S3-compatível com URL assinada.
 
@@ -1192,7 +1222,7 @@ RETURNING *;
 
 | Camada | Estratégia |
 |---|---|
-| **API** | Versão no path (`/api/v1`). Mudanças aditivas (campos, endpoints, filtros opcionais) não mudam versão. Quebras → `/api/v2`, convivendo no máx. 2 versões; `Deprecation` + `Sunset` headers com 6 meses. OpenAPI publicado em `/api/v1/openapi.json`. |
+| **API** | Versão no path (`/api/v1/escalas`). Mudanças aditivas (campos, endpoints, filtros opcionais) não mudam versão. Quebras → `/api/v2`, convivendo no máx. 2 versões; `Deprecation` + `Sunset` headers com 6 meses. OpenAPI publicado em `/api/v1/escalas/openapi.json`. |
 | **Cenários** | `lineage_id` + `version` incremental + `parent_scenario_id`. Calculado/homologado é imutável (trigger); editar = `POST /scenarios/{id}/versions`. Um único homologado por linhagem (índice parcial); homologar nova versão arquiva a anterior na mesma transação. `row_version` + `ETag/If-Match` para edição concorrente de rascunhos. |
 | **Motor** | `ENGINE_VERSION` (semver) gravado em cada cenário; resultados nunca são recalculados silenciosamente — recalcular com motor novo gera nova versão do cenário. |
 | **Regras legais** | `compliance_rules.rules_version` (ex.: `compliance-2026.11`) gravado no cenário e em cada finding com `legal_reference` desnormalizada, para o laudo ficar reprodutível mesmo após mudanças legislativas (ex.: fim da 6x1). |

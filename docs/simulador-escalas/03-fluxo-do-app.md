@@ -1,7 +1,7 @@
 # 03 — Fluxo do App: Sitemap, Telas e Fluxos de Usuário
 
-> Simulador de Escalas 24/7 (Workforce Shift Simulator) — CLT Brasil
-> Fonte: `00-prd-original.md` (PRD v2.0). Este documento descreve navegação, telas, estados e fluxos (felizes, de erro e edge cases), cobrindo as Histórias 1, 2 e 3 do PRD (§9).
+> Simulador Operacional de Cobertura 24/7 — CLT Brasil
+> Fonte: `01-PRD.md` (PRD v3.1; IDs FR-xx canônicos). Este documento descreve navegação, telas, estados e fluxos (felizes, de erro e edge cases). O núcleo é **cobertura**: a tela de resultado abre no heatmap; viabilidade CLT é um painel de restrições; custos são módulo P2 (fase futura).
 
 ---
 
@@ -9,303 +9,255 @@
 
 ```mermaid
 flowchart TD
-    L[/"T0 · Login"/] --> ORG["T1 · Seleção de Organização"]
-    ORG --> PROJ["T2 · Projetos / Operações"]
+    L["T0 · Login"] --> ORG["T1 · Seleção de Organização"]
+    ORG --> PROJ["T2 · Operações"]
     PROJ --> OP["T2.1 · Detalhe da Operação<br/>(lista de cenários)"]
     OP --> WIZ["T3 · Wizard Novo Cenário"]
-    WIZ --> W1["3.1 Tipo de operação + Regras CCT/ACT"]
-    W1 --> W2["3.2 Demanda: Postos fixos | Curva 168h"]
-    W2 --> W3["3.3 Shrinkage diurno/noturno"]
-    W3 --> W4["3.4 Modelo de escala"]
-    W4 --> W5["3.5 Parâmetros financeiros"]
-    W5 --> CALC(("Processamento<br/>Alg. 1→4"))
+    WIZ --> W1["3.1 Operação + regras CCT/ACT"]
+    W1 --> W2["3.2 Demanda: postos fixos ou curva 168h"]
+    W2 --> W3["3.3 Shrinkage e reserva"]
+    W3 --> W4["3.4 Modelo de escala e turmas"]
+    W4 --> W5["3.5 Revisão e simular"]
+    W5 --> CALC(("Motor<br/>M1 a M4"))
     CALC --> RES["T4 · Resultado do Cenário"]
-    RES --> R1["4.1 Heatmap 7×24"]
-    RES --> R2["4.2 Calendário cíclico (≤ 8 semanas)"]
-    RES --> R3["4.3 Painel de Compliance"]
-    RES --> R4["4.4 Extrato Financeiro"]
-    RES --> EDIT["T5 · Edição Manual de Alocação"]
+    RES --> R1["cobertura: heatmap 7x24 + KPIs"]
+    RES --> R2["escala: calendário cíclico"]
+    RES --> R3["viabilidade: restrições CLT"]
+    RES -. "P2" .-> R4["custos: extrato financeiro"]
+    RES --> EDIT["T5 · Ajuste de Escala"]
     EDIT --> RES
     OP --> CMP["T6 · Comparador de Cenários"]
     RES --> CMP
-    RES --> HOM["T7 · Homologação & Exportação"]
-    HOM --> EXP1["Export CSV/XLSX / WFM"]
-    HOM --> EXP2["Calendário Pessoal do Colaborador"]
-    OP -. "duplicar / editar" .-> WIZ
+    RES --> HOM["T7 · Homologação e Exportação"]
+    HOM --> EXP1["Export CSV/XLSX"]
+    OP -. "duplicar / nova versão" .-> WIZ
 ```
 
-Navegação global (header): Organização ▸ Operação ▸ Cenário (breadcrumb), troca de organização, menu do usuário (perfil, sair). Rotas sugeridas:
+Navegação global (header): Organização ▸ Operação ▸ Cenário (breadcrumb), troca de organização, menu do usuário.
 
-| Rota | Tela |
-|---|---|
-| `/login` | T0 |
-| `/orgs` | T1 |
-| `/o/:org/operacoes` | T2 |
-| `/o/:org/operacoes/:op` | T2.1 |
-| `/o/:org/operacoes/:op/cenarios/novo?passo=1..5` | T3 |
-| `/o/:org/operacoes/:op/cenarios/:id` (abas `heatmap`, `calendario`, `compliance`, `financeiro`) | T4 |
-| `/o/:org/operacoes/:op/cenarios/:id/editar` | T5 |
-| `/o/:org/operacoes/:op/comparar?ids=...` | T6 |
-| `/o/:org/operacoes/:op/cenarios/:id/homologar` | T7 |
+| Rota | Tela | Endpoint principal (`05-esquema-backend.md` §5.4, base `/api/v1/escalas`) |
+|---|---|---|
+| `/login` | T0 | `POST /auth/login` |
+| `/orgs` | T1 | `GET /me` |
+| `/o/:org/operacoes` | T2 | `GET /operations` |
+| `/o/:org/operacoes/:op` | T2.1 | `GET /scenarios?operation_id=` |
+| `/o/:org/operacoes/:op/cenarios/novo?passo=1..5` | T3 | `POST /scenarios`, `PATCH /scenarios/{id}` |
+| `/o/:org/operacoes/:op/cenarios/:id/:aba` (aba ∈ `cobertura` (padrão), `escala`, `viabilidade`, `custos`*) | T4 | `GET /scenarios/{id}/coverage`, `/assignments`, `/compliance-findings`, `/financials`* |
+| `/o/:org/operacoes/:op/cenarios/:id/ajustar` | T5 | `PATCH /scenarios/{id}/assignments/{aid}` |
+| `/o/:org/operacoes/:op/comparar?ids=...` | T6 | `POST /scenario-comparisons` |
+| `/o/:org/operacoes/:op/cenarios/:id/homologar` | T7 | `POST /scenarios/{id}/approve`, `POST /scenarios/{id}/exports` |
+
+\* `custos` e `/financials` só existem quando o Módulo 6 (P2) for implementado.
 
 ---
 
 ## 2. Convenções de Estados
 
-Toda tela implementa os 4 estados padrão:
-
 | Estado | Padrão visual |
 |---|---|
 | **Vazio** | Ilustração + texto explicativo + CTA primário. |
-| **Carregando** | Skeleton dos componentes; para cálculo, barra de progresso por etapa (Alg. 1…4). Meta NFR-01: ≤ 2 s para 1.000 colaboradores — acima de 2 s exibe progresso, acima de 15 s oferece "continuar em segundo plano". |
-| **Erro** | Banner com mensagem acionável + "Tentar novamente"; erros de validação inline no campo; dados digitados nunca são descartados. |
-| **Sucesso** | Toast efêmero (3–5 s) e/ou transição para a próxima tela. |
+| **Carregando** | Skeleton; para cálculo, progresso por módulo do motor (M1 Demanda → M2 Gerador → M3 Cobertura → M4 Viabilidade). NFR-01: ≤ 2 s; acima de 2 s exibe progresso; acima de 15 s oferece "continuar em segundo plano". |
+| **Erro** | Banner com mensagem acionável + "Tentar novamente"; erros de validação inline; dados digitados nunca são descartados. |
+| **Sucesso** | Toast (3–5 s) e/ou transição. |
 
-Códigos do motor exibidos ao usuário (sempre com tradução humana + referência legal):
-`ERRO_CRITICO_QUEBRA_INTERJORNADA`, `BLOQUEIO_VIOLACAO_REGIME_12X36`, `ALERTA_CF_TURNO_REVEZAMENTO_6H`, alertas de DSR 35h e DSR dominical.
+Status do cenário (enum `scenario_status`, `05` §3.1): `rascunho`, `calculando`, `calculado`, `em_revisao`, `homologado`, `arquivado`, `erro`. Um cenário `calculado` com achados `ERRO` exibe o selo **"inviável"**.
 
-Severidades: **Bloqueio** (impede homologação), **Alerta** (exige ciência/justificativa), **Info**.
+Códigos de achado exibidos (catálogo canônico: `01-PRD.md` Apêndice A), sempre com tradução humana + referência: cobertura `COB_DEFICIT`, `COB_DEFICIT_POSTO_CRITICO`, `COB_EXCESSO`, `COB_FURO_INTERVALO`, `COB_DEFICIT_ESPERADO_SHRINKAGE`, `COB_TURMAS_INSUFICIENTES`, `COB_FOLGUISTA_INSUFICIENTE`; viabilidade `CLT_INTERJORNADA`, `CLT_DSR_35H`, `CLT_SETIMO_DIA`, `CLT_DOMINGO_PERIODICIDADE`, `CLT_REVEZAMENTO_6H`, `CLT_REGIME_12X36`, `CLT_JORNADA_DIARIA`, `CLT_MEDIA_SEMANAL`, `CLT_INTRAJORNADA`, `INFO_DIVERGENCIA_59A_SUMULA60`.
+
+Severidades: **ERRO** (escala inviável; impede homologação), **ALERTA** (exige ciência/justificativa), **INFO**.
+
+Papéis (enum `member_role`, `05` §3.1): `owner`, `admin`, `planner` (planejador), `legal_reviewer` (Jurídico/BP — homologa e dispensa achados), `viewer`.
 
 ---
 
 ## 3. Telas
 
 ### T0 · Login
-- **Objetivo:** autenticar o usuário.
-- **Componentes:** e-mail, senha, "Entrar", "Esqueci a senha", SSO corporativo (opcional).
-- **Dados exibidos:** nenhum dado de negócio.
-- **Ações:** entrar, recuperar senha, entrar com SSO.
-- **Estados:** vazio (formulário); carregando (botão com spinner, campos travados); erro (credenciais inválidas — mensagem genérica; conta bloqueada após N tentativas; falha de rede); sucesso (redireciona).
-- **Validações:** e-mail válido, senha obrigatória.
-- **Transições:** 1 organização → T2 direto; >1 → T1; sessão expirada em qualquer tela → T0 com retorno à URL original (`?next=`).
+- **Componentes:** e-mail, senha, "Entrar", "Esqueci a senha", SSO (opcional).
+- **Estados:** carregando (spinner, campos travados); erro (credenciais inválidas — mensagem genérica; bloqueio após N tentativas; falha de rede).
+- **Transições:** 1 organização → T2; > 1 → T1; sessão expirada → T0 com `?next=`.
 
 ### T1 · Seleção de Organização
-- **Objetivo:** escolher o tenant (empresa/grupo) de trabalho.
-- **Componentes:** lista/cards de organizações, busca, papel do usuário (Gestor, Jurídico/BP, Financeiro, Visualizador).
-- **Ações:** selecionar; "lembrar escolha".
-- **Estados:** vazio ("Você não pertence a nenhuma organização — solicite convite"); carregando (skeleton); erro (falha ao listar).
-- **Transições:** → T2.
+- Lista de organizações com papel do usuário; "lembrar escolha". Vazio: "Você não pertence a nenhuma organização — solicite convite". → T2.
 
-### T2 · Projetos / Operações
-- **Objetivo:** listar operações (planta, hospital, CD, NOC) e seus cenários.
-- **Componentes:** tabela/cards com filtros (setor, status, regime 24/7 vs. não contínuo), busca, botão "Nova operação".
-- **Dados exibidos:** nome, setor, regime, nº de cenários, cenário homologado vigente, headcount atual, última atualização.
-- **Ações:** criar/editar/arquivar operação; abrir operação (T2.1).
-- **Estados:** vazio ("Crie sua primeira operação" + CTA); carregando; erro; sucesso (toast "Operação criada").
-- **Validações (nova operação):** nome obrigatório e único na org; setor obrigatório (define regras de DSR dominical — Lei 10.101/2000 comércio, Lei 605/1949 indústria/serviços).
+### T2 · Operações
+- **Objetivo:** listar operações (planta, hospital, CD, NOC).
+- **Dados:** nome, setor, regime (24/7 ou não), nº de cenários, cenário homologado vigente, **% de cobertura do homologado**, headcount, última atualização.
+- **Ações:** criar/editar/arquivar operação; abrir T2.1.
+- **Validações:** nome único na org; setor obrigatório (define a regra de folga dominical — FR-17).
 
 ### T2.1 · Detalhe da Operação
-- **Componentes:** lista de cenários (status: Rascunho, Calculado, Com bloqueios, Homologado, Arquivado), checkbox para comparar (2–5), "Novo cenário", "Duplicar".
-- **Ações:** abrir (T4), duplicar (T3 pré-preenchido), comparar (T6), excluir rascunho.
-- **Estados:** vazio ("Nenhum cenário. Comece pelo baseline 6x1"); botão Comparar desabilitado com < 2 selecionados.
+- Lista de cenários (status §2, % cobertura, horas-posto em déficit, headcount, selo "inviável"), checkbox para comparar (2–5), "Novo cenário", "Duplicar".
+- Vazio: "Nenhum cenário. Comece pelo baseline 6x1." Comparar desabilitado com < 2 selecionados.
 
 ### T3 · Wizard de Novo Cenário
-Stepper de 5 passos com salvamento automático de rascunho a cada passo; "Voltar" preserva dados; "Calcular" só no passo 5. Painel lateral "Resumo" mostra escolhas acumuladas e estimativa preliminar de turmas.
+Stepper de 5 passos com autosalvamento; "Voltar" preserva dados; "Simular" só no passo 5. Painel lateral "Resumo" mostra demanda total (horas-posto/semana) e **estimativa de turmas/headcount** (FR-08) ao vivo.
 
-#### 3.1 Tipo de Operação e Regras Sindicais/CCT
-- **Componentes:** radio Regime (Contínuo 24/7 | Não contínuo/janela fixa); setor/categoria; seleção ou cadastro de CCT/ACT (sindicato, vigência, upload PDF opcional); campos sindicais (% adic. noturno ≥ 20 %, frequência mínima de folga dominical `W_limite`, limite diário); **checkbox "Possui ACT/CCT autorizando jornada de 8h em turnos ininterruptos de revezamento"**; toggle rotação (rotativa M→T→N vs. turmas fixas de noite); feriados (calendário nacional/estadual/municipal).
-- **Validações:**
-  - Se regime revezamento (alterna dia/noite) **e** jornada prevista > 6h **e** checkbox desmarcado → `ALERTA_CF_TURNO_REVEZAMENTO_6H` (Art. 7º, XIV CF/88): bloqueia "Avançar" para modelos > 6h; oferece "Marcar ACT/CCT" ou "Limitar a turnos de 6h".
-  - CCT com vigência expirada → alerta amarelo ("ACT vencido em dd/mm — o cenário será marcado como risco").
-  - % adic. noturno < 20 % → erro inline.
-- **Estados:** vazio (defaults legais pré-preenchidos); erro de upload de PDF (tamanho/formato) não bloqueia o passo.
+#### 3.1 Operação e regras (CCT/ACT)
+- **Componentes:** regime (Contínuo 24/7 | janela fixa); setor; CCT/ACT (sindicato, vigência); **checkbox "ACT/CCT autoriza 8 h em turnos ininterruptos de revezamento"** (FR-18); `N` de folga dominical (FR-17); calendário de feriados + política em feriado (FR-12); data inicial do horizonte.
+- **Validações:** revezamento > 6 h sem checkbox → `CLT_REVEZAMENTO_6H` exibido como aviso (não bloqueia o avanço; o cenário sairá com ALERTA); CCT vencida → alerta.
 
 #### 3.2 Demanda
-- **Componentes:** seletor de modo:
-  - **Postos fixos** (FR-02): `P(d,t)=k` — número de postos por função; atalho "igual em todas as 168h" ou por faixa (dia útil/fim de semana, diurno/noturno).
-  - **Curva 168h** (FR-01/03): grid editável 7×24 (colar do Excel, arrastar para preencher, copiar dia), **upload CSV/XLSX** com template para download, conversão por UPH ou TMA/Erlang-C.
-  - Pré-visualização do heatmap de demanda.
-- **Validações:** valores inteiros ≥ 0 (postos) ou ≥ 0 decimais (volume); 168 células obrigatórias; ao menos 1 célula > 0.
-- **Erros de upload (edge cases):** formato não suportado; arquivo > limite; cabeçalho ausente; linhas ≠ 7 ou colunas ≠ 24 (ou ≠ 168 linhas no formato longo); células não numéricas/negativas (lista "linha X, coluna Y" e destaca no grid); separador decimal vírgula vs. ponto (auto-detecção com confirmação); dias em formato divergente (seg/segunda/Mon); XLSX com múltiplas abas (perguntar qual); fuso/horário de verão ignorado — semana sempre 168h.
-- **Estados:** vazio (grid zerado + "Baixar template"); carregando (parse do arquivo); sucesso (pré-visualização + "X células importadas").
+- **Postos fixos** (FR-02): `P(d,t)=k` por faixa; atalho "igual em todas as 168 h"; marcação de **posto crítico**.
+- **Curva 168 h** (FR-01): grade 7×24 editável (colar do Excel, arrastar, copiar dia), upload CSV/XLSX com template. Erlang-C/UPH (FR-04) aparece desabilitado com selo "Fase 2".
+- **Validações:** inteiros ≥ 0; 168 células; ≥ 1 célula > 0.
+- **Erros de upload:** formato não suportado; > 5 MB; cabeçalho ausente; ≠ 168 linhas (formato longo) ou ≠ 7×24; não numérico/negativo (lista "linha X" e destaca no grid); separador decimal; XLSX com várias abas (perguntar qual).
 
-#### 3.3 Shrinkage
-- **Componentes:** sliders/inputs % diurno e % noturno (FR-04), opcional por componente (absenteísmo, férias, treinamento); faixa noturna fixa 22h–05h exibida.
-- **Validações:** 0 ≤ % < 100 (recomendação: alerta se > 40 %); alerta informativo se noturno < diurno ("absenteísmo noturno costuma ser maior").
-- **Dados exibidos:** demanda bruta vs. líquida (FTE) recalculada ao vivo, incluindo fator de hora ficta 60/52,5.
+#### 3.3 Shrinkage e reserva
+- **Componentes:** % diurno e % noturno (FR-03), opcional por componente (absenteísmo, férias, treinamento); faixa noturna 22h–05h exibida; **estratégia de reserva** (FR-11, FR-13): "pessoas extras por turma" | "turma de folguistas" | "nenhuma (só visualizar risco)".
+- **Validações:** 0 ≤ % < 60; alerta informativo se > 40%.
+- **Dados exibidos:** demanda nominal vs. demanda bruta com reserva, ao vivo.
 
-#### 3.4 Modelo de Escala
-- **Componentes:** cards do catálogo — **12x36, 6x2, 4x2, 3x1 (3x2), 5 turmas (francês/petroquímico), 6x1 (baseline), 5x2, 4x3, Personalizado**; cada card mostra duração do turno, razão T/F, nº típico de turmas, carga média semanal; nº de turmas (A, B, C, D, E…); horário de início dos turnos; intervalo intrajornada; editor do Personalizado (sequência de T/F e turnos M/T/N por dia do ciclo, duração do ciclo).
-- **Validações (pré-checagem antes do cálculo):**
-  - Modelo incompatível com regime (ex.: 5x2 comercial sem turmas móveis em 24/7) → alerta "não cobre 168h".
-  - Turno > 6h em revezamento sem ACT marcado no passo 1 → remete ao passo 1.
-  - Personalizado: transições M→N/T→M com < 11h → `ERRO_CRITICO_QUEBRA_INTERJORNADA` já no editor; ciclo sem folga ≥ 35h → alerta DSR; ciclo > 8 semanas → aviso de visualização limitada.
-  - Nº de turmas abaixo do teórico calculado → alerta "subcobertura provável" (permite seguir).
-- **Recomendação:** selo "Recomendado" no modelo com melhor custo × compliance para a demanda informada.
+#### 3.4 Modelo de escala e turmas
+- **Componentes:** cards do catálogo MVP — **6x1 (baseline), 12x36, 6x2, 4x2, 5 turmas** (3x1, 3x2, 5x2, 4x3 e Personalizado avançado com selo "Fase 2"; Personalizado básico FR-07 é P1). Cada card mostra turnos/dia, padrão, **K necessário**, h/sem média e ciclo calendário (`01` §6). Campos: nº de turmas (A, B, C…), horários dos turnos, **intervalo intrajornada** (computado com rendição | não computado sem rendição | coberto por volantes — FR-10), nº de folguistas (ou "calcular mínimo").
+- **Pré-checagem (antes de simular):**
+  - `K` informado < `K` necessário → `COB_TURMAS_INSUFICIENTES` com sugestão (ex.: 4x2 → 5 turmas ou 9 meias-turmas). Permite seguir para ver o déficit.
+  - Personalizado com transição < 11 h → `CLT_INTERJORNADA` já no editor; sem folga ≥ 35 h → `CLT_DSR_35H`.
+- **Recomendação:** selo "Recomendado" no modelo com menor headcount que zera o déficit sem `ERRO`.
 
-#### 3.5 Parâmetros Financeiros
-- **Componentes:** salário base por função; carga mensal (220h/180h/…); % adicional noturno (herdado da CCT, editável 20–40 %+); % HE (≥ 50 %; 100 % domingos/feriados conforme CCT); % encargos sociais; periculosidade (30 % sobre salário base) e/ou insalubridade (10/20/40 % sobre base definida); dias úteis e domingos/feriados do mês de referência (para DSR reflexo, Súmula 172).
-- **Validações:** valores monetários > 0; % HE ≥ 50; periculosidade e insalubridade não cumulativas (aviso: escolher a mais vantajosa salvo CCT em contrário); salário ≥ piso da CCT/mínimo.
-- **Ações:** "Calcular cenário".
-- **Transição:** → processamento → T4.
+#### 3.5 Revisão e simular
+- Resumo de todos os passos + seção recolhida **"Parâmetros de custo (opcional — Fase 2)"**, desabilitada no MVP.
+- **Ação:** "Simular cobertura" → processamento → T4 (aba `cobertura`).
 
 #### Fluxo do wizard
 
 ```mermaid
 flowchart TD
-    S1["Passo 1: Tipo + CCT"] --> V1{"Revezamento e turno > 6h<br/>sem ACT/CCT?"}
-    V1 -- Sim --> A1["ALERTA_CF_TURNO_REVEZAMENTO_6H<br/>Avançar bloqueado"]
-    A1 --> D1{"Usuário decide"}
-    D1 -- "Marca checkbox ACT 8h" --> S2
-    D1 -- "Limita a 6h" --> S2
-    V1 -- Não --> S2["Passo 2: Demanda"]
+    S1["Passo 1: Operação + CCT"] --> S2["Passo 2: Demanda"]
     S2 --> M{"Modo"}
     M -- "Postos fixos" --> PF["Definir P(d,t)=k"]
-    M -- "Curva 168h" --> CV{"Grid ou arquivo?"}
-    CV -- Grid --> GR["Editar 7×24"]
+    M -- "Curva 168h" --> CV{"Grade ou arquivo?"}
+    CV -- Grade --> GR["Editar 7x24"]
     CV -- "CSV/XLSX" --> UP["Upload + parse"]
     UP --> VU{"Arquivo válido?"}
-    VU -- Não --> EU["Lista de erros por célula<br/>+ destaque no grid"] --> CV
+    VU -- Não --> EU["Lista de erros por linha<br/>+ destaque na grade"] --> CV
     VU -- Sim --> GR
     PF --> S3
-    GR --> S3["Passo 3: Shrinkage D/N"]
-    S3 --> S4["Passo 4: Modelo de escala"]
-    S4 --> V4{"Pré-checagem<br/>interjornada / DSR / cobertura"}
-    V4 -- "Erro crítico" --> S4
-    V4 -- "Alertas" --> S5
-    V4 -- OK --> S5["Passo 5: Financeiro"]
-    S5 --> V5{"Campos válidos?"}
-    V5 -- Não --> S5
-    V5 -- Sim --> C(("Calcular")) --> R["T4 Resultado"]
+    GR --> S3["Passo 3: Shrinkage e reserva"]
+    S3 --> S4["Passo 4: Modelo e turmas"]
+    S4 --> V4{"Pré-checagem<br/>K e restrições"}
+    V4 -- "Interjornada no editor" --> S4
+    V4 -- "Turmas insuficientes" --> AV["Aviso + sugestão de K"] --> S5
+    V4 -- OK --> S5["Passo 5: Revisão"]
+    S5 --> C(("Simular")) --> R["T4 aba cobertura"]
 ```
 
 ### T4 · Resultado do Cenário
-- **Objetivo:** apresentar cobertura, escala, compliance e custo do cenário calculado.
-- **Componentes (abas + cabeçalho de KPIs):** KPIs (headcount total, nº de turmas, % horas cobertas, nº bloqueios/alertas, custo mensal e anual); ações "Editar alocação", "Comparar", "Duplicar", "Recalcular", "Homologar".
-  - **4.1 Heatmap 7×24 (NFR-03):** célula = cobertura − demanda. **Verde** cobertura exata; **Azul** superdimensionamento/ociosidade; **Vermelho** posto vago/subcobertura crítica. Tooltip: demanda, alocados, delta, turmas presentes. Legenda acessível (padrões/ícones além da cor). Clique em célula vermelha → abre T5 filtrado naquele horário.
-  - **4.2 Calendário cíclico:** matriz Turma × Dia por até **8 semanas** (História 1), código de cores M/T/N/Folga, domingos destacados, navegação por semana, filtro por turma/colaborador, marcador de folgas ≥ 35h.
-  - **4.3 Painel de Compliance:** lista agrupada por severidade com código, regra, referência legal (FR-08 a FR-12, Súmula 60, Art. 7º XIV), turma/colaborador/data afetados, ação "Ver no calendário" / "Corrigir".
-  - **4.4 Extrato Financeiro (FR-13):** salários fixos, horas noturnas fictas (×1,142857), adicional noturno, DSR reflexo sobre adicional noturno, prorrogação noturna (Súmula 60), HE, periculosidade/insalubridade, encargos, total mensal/anual; precisão de 6 casas antes do arredondamento (NFR-02), memória de cálculo expansível.
-- **Estados:** carregando (progresso Alg. 1→4); vazio (cenário rascunho não calculado → "Calcular agora"); erro (solver sem solução viável → "Não há escala viável com N turmas: aumente turmas, reduza postos ou altere modelo" + atalho para passo 4; timeout → reprocessar); sucesso com bloqueios (badge vermelho, "Homologar" desabilitado); sucesso limpo.
+- **Objetivo:** mostrar **se a operação está coberta**, onde estão os furos e o que é preciso para fechá-los.
+- **Cabeçalho de KPIs (FR-14):** % horas-posto cobertas · horas-posto em déficit · pico de subcobertura (dia/hora) · headcount (atual / mínimo) · turmas (atual / necessárias) · furos no intervalo · violações ERRO/ALERTA. Ações: "Ajustar escala", "Comparar", "Duplicar", "Recalcular", "Homologar".
+  - **Aba `cobertura` (padrão; FR-09, FR-10, FR-11, FR-12):** heatmap 7×24 de **déficit / exato / excesso**; alternância **"postos" | "postos + reserva"** e **"pior caso" | "média"** do horizonte; filtro por posto; camada "furos no intervalo"; tooltip com demanda, cobertura, diferença, turmas presentes e feriado; lista "Top 10 horas em déficit"; card **"Como fechar o déficit"** (ex.: "+1 turma", "+2 folguistas", "trocar para 5 turmas") (FR-08, FR-13). Clique em célula de déficit → T5 filtrado.
+  - **Aba `escala` (FR-21):** calendário turma × dia do ciclo calendário completo (`mmc(L,7)`: 14/56/42/70/7 dias), códigos M/T/N/D/N12/F, domingos e feriados destacados, folguistas como linha própria, marcadores de déficit/violação.
+  - **Aba `viabilidade` (FR-15–FR-20):** restrições agrupadas por severidade com código, regra, fonte normativa, turma/data, "Ver no calendário" / "Corrigir".
+  - **Aba `custos` (P2, FR-25–27):** oculta no MVP.
+- **Estados:** carregando (progresso M1→M4); rascunho não calculado → "Simular agora"; inviável (sem escala sem `ERRO` para os parâmetros) → "Não há escala viável com N turmas: aumente turmas, reduza postos ou troque o modelo" + atalho para 3.4; timeout → reprocessar.
 - **Transições:** → T5, T6, T7, T3 (editar parâmetros cria nova versão).
 
-### T5 · Edição Manual de Alocação
-- **Objetivo:** ajustar alocações individuais (trocas, coberturas, folguistas) com validação em tempo real.
-- **Componentes:** grade Colaborador × Dia (drag-and-drop de turnos), painel lateral de validação ao vivo, lista de folguistas/banco de horas com horas de descanso acumuladas, desfazer/refazer, "Salvar como nova versão", "Descartar".
-- **Dados exibidos:** turno atual, horas na semana, descanso desde o último turno, impacto no heatmap e no custo (delta ao vivo).
-- **Validações em tempo real (≤ 300 ms por movimento):** interjornada 11h; 36h de repouso no 12x36; dobra de turno; DSR 35h; domingo de folga dentro de `W_limite`; limite diário/semanal; HE gerada.
-- **Estados:** carregando (skeleton da grade); conflito de edição concorrente ("Outro usuário alterou este cenário — recarregar/mesclar"); erro de salvamento (mantém alterações locais e oferece retry); sucesso ("Versão v3 salva").
-- **Transições:** salvar → T4 recalculado; descartar → T4.
+### T5 · Ajuste de Escala
+- **Objetivo:** ajustar a escala gerada **por turma × dia** (MVP; por colaborador na Fase 2): trocar turno, mover folga, posicionar folguista, convocar turma de folga em feriado.
+- **Componentes:** grade Turma × Dia (arrastar ou teclado), painel ao vivo com **delta de cobertura** (horas-posto em déficit antes/depois) e restrições, desfazer/refazer, "Salvar como nova versão".
+- **Validação em tempo real (≤ 300 ms):** recalcula cobertura (M3) e restrições (M4): `CLT_INTERJORNADA`, `CLT_REGIME_12X36`, `CLT_DSR_35H`, `CLT_SETIMO_DIA`, `CLT_DOMINGO_PERIODICIDADE`, `CLT_JORNADA_DIARIA`.
+- **Estados:** conflito de edição concorrente (ETag/`If-Match`) → recarregar/mesclar; erro de salvamento mantém alterações locais.
 
 ### T6 · Comparador de Cenários
-- **Objetivo:** comparar lado a lado baseline 6x1 vs. Cenários A (12x36), B (6x2 4T), C (5 turmas 33,6h), D (4x3) — FR-14 e História 3.
-- **Componentes:** seletor de 2–5 cenários (um marcado como Baseline); tabela com linhas **Headcount total, Custo fixo de salários, Custo variável de HE, Adicional noturno + DSR reflexo, Encargos consolidados, Total anual, Delta vs. baseline, nº bloqueios/alertas, % cobertura**; cartão **Breakeven 5ª turma** (custo de contratar a 5ª turma vs. economia de HE + passivo/absenteísmo); **gráfico de payback** (custo acumulado mês a mês com custos de transição: admissão, treinamento); destaque do melhor valor por linha.
-- **Validações:** cenários da mesma operação e mesma demanda (se diferente → aviso "bases distintas, comparação indicativa"); cenários não calculados ou desatualizados → oferecer recalcular; cenário com bloqueio exibido com tarja vermelha.
-- **Estados:** vazio ("Selecione ao menos 2 cenários"; atalho "Gerar A/B/C/D automaticamente a partir do baseline"); carregando; erro; sucesso.
-- **Edge cases:** breakeven inexistente (5ª turma nunca se paga → "sem breakeven no horizonte de 36 meses"); payback imediato (mês 0); custo de transição zero.
-- **Ações:** exportar comparativo (XLSX/PDF), abrir cenário, homologar o vencedor.
+- **Objetivo:** comparar até 5 cenários pela **cobertura e headcount** (FR-22), ex.: baseline 6x1 · 12x36 · 6x2 (4T) · 4x2 (5T) · 5 turmas.
+- **Linhas:** turmas; headcount sem/com reserva; h/sem média por pessoa; % horas-posto cobertas; horas-posto em déficit; pico de subcobertura; excesso (%); furos no intervalo; violações ERRO/ALERTA; delta vs. baseline; melhor valor marcado ★ + texto. Linhas de custo aparecem apenas com o Módulo 6 (P2).
+- **Validações:** mesma operação e mesma demanda (senão aviso "bases distintas"); cenários desatualizados → recalcular; inviáveis com tarja.
+- **Ações:** exportar comparativo (XLSX), abrir cenário, homologar o escolhido.
 
-### T7 · Homologação & Exportação
-- **Objetivo:** aprovar formalmente o cenário e gerar artefatos para ponto/WFM e colaboradores.
-- **Componentes:** checklist de homologação (0 bloqueios; alertas com ciência e justificativa; ACT/CCT anexado se revezamento 8h; aprovadores — Operações, Jurídico/BP, Financeiro); trilha de auditoria; exportações: **CSV/XLSX** do mapa de alocação, layouts WFM (TOTVS, Senior, ADP, SAP SF, AFDT/ACJEF — NFR-04); **Calendário Pessoal do Colaborador** (visão anual de folgas e fins de semana livres; PDF individual/lote, iCal).
-- **Validações:** botão "Homologar" desabilitado com bloqueio pendente; justificativa obrigatória por alerta; somente papéis com permissão aprovam; cenário homologado fica somente-leitura (alterações geram nova versão).
-- **Estados:** carregando (geração assíncrona de arquivos com progresso); erro (falha na geração → retry por arquivo; layout WFM sem mapeamento de matrícula → lista colaboradores sem matrícula); sucesso (download + "Homologado em dd/mm por X").
+### T7 · Homologação e Exportação
+- **Checklist:** 0 achados `ERRO` (ou dispensados por `legal_reviewer` com justificativa); alertas com ciência; ACT/CCT anexado se revezamento 8 h; aprovação.
+- **Exportações (FR-23):** XLSX com abas `Escala`, `Cobertura168h`, `KPIs`, `Violacoes`, `Parametros`; CSV por aba. Layouts WFM/AFDT/ACJEF e calendário pessoal: **Fase 2/3**.
+- **Validações:** "Homologar" desabilitado com `ERRO` pendente; cenário homologado é somente leitura (alterações geram nova versão).
 
 ---
 
-## 4. Fluxos por História do PRD
+## 4. Fluxos por cenário de uso
 
-### 4.1 História 1 — Planta industrial: 6x1 → 6x2 com 4 turmas
+### 4.1 Cenário 1 — Planta industrial: 6x1 → 6x2 com 4 turmas
 
 ```mermaid
 sequenceDiagram
-    actor U as Diretor Industrial
+    actor U as Gerente de Operações
     participant UI as App (Wizard/Resultado)
-    participant API as API Cenários
-    participant A1 as Alg.1 Dimensionamento
-    participant A23 as Alg.2-3 ILP + Síntese Cíclica
-    participant A4 as Alg.4 Compliance/Financeiro
+    participant API as API Escalas
+    participant M1 as M1 Demanda
+    participant M2 as M2 Gerador cíclico
+    participant M3 as M3 Cobertura
+    participant M4 as M4 Viabilidade
     U->>UI: Duplica baseline 6x1 da operação
-    UI->>U: Wizard pré-preenchido
-    U->>UI: Passo 1: Contínuo 24/7, revezamento, marca ACT 8h
-    U->>UI: Passo 2: Postos fixos P(d,t)=k nas 168h
-    U->>UI: Passo 3: shrinkage diurno 8% / noturno 12%
-    U->>UI: Passo 4: 6x2, 4 turmas, turnos 06-14/14-22/22-06
-    U->>UI: Passo 5: salários, adic. noturno 20%, HE 50%, encargos
-    U->>UI: Calcular
-    UI->>API: POST /cenarios/:id/calcular
-    API->>A1: demanda líquida (fator 60/52,5)
-    A1-->>API: N_req(d,t)
-    API->>A23: alocar 4 turmas + rotação
-    A23-->>API: escala cíclica
-    API->>A4: validar regras + custos
-    A4-->>API: compliance OK, horas fictas, adic. noturno, DSR reflexo
-    API-->>UI: resultado (≤ 2s)
-    UI->>U: Heatmap 100% verde nas 168h
-    UI->>U: Calendário cíclico 8 semanas
-    UI->>U: Extrato: horas noturnas fictas, adic. noturno, DSR reflexo
-    alt Alguma célula vermelha
-        UI->>U: Destaca furo e sugere ajustar turmas/horários
-    end
+    U->>UI: Passo 1: 24/7, marca ACT 8h
+    U->>UI: Passo 2: 3 postos fixos nas 168h
+    U->>UI: Passo 3: shrinkage diurno 8% / noturno 12%, folguistas
+    U->>UI: Passo 4: 6x2, 4 turmas, 06-14/14-22/22-06
+    U->>UI: Simular cobertura
+    UI->>API: POST /scenarios/{id}/simulate
+    API->>M1: demanda nominal e com reserva
+    M1-->>API: N_req(d,t)
+    API->>M2: gerar 4 turmas, offset 2, 56 dias
+    M2-->>API: matriz turma x dia
+    API->>M3: cobertura hora a hora
+    M3-->>API: heatmap, KPIs, déficit esperado com shrinkage
+    API->>M4: validar restrições
+    M4-->>API: CLT_JORNADA_DIARIA (22-06 = 9,14h)
+    API-->>UI: resultado (até 2s)
+    UI->>U: 100% das horas-posto cobertas (visão postos)
+    UI->>U: Visão postos + reserva: déficit esperado à noite, sugere +2 folguistas
+    UI->>U: Alerta de jornada noturna computada, sugere 22-05
 ```
 
-### 4.2 História 2 — Dobra 12x36 bloqueada + sugestão de folguista
+### 4.2 Cenário 2 — Hospital 12x36: furo em feriado e folguista
 
 ```mermaid
 sequenceDiagram
-    actor U as Coordenador RH Hospitalar
-    participant ED as Edição Manual (T5)
-    participant V as Validador tempo real (Alg.4)
-    participant S as Serviço de Sugestão
-    U->>ED: Arrasta colaborador da Turma Diurna A para Noturna A (mesmo dia)
-    ED->>V: validar(movimento)
-    V-->>ED: BLOQUEIO_VIOLACAO_REGIME_12X36 (repouso < 36h / dobra)
-    ED->>U: Movimento revertido + card vermelho com regra e horas de descanso
-    ED->>S: buscar folguistas/banco de horas com descanso > 36h
-    S-->>ED: lista ordenada (descanso acumulado, custo HE, habilitação)
-    alt Há candidato elegível
-        ED->>U: Sugere "Convocar Maria (48h de descanso)"
-        U->>ED: Aceita sugestão
-        ED->>V: validar(novo movimento)
-        V-->>ED: OK (sem violação)
-        ED->>U: Heatmap atualizado; delta de custo exibido
-        U->>ED: Salvar nova versão
-    else Nenhum candidato
-        ED->>U: "Nenhum folguista elegível" + opções: manter posto vago (vermelho), ampliar turma, criar vaga
-    end
-    opt Usuário tenta forçar
-        U->>ED: Tentar salvar mesmo assim
-        ED->>U: Salvar permitido como rascunho; Homologação bloqueada
-    end
+    actor U as Coordenação de Enfermagem
+    participant ED as Ajuste de Escala (T5)
+    participant M3 as M3 Cobertura
+    participant M4 as M4 Viabilidade
+    U->>ED: Abre 12x36 com feriado em 25/12 e política folga coberta
+    ED->>M3: cobertura do horizonte
+    M3-->>ED: COB_DEFICIT 25/12 19h-07h (2 postos)
+    U->>ED: Tenta cobrir com a turma Diurna A, que trabalhou 07h-19h
+    ED->>M4: validar movimento
+    M4-->>ED: CLT_REGIME_12X36 (dobra, descanso menor que 36h)
+    ED->>U: Movimento revertido + card com a regra
+    U->>ED: Posiciona folguista F1 no N12 de 25/12
+    ED->>M4: validar movimento
+    M4-->>ED: OK
+    ED->>M3: recalcular
+    M3-->>ED: déficit = 0
+    U->>ED: Salvar nova versão
 ```
 
 ```mermaid
 flowchart LR
-    A["Movimento na grade"] --> B{"Descanso ≥ 36h<br/>e sem dobra?"}
-    B -- Não --> C["BLOQUEIO_VIOLACAO_REGIME_12X36<br/>reverte movimento"]
-    C --> D{"Folguista com > 36h<br/>de descanso?"}
-    D -- Sim --> E["Sugestão de convocação"] --> F{"Aceita?"}
-    F -- Sim --> G["Revalida → OK"]
-    F -- Não --> H["Posto vago permanece vermelho"]
-    D -- Não --> H
-    B -- Sim --> I{"Interjornada ≥ 11h<br/>e DSR 35h?"}
-    I -- Não --> J["ERRO_CRITICO_QUEBRA_INTERJORNADA / alerta DSR"]
+    A["Movimento na grade"] --> B{"Descanso de 36h<br/>e sem dobra?"}
+    B -- Não --> C["CLT_REGIME_12X36<br/>reverte movimento"]
+    C --> D{"Folguista disponível<br/>com descanso suficiente?"}
+    D -- Sim --> E["Posicionar folguista"] --> G["Revalida e recalcula cobertura"]
+    D -- Não --> H["Déficit permanece<br/>COB_FOLGUISTA_INSUFICIENTE"]
+    B -- Sim --> I{"Interjornada 11h<br/>e DSR 35h?"}
+    I -- Não --> J["CLT_INTERJORNADA / CLT_DSR_35H"]
     I -- Sim --> G
 ```
 
-### 4.3 História 3 — Viabilidade da 5ª turma (breakeven/payback)
+### 4.3 Cenário 3 — Quantas turmas preciso? (4x2 vs. 5 turmas vs. 6x2)
 
 ```mermaid
 sequenceDiagram
-    actor U as Controladoria
+    actor U as Planejamento
     participant UI as Comparador (T6)
-    participant API as API Comparação
-    participant A4 as Alg.4 Financeiro
-    U->>UI: Seleciona Cenário B (4 turmas, ~2h HE/sem/operador) e Cenário C (5 turmas, 33,6h, 0 HE)
-    U->>UI: Marca 6x1 como baseline
-    UI->>API: POST /comparar {ids, horizonte: 36 meses, custo transição}
-    API->>A4: custos consolidados por cenário
-    A4-->>API: headcount, fixo, HE, encargos, total anual
-    API-->>UI: tabela + série de payback + breakeven
-    UI->>U: Lado a lado: Headcount, Salários, HE, Encargos, Total anual
-    UI->>U: Delta líquido e gráfico de payback
-    alt Breakeven dentro do horizonte
-        UI->>U: "5ª turma se paga no mês N"
-    else Sem breakeven
-        UI->>U: "Não se paga em 36 meses" + sensibilidade (% HE, absenteísmo)
-    end
-    U->>UI: Exportar comparativo / Homologar vencedor
+    participant API as API Escalas
+    U->>UI: Seleciona 6x1 (baseline), 6x2 4T, 4x2 4T, 4x2 5T, 5 turmas
+    UI->>API: POST /scenario-comparisons
+    API-->>UI: KPIs de cobertura por cenário
+    UI->>U: 4x2 4T: COB_TURMAS_INSUFICIENTES, 11,1% dos turnos-dia descobertos
+    UI->>U: 4x2 5T: 100% coberto, excesso 11%
+    UI->>U: 6x2 4T: 100% coberto, 42h/sem
+    UI->>U: 5 turmas: 100% coberto, 33,6h/sem, headcount +25%
+    U->>UI: Exporta comparativo e homologa o escolhido
 ```
+
+> O antigo fluxo "breakeven da 5ª turma" (custo) pertence ao Módulo 6 (P2, FR-27) e será reintroduzido quando o módulo existir.
 
 ---
 
@@ -314,20 +266,19 @@ sequenceDiagram
 ```mermaid
 flowchart TD
     R["T4 Resultado"] --> H["Solicitar homologação"]
-    H --> B{"Bloqueios pendentes?"}
-    B -- Sim --> X["Botão desabilitado<br/>lista de bloqueios → T5"]
+    H --> B{"Achados ERRO pendentes?"}
+    B -- Sim --> X["Botão desabilitado<br/>lista de achados para T5"]
     B -- Não --> AL{"Alertas sem justificativa?"}
     AL -- Sim --> J["Exigir ciência + justificativa"] --> AL
     AL -- Não --> ACT{"Revezamento 8h?"}
     ACT -- Sim --> DOC{"ACT/CCT anexado e vigente?"}
     DOC -- Não --> J2["Anexar documento"] --> DOC
     DOC -- Sim --> AP
-    ACT -- Não --> AP["Aprovações (Operações, Jurídico, Financeiro)"]
+    ACT -- Não --> AP["Aprovação legal_reviewer ou admin"]
     AP --> OK["Cenário HOMOLOGADO (somente leitura)"]
-    OK --> E1["CSV/XLSX / layouts WFM"]
-    OK --> E2["Calendário Pessoal (PDF/iCal)"]
+    OK --> E1["Export CSV/XLSX"]
     E1 --> EE{"Geração ok?"}
-    EE -- Não --> RT["Retry por arquivo / corrigir matrículas"]
+    EE -- Não --> RT["Retry por arquivo"]
     EE -- Sim --> DL["Download + auditoria"]
 ```
 
@@ -337,39 +288,46 @@ flowchart TD
 
 | # | Situação | Tela | Comportamento |
 |---|---|---|---|
-| E1 | Sessão expira durante wizard | T3 | Rascunho autosalvo; após login retorna ao mesmo passo. |
-| E2 | CSV/XLSX malformado (dimensão, não numérico, negativo, aba errada) | 3.2 | Relatório por célula; nada é importado parcialmente sem confirmação. |
+| E1 | Sessão expira durante wizard | T3 | Rascunho autosalvo; volta ao mesmo passo após login. |
+| E2 | CSV/XLSX malformado | 3.2 | Relatório por linha; nada é importado parcialmente. |
 | E3 | Demanda toda zero | 3.2 | Bloqueia avanço: "informe ao menos um posto". |
-| E4 | Revezamento > 6h sem ACT | 3.1/3.4 | `ALERTA_CF_TURNO_REVEZAMENTO_6H`; exige checkbox ou turno de 6h. |
+| E4 | Revezamento > 6 h sem ACT | 3.1/T4 | `CLT_REVEZAMENTO_6H` (ALERTA; ERRO se > 8 h). |
 | E5 | ACT/CCT vencido | 3.1/T7 | Alerta no resultado; bloqueia homologação até atualizar. |
-| E6 | Personalizado com interjornada < 11h (ex.: T termina 22h, M começa 06h) | 3.4/T5 | `ERRO_CRITICO_QUEBRA_INTERJORNADA` com par de turnos destacado. |
-| E7 | Ciclo sem folga ≥ 35h ou domingo de folga fora de `W_limite` | T4.3 | Alerta/bloqueio conforme categoria; link para turma/semana. |
-| E8 | Turno noturno prorrogado após 05h | T4.4 | Súmula 60 aplicada automaticamente; linha específica no extrato. |
-| E9 | Solver inviável (turmas insuficientes) | T4 | Erro explicativo + sugestão de nº mínimo teórico de turmas. |
-| E10 | Cálculo > 2 s / timeout | T4 | Progresso; segundo plano com notificação; retry. |
-| E11 | Feriado em domingo / mês com 5 domingos | T4.4 | DSR reflexo usa contagem real do mês de referência. |
-| E12 | Dobra 12x36 sem folguista elegível | T5 | Posto vago vermelho; opções de ampliar turma ou criar vaga. |
-| E13 | Edição concorrente | T5 | Detecção por versão; recarregar ou mesclar. |
-| E14 | Comparar cenários com demandas diferentes | T6 | Aviso de base distinta. |
-| E15 | Breakeven inexistente / imediato | T6 | Mensagens específicas; gráfico sem ponto de cruzamento. |
-| E16 | Tentativa de editar cenário homologado | T4/T5 | Somente leitura; "Criar nova versão". |
+| E6 | Personalizado com interjornada < 11 h | 3.4/T5 | `CLT_INTERJORNADA` com par de turnos destacado. |
+| E7 | Nº de turmas < K necessário (ex.: 4x2 com 4) | 3.4/T4 | `COB_TURMAS_INSUFICIENTES` + heatmap com déficit + sugestão de K. |
+| E8 | Intervalo não computado sem rendição | T4 | `COB_FURO_INTERVALO`; camada "furos no intervalo"; sugestão de volantes. |
+| E9 | Feriado com política "folga coberta" e sem folguistas | T4 | `COB_DEFICIT` com contexto "feriado"; sugestão de folguistas. |
+| E10 | Shrinkage derruba cobertura esperada | T4 | `COB_DEFICIT_ESPERADO_SHRINKAGE` na visão "postos + reserva". |
+| E11 | Déficit em posto crítico | T4/T7 | `COB_DEFICIT_POSTO_CRITICO` (ERRO) bloqueia homologação. |
+| E12 | Nenhuma escala viável sem `ERRO` | T4 | Mensagem explicativa + K mínimo teórico. |
+| E13 | Cálculo > 2 s / timeout | T4 | Progresso; segundo plano (job); retry. |
+| E14 | Edição concorrente | T5 | Detecção por `ETag`; recarregar ou mesclar. |
+| E15 | Comparar cenários com demandas diferentes | T6 | Aviso de base distinta. |
+| E16 | Editar cenário homologado | T4/T5 | Somente leitura; "Criar nova versão". |
 | E17 | Usuário sem permissão de aprovar | T7 | Botão oculto; "Solicitar aprovação a…". |
-| E18 | Colaborador sem matrícula na exportação WFM | T7 | Lista pendências; exporta demais ou bloqueia conforme layout. |
-| E19 | Periculosidade + insalubridade marcadas | 3.5 | Aviso de não cumulatividade; escolha obrigatória salvo CCT. |
-| E20 | Perda de conexão ao salvar edição manual | T5 | Mantém estado local, retry automático, indicador "não salvo". |
+| E18 | Perda de conexão ao salvar ajuste | T5 | Estado local mantido, retry, indicador "não salvo". |
 
 ---
 
 ## 7. Rastreabilidade
 
-| Requisito PRD | Telas |
+| Requisito (`01-PRD.md`) | Telas |
 |---|---|
-| FR-01/02/03 Demanda 168h / postos / Erlang | 3.2 |
-| FR-04 Shrinkage D/N | 3.3 |
-| FR-05/06/07 Turmas e rotação | 3.4, 4.2 |
-| FR-08/09 Hora ficta, Súmula 60 | 4.4 |
-| FR-10/11/12 Interjornada, revezamento 6h, DSR | 3.1, 3.4, 4.3, T5 |
-| FR-13 Extrato | 4.4 |
-| FR-14 Substituição / 5ª turma | T6 |
-| NFR-01/02/03/04 | T4 (desempenho, precisão, heatmap), T7 (export) |
-| Histórias 1, 2, 3 | §4.1, §4.2, §4.3 |
+| FR-01/02 Curva 168 h / postos fixos | 3.2 |
+| FR-03 Shrinkage D/N | 3.3 |
+| FR-04 Erlang-C (P2) | 3.2 (desabilitado) |
+| FR-05/06/07 Turmas, gerador, rotação customizada | 3.4, T4 `escala` |
+| FR-08 Dimensionamento K/headcount | painel Resumo T3, 3.4, T4 card "Como fechar o déficit" |
+| FR-09 Cobertura e heatmap | T4 `cobertura`, T2.1 |
+| FR-10 Furos no intervalo | 3.4, T4 `cobertura` |
+| FR-11 Cobertura com shrinkage | 3.3, T4 `cobertura` |
+| FR-12 Folgas e feriados | 3.1, T4 `cobertura`/`escala`, T5 |
+| FR-13 Folguistas/volantes | 3.3, 3.4, T4, T5 |
+| FR-14 KPIs de cobertura | cabeçalho T4, T6 |
+| FR-15–FR-20 Viabilidade CLT | 3.1, 3.4, T4 `viabilidade`, T5 |
+| FR-21 Calendário cíclico | T4 `escala` |
+| FR-22 Comparador operacional | T6 |
+| FR-23 Export | T7 |
+| FR-24 Salvar/duplicar/versionar | T2.1, T3, T5 |
+| FR-25–27 Financeiro (P2) | T4 `custos`, 3.5 (oculto no MVP) |
+| NFR-01/03/06 | T4 (desempenho, auditoria, acessibilidade) |
