@@ -1,0 +1,42 @@
+# Golden M2b — catálogo essencial (01-PRD §6.1/§6.2). revisao: pendente-SME
+casos:
+  - id: GT-CAT-6X1_BASE
+    tipo: catalogo
+    entrada: {modelo: 6X1_BASE}
+    esperado: {k_estrela: '7/2', exato: false, horas_semanais: ['48', '44'], folgas_7d: '1'}
+  - id: GT-CAT-5X2
+    tipo: catalogo
+    entrada: {modelo: 5X2}
+    esperado: {k_estrela: '21/5', exato: false, horas_semanais: ['40', '44'], folgas_7d: '2'}
+  - id: GT-CAT-12X36
+    tipo: catalogo
+    entrada: {modelo: 12X36}
+    esperado: {k_estrela: '4', exato: true, horas_semanais: ['42'], folgas_7d: '7/2'}
+  - id: GT-CAT-6X2
+    tipo: catalogo
+    entrada: {modelo: 6X2}
+    esperado: {k_estrela: '4', exato: true, horas_semanais: ['42'], folgas_7d: '7/4'}
+  - id: GT-CAT-4X2
+    tipo: catalogo
+    entrada: {modelo: 4X2}
+    esperado: {k_estrela: '9/2', exato: false, horas_semanais: ['112/3'], folgas_7d: '7/3'}
+  - id: GT-CAT-2X2_12H
+    tipo: catalogo
+    entrada: {modelo: 2X2_12H}
+    esperado: {k_estrela: '4', exato: true, horas_semanais: ['42'], folgas_7d: '7/2'}
+  - id: GT-CAT-5T
+    tipo: catalogo
+    entrada: {modelo: 5T}
+    esperado: {k_estrela: '5', exato: true, horas_semanais: ['168/5'], folgas_7d: '14/5'}
+  - id: GT-CAT-4X3
+    tipo: catalogo
+    entrada: {modelo: 4X3}
+    esperado: {k_estrela: null, exato: null, horas_semanais: ['40'], folgas_7d: '3'}
+  - id: GT-CAT-FIXO_D
+    tipo: catalogo
+    entrada: {modelo: FIXO_D}
+    esperado: {k_estrela: '2', exato: true, horas_semanais: ['42'], folgas_7d: '7/2'}
+  - id: GT-CAT-FIXO_N
+    tipo: catalogo
+    entrada: {modelo: FIXO_N}
+    esperado: {k_estrela: '2', exato: true, horas_semanais: ['42'], folgas_7d: '7/2'}

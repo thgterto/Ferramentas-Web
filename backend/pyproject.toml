@@ -1,0 +1,69 @@
+[build-system]
+requires = ["setuptools>=75", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ferramentas-web-backend"
+version = "0.1.0"
+description = "API ChemFlow (atas) + Simulador de Cobertura de Escalas 24/7"
+requires-python = ">=3.12"
+dependencies = [
+  "fastapi==0.115.6",
+  "uvicorn==0.34.0",
+  "pydantic==2.10.4",
+  "pydantic-settings==2.7.1",
+  "sqlalchemy==2.0.36",
+  "alembic==1.14.0",
+  "psycopg2-binary==2.9.10",
+  "pyyaml==6.0.2",
+  "python-multipart==0.0.20",
+  "openpyxl==3.1.5",
+]
+
+[project.optional-dependencies]
+dev = [
+  "ruff==0.8.6",
+  "mypy==1.14.1",
+  "pytest==8.3.4",
+  "pytest-cov==6.0.0",
+  "httpx==0.28.1",
+  "types-PyYAML==6.0.12.20241230",
+]
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+
+[tool.setuptools.package-data]
+"app.services.engine" = ["seeds/*.yaml"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+# Módulo de atas existente fica fora do lint (não alterar — regra do plano §11).
+extend-exclude = [
+  "app/api/v1/endpoints/atas.py",
+  "app/services/ata_excel_service.py",
+  "app/schemas/ata.py",
+  "alembic/versions",
+]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "RUF"]
+ignore = ["RUF001", "RUF002", "RUF003"]  # acentos/sinais em português
+
+[tool.mypy]
+python_version = "3.12"
+warn_unused_configs = true
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "app.services.engine.*"
+strict = true
+
+[[tool.mypy.overrides]]
+module = ["app.api.v1.endpoints.atas", "app.services.ata_excel_service", "app.schemas.ata"]
+ignore_errors = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

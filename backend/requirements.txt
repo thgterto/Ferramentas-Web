@@ -11,3 +11,6 @@ sqlalchemy
 psycopg2-binary
 python-multipart
 openpyxl
+pydantic-settings
+alembic
+pyyaml
