@@ -1,0 +1,474 @@
+# TRD — Simulador de Escalas 24/7 (CLT Brasil)
+
+| Metadado | Detalhe |
+| :--- | :--- |
+| **Documento** | Technical Requirements Document (TRD) |
+| **Base** | `00-prd-original.md` (PRD v2.0) |
+| **Repositório** | `Ferramentas-Web` — `frontend/` (React 19 + TS + Vite 7 + Tailwind 4) e `backend/` (FastAPI) |
+| **Status** | Proposto |
+| **Data** | Novembro de 2026 |
+
+> **Aviso jurídico:** as regras trabalhistas aqui codificadas são parametrizáveis e versionadas (ver §5.7). O motor emite **alertas e bloqueios técnicos**, não parecer jurídico. Toda regra tem fonte normativa registrada e pode ser sobrescrita por ACT/CCT cadastrada.
+
+---
+
+## 1. Estado atual do repositório
+
+- **Backend** (`backend/app`): FastAPI com estrutura `api/v1/endpoints`, `schemas`, `services`; hoje contém apenas o módulo `atas`. `requirements.txt` já traz `fastapi`, `uvicorn`, `pandas`, `sqlalchemy`, `psycopg2-binary`, `celery`, `redis`. **Não há** Alembic, Pydantic Settings, OR-Tools, NumPy explícito, autenticação nem testes.
+- **Frontend** (`frontend/src`): app Vite mínimo (`App.tsx`), já com `zustand@5`, `react-plotly.js`, `tailwind-merge`. **Não há** TanStack Query, react-hook-form, zod, Recharts nem roteamento.
+- **Consequência:** o simulador entra como um novo *bounded context* `escalas` no mesmo monólito modular, sem afetar `atas`.
+
+---
+
+## 2. Arquitetura
+
+### 2.1 Visão de componentes
+
+```mermaid
+flowchart LR
+  subgraph FE["Frontend — React 19 + TS + Vite"]
+    UI["Páginas: Demanda 168h · Turmas · Compliance · Financeiro · Comparador"]
+    RHF["react-hook-form + zod<br/>(validação de entrada)"]
+    ZS["Zustand<br/>(estado de edição do cenário)"]
+    TQ["TanStack Query<br/>(cache servidor / mutations)"]
+    VIZ["Plotly heatmap 7x24<br/>Recharts (custos, payback)"]
+    UI --> RHF --> ZS --> TQ
+    TQ --> VIZ
+  end
+
+  subgraph BE["Backend — FastAPI (monólito modular)"]
+    API["/api/v1/escalas/*<br/>routers + Pydantic v2"]
+    AUTH["Auth JWT + tenant guard<br/>(org_id)"]
+    SVC["Application services<br/>(orquestram casos de uso)"]
+    subgraph ENG["Motor (pure Python, sem I/O)"]
+      DEM["M1 Demanda + Shrinkage"]
+      NOT["M2 Hora noturna ficta + Súmula 60"]
+      OPT["M3 Otimizador ILP (OR-Tools CP-SAT)"]
+      GEN["M4 Gerador cíclico de turmas"]
+      VAL["M5 Validador de compliance"]
+      FIN["M6 Motor financeiro (Decimal)"]
+    end
+    REPO["Repositórios SQLAlchemy 2"]
+    WRK["Celery worker<br/>(ILP grande / export WFM)"]
+  end
+
+  DB[("PostgreSQL<br/>RLS por org_id")]
+  RDS[("Redis<br/>broker + cache de resultado")]
+  OBS["OpenTelemetry → logs/métricas/traces"]
+
+  TQ -- "HTTPS JSON (JWT)" --> API
+  API --> AUTH --> SVC
+  SVC --> DEM --> NOT --> OPT --> GEN --> VAL --> FIN
+  SVC --> REPO --> DB
+  SVC -- "jobs > 2s" --> RDS --> WRK --> ENG
+  API -.-> OBS
+  WRK -.-> OBS
+```
+
+### 2.2 Princípios
+1. **Motor puro e determinístico:** `backend/app/escalas/engine/` não importa FastAPI, SQLAlchemy nem relógio do sistema. Entrada = Pydantic/dataclasses imutáveis; saída = resultado + lista de `Achado` (código, severidade, local, fonte normativa). Permite golden tests e execução em worker.
+2. **Simular por turma, expandir por colaborador** (§6): o custo computacional depende do nº de turmas/padrões, não de colaboradores.
+3. **Dois domínios numéricos separados:** horas/cobertura em `int` (minutos) e NumPy; dinheiro e hora ficta em `Decimal`/`Fraction`. Nunca `float` em valor monetário.
+4. **Síncrono por padrão, assíncrono por exceção:** simulação de padrão catalogado (12x36, 6x2, 5 turmas) roda síncrona (< 2 s). Otimização ILP livre com horizonte longo ou export WFM vai para Celery com `job_id` e polling.
+
+### 2.3 Estrutura de pastas proposta
+
+```
+backend/app/escalas/
+  api/            routers (cenarios.py, simulacoes.py, catalogo.py, export.py)
+  schemas/        Pydantic v2 (entrada/saída da API)
+  domain/         entidades, enums (Turno, CodigoAchado), value objects (Minutos, Dinheiro)
+  engine/
+    demanda.py  shrinkage.py  noturno.py  otimizador.py
+    gerador.py  compliance/ (regras/*.py, registro.py)  financeiro.py
+  services/       casos de uso (simular_cenario, comparar_cenarios)
+  repositories/   SQLAlchemy 2 (Mapped[], select())
+  models/         ORM
+backend/alembic/  migrações
+backend/tests/escalas/ unit · golden · property · perf
+frontend/src/features/escalas/
+  api/ (hooks TanStack)  store/ (zustand)  schemas/ (zod)  components/  pages/
+```
+
+---
+
+## 3. Stack
+
+| Camada | Tecnologia | Uso |
+| :--- | :--- | :--- |
+| API | FastAPI, Uvicorn | REST `/api/v1/escalas` |
+| Contratos | Pydantic v2 (`ConfigDict(frozen=True, strict=True)`), `pydantic-settings` | Validação, OpenAPI → tipos TS gerados (`openapi-typescript`) |
+| Persistência | SQLAlchemy 2 (estilo `Mapped`), Alembic, PostgreSQL 16 (JSONB para matrizes) | Cenários, turmas, CCTs, resultados versionados |
+| Otimização | **OR-Tools CP-SAT** | ILP de cobertura (M3) — inteiro nativo, multi-thread, limite de tempo |
+| Numérico | **NumPy** (`int16/int32`) | Matriz 168h/10080 min, cobertura vetorizada |
+| Dinheiro | `decimal.Decimal` (contexto `prec=28`, `ROUND_HALF_EVEN` interno, `ROUND_HALF_UP` contábil 2 casas) e `fractions.Fraction` para 8/7 | NFR-02 |
+| Assíncrono | Celery + Redis (já no requirements) | ILP longo, export WFM |
+| Auth | JWT (PyJWT, RS256), `passlib[argon2]` | Multi-tenant |
+| Observabilidade | OpenTelemetry SDK, `structlog`, Prometheus `/metrics` | §9 |
+| Testes BE | pytest, **hypothesis**, pytest-benchmark, syrupy (snapshot golden) | §10 |
+| Frontend | React 19, TS strict, Vite 7, Tailwind 4 | SPA |
+| Estado | **TanStack Query v5** (servidor), **Zustand v5** (rascunho do cenário, undo) | |
+| Formulários | **react-hook-form + zod** (`@hookform/resolvers`) | Esquemas espelham Pydantic |
+| Gráficos | **Plotly** (`react-plotly.js`, já instalado) para heatmap 7x24; **Recharts** para barras/linhas de custo e payback | NFR-03 |
+| Testes FE | Vitest, Testing Library, Playwright (E2E), MSW | |
+
+**Dependências a adicionar (backend):** `ortools`, `numpy`, `alembic`, `pydantic-settings`, `pyjwt[crypto]`, `passlib[argon2]`, `structlog`, `opentelemetry-*`, `hypothesis`, `pytest-benchmark`, `syrupy`.
+**Frontend:** `@tanstack/react-query`, `react-hook-form`, `zod`, `@hookform/resolvers`, `recharts`, `react-router`.
+
+---
+
+## 4. Modelo de dados (resumo)
+
+```mermaid
+erDiagram
+  ORGANIZACAO ||--o{ USUARIO : possui
+  ORGANIZACAO ||--o{ CONVENCAO_COLETIVA : cadastra
+  ORGANIZACAO ||--o{ CENARIO : possui
+  CENARIO ||--|| DEMANDA_168H : define
+  CENARIO ||--o{ TURMA : agrupa
+  CENARIO }o--|| CONVENCAO_COLETIVA : aplica
+  TURMA ||--o{ COLABORADOR : contem
+  TURMA }o--|| PADRAO_CICLICO : segue
+  CENARIO ||--o{ SIMULACAO : executa
+  SIMULACAO ||--o{ ACHADO_COMPLIANCE : gera
+  SIMULACAO ||--|| RESULTADO_FINANCEIRO : gera
+```
+
+- Toda tabela de negócio tem `org_id UUID NOT NULL` + índice composto `(org_id, id)` + **Row-Level Security** (`current_setting('app.org_id')`).
+- `PADRAO_CICLICO`: `codigo` (ex.: `6X2_4T_MMTTNNFF`), `ciclo_dias`, `sequencia` (`text[]` de turnos), `offset_por_turma`.
+- `TURNO`: `inicio_min`, `duracao_min`, `intervalo_min`, `intervalo_coberto_por_volante: bool`.
+- `SIMULACAO`: `hash_entrada` (SHA-256 do JSON canônico), `versao_motor`, `versao_regras`, `resultado JSONB` — reprodutibilidade e cache.
+- `CONVENCAO_COLETIVA`: `%adic_noturno`, `%HE` por faixa, `autoriza_8h_revezamento`, `periodicidade_domingo_semanas`, `vigencia`.
+
+---
+
+## 5. Módulos do motor — algoritmos e complexidade
+
+Notação: `H = 168` horas (ou `S = 336` slots de 30 min), `K` = nº de turmas, `C` = nº de colaboradores, `D` = dias do horizonte, `J` = nº de turnos candidatos.
+
+### 5.1 M1 — Demanda (FR-01..03)
+
+Representação: `np.ndarray[int32]` shape `(7, 24)` (ou `(7, 48)`), reindexável para vetor circular de 168 posições (`idx = dia*24 + hora`, segunda 00h = 0). Turnos que cruzam a meia-noite de domingo fazem *wrap* para segunda (operação 24/7 é cíclica).
+
+```python
+def demanda_bruta(cfg) -> np.ndarray:               # O(H)
+    match cfg.modo:
+        case POSTOS_FIXOS:  return cfg.postos            # P(d,t) = k
+        case PRODUTIVIDADE: return cfg.volume / (cfg.uph * cfg.delta_t)   # float, arredondado só no fim
+        case ERLANG_C:      return np.vectorize(erlang_c_agentes)(cfg.trafego, cfg.sl_alvo, cfg.tma, cfg.tempo_alvo)
+```
+
+Erlang-C: busca incremental de `m` a partir de `ceil(A)+1`, usando recorrência de Erlang-B em log-espaço para estabilidade (`B(m) = A·B(m-1)/(m + A·B(m-1))`). Complexidade `O(H · m_max)`.
+
+### 5.2 M1b — Shrinkage diferenciado (FR-04)
+
+```python
+S = 1 - (1 - S_int[t]) * (1 - S_ext[d, t])            # vetorizado (7,24)
+N_req = np.ceil(FTE_bruto / (1 - S) - 1e-9).astype(int32)   # O(H)
+```
+- Validação: `0 ≤ S < 0.9` (bloqueia divisão explosiva). Epsilon evita `ceil(3.0000000001)=4` por ruído de float.
+- **Ressalva:** aplicar `ceil` hora a hora e depois somar superdimensiona; o motor guarda também `FTE_liquido` fracionário para relatórios.
+
+### 5.3 M2 — Hora noturna ficta e Súmula 60 (FR-08, FR-09)
+
+Fator exato: `60/52,5 = 8/7` (`Fraction(8, 7)`). O PRD usa `1.142857` (arredondado): **erro de 1,43·10⁻⁷ por hora**, que se acumula em folhas grandes. Regra: calcular em `Fraction`/minutos e converter para `Decimal` com 6 casas **só na saída** (NFR-02).
+
+```python
+NOITE_INI, NOITE_FIM = 22*60, 5*60      # minutos do dia
+
+def minutos_noturnos(inicio_abs: int, fim_abs: int, sumula60: bool) -> int:   # O(dias do turno) ≈ O(1)
+    """inicio/fim em minutos absolutos desde a época do horizonte."""
+    noturno = interseccao(inicio_abs, fim_abs, janelas_22_05)
+    if sumula60 and turno_cumpriu_integralmente_periodo_noturno(inicio_abs, fim_abs):
+        noturno += max(0, fim_abs - proximo_05h(inicio_abs))   # prorrogação após 05h
+    return noturno
+
+def horas_fictas(min_noturnos: int) -> Fraction:
+    return Fraction(min_noturnos, 60) * Fraction(8, 7)
+```
+
+Regras de aplicação da Súmula 60 (II):
+- Aplica se a jornada **cobriu integralmente 22h–05h** e prorrogou após 05h. O TST (OJ 388 SDI-1) estende também à jornada 12x36 que cobre todo o período noturno.
+- **Conflito sinalizado:** o art. 59-A, parágrafo único, da CLT (Reforma 2017) diz que a remuneração da 12x36 já abrange "as prorrogações de trabalho noturno". O motor deixa isso como parâmetro `sumula60_em_12x36: bool` (padrão `true`, conservador) com achado `INFO_DIVERGENCIA_59A_SUMULA60`.
+- Turno 19h–07h: 7 h de relógio (22–05) → **8,000000 h fictas**; prorrogação 05–07 (2 h) → +2,285714 h fictas se Súmula 60 ativa. Turno 22h–06h: 7 h + 1 h prorrogada → 8 h + 1,142857 h = 9,142857 h fictas.
+- **Intervalo intrajornada** que cai na janela noturna é descontado antes da conversão.
+
+### 5.4 M3 — Otimizador de cobertura (ILP, CP-SAT) (Algoritmo 2 do PRD)
+
+Variáveis: `x[j,d] ∈ ℤ≥0` (nº de pessoas iniciando o turno `j` no dia `d`), `o[h] ≥ 0` (sobrecobertura), `u[h] ≥ 0` (déficit, fixado em 0 para postos críticos).
+
+```
+min  Σ c_j·x[j,d] + α·Σ u[h] + β·Σ o[h] + γ·Σ z[d]
+s.a. Σ_{j,d} A[(j,d),h]·x[j,d] + u[h] − o[h] = N_req[h]      ∀h ∈ 0..167 (cíclico)
+     u[h] = 0                                                 ∀h ∈ postos_criticos
+     x[T1,d] − x[T2,d] ≤ z[d];  x[T2,d] − x[T1,d] ≤ z[d];  z[d] ≤ Δmax   (linearização do |·|)
+```
+
+**Correções à formulação do PRD:**
+1. `a_{j,t}` foi indexado só por hora do dia — turnos noturnos (22h–06h, 19h–07h) cruzam o dia. A matriz correta é `A ∈ {0,1}^{(J·7) × 168}` sobre o **vetor circular semanal**.
+2. `|x_T1 − x_T2| ≤ Δ` não é linear; usar o par de restrições acima.
+3. `c_j` mistura salário mensal com custo horário. Definir `c_j` como **custo semanal marginal de uma pessoa no turno j** = `horas_pagas_j · valor_hora · (1 + %adic·frac_noturna_ficta_j) · (1 + encargos)`, pré-calculado em `Decimal` e escalado para inteiro (centavos) porque CP-SAT só aceita coeficientes inteiros.
+4. O ILP dimensiona **postos por turno/dia**; não garante que esses postos sejam preenchíveis por um padrão cíclico de turmas. O pipeline correto é: ILP → `y_j = max_d x[j,d]` → M4 escolhe o padrão que realiza `y_j` (ou o ILP é resolvido com restrição de forma cíclica, modo avançado).
+
+Complexidade: problema NP-difícil em geral, mas instâncias são pequenas (`J ≤ 20`, `7·J ≤ 140` variáveis inteiras, 168 restrições). CP-SAT resolve em ms–centenas de ms. Limite `max_time_in_seconds=1.5`, `num_workers=8`; se `FEASIBLE` e não `OPTIMAL`, devolve gap e achado `INFO_SOLUCAO_SUBOTIMA`. Entrada com `INFEASIBLE` → `ERRO_DEMANDA_INVIAVEL_COM_TURNOS`.
+
+### 5.5 M4 — Gerador cíclico de turmas (FR-05..07)
+
+Um padrão = `(sequencia: list[Turno|F], ciclo L, K turmas, offset)`. Turma `i` no dia absoluto `d` executa `seq[(d + offset_i) mod L]`.
+
+```python
+def gerar_matriz_turmas(padrao, D) -> np.ndarray:           # O(K·D) — K≈4..6
+    d = np.arange(D)
+    idx = (d[None, :] + padrao.offsets[:, None]) % padrao.L   # (K, D)
+    return padrao.seq_codificada[idx]                         # códigos int8
+
+def cobertura_168h(matriz_turmas, turnos, pessoas_por_turma) -> np.ndarray:   # O(K·D·24)
+    # mascaras pré-computadas turno -> vetor de 24*2 (para wrap noturno)
+    ...
+
+def expandir(matriz_turmas, alocacao_colab_turma) -> np.ndarray:  # O(C·D) via fancy indexing
+    return matriz_turmas[alocacao_colab_turma]        # view/cópia int8: 1000×56 = 56 KB
+```
+
+**Teste de viabilidade analítico (antes de gerar):** para `s` turnos/dia de cobertura contínua e padrão com `w` dias trabalhados em ciclo `L`, o nº de turmas para cobrir **1 equipe por turno** é
+
+$$K^\* = \frac{s \cdot L}{w}$$
+
+e a cobertura é exata somente se `K*` é inteiro e os offsets distribuem cada turno uniformemente. Esse teste corrige várias afirmações do PRD (ver §11).
+
+Construção de offsets: `offset_i = i·L/K` quando inteiro; senão busca por backtracking/CP-SAT pequeno (`K ≤ 8`, `L ≤ 42`) que minimiza `Σ|cobertura − alvo|`. Ciclo de calendário = `lcm(L, 7)` dias (6x2: `lcm(8,7)=56` dias = 8 semanas, como o PRD afirma corretamente).
+
+**12x36:** usar índice de **dia absoluto** (`(data − data_ancora).days mod 2`), nunca `dia_do_mês mod 2` (o PRD usa `d mod 2` com `d ∈ 1..30`: em meses de 31 dias, dias 31 e 1 são ambos ímpares → a turma trabalharia 12x12 e outra folgaria 60h).
+
+### 5.6 M5 — Validador de compliance (FR-10..12)
+
+Entrada: para cada **turma** (não colaborador), lista ordenada de jornadas `(ini_abs, fim_abs, turno)` em minutos absolutos. Regras são plugins registrados (`@regra(codigo, severidade, fonte)`) e recebem `(jornadas, ctx_cct)`.
+
+**Correção:** o PRD calcula interjornada com `(I − F) mod 24`, o que **erra** quando há folga no meio (ex.: 2 dias de folga viram "< 24h") e quando o turno cruza a meia-noite. Usar diferença de timestamps absolutos: `Δ = ini[k+1] − fim[k]`.
+
+| Código | Severidade | Regra | Fonte |
+| :--- | :--- | :--- | :--- |
+| `ERRO_CRITICO_QUEBRA_INTERJORNADA` | Bloqueio | `ini[k+1] − fim[k] < 11h` | CLT art. 66 |
+| `ERRO_DSR_35H_INSUFICIENTE` | Bloqueio | Em toda janela de 7 dias deve existir repouso contínuo ≥ 35h (24h + 11h) | CLT art. 67 + 66; Súmula 110 TST |
+| `ERRO_DSR_APOS_7O_DIA` | Bloqueio | > 6 dias consecutivos de trabalho | OJ 410 SDI-1 TST |
+| `ALERTA_DOMINGO_PERIODICIDADE` | Alerta | Intervalo entre domingos de folga > `W_limite` (comércio: 3 semanas, Lei 10.101/2000 art. 6º p.ú.; demais: escala de revezamento, Portaria MTP 671/2021) | |
+| `BLOQUEIO_VIOLACAO_REGIME_12X36` | Bloqueio | Em turma 12x36: jornada > 12h, repouso < 36h após cada plantão, ou dobra | CLT art. 59-A |
+| `ALERTA_CF_TURNO_REVEZAMENTO_6H` | Alerta → Bloqueio sem flag | Turma alterna turnos que cobrem dia e noite e jornada > 6h, sem `cct.autoriza_8h_revezamento` | CF art. 7º, XIV; Súmula 423 TST (limite 8h) |
+| `ERRO_JORNADA_DIARIA_EXCEDIDA` | Bloqueio | > 8h + 2h HE (> 10h) fora de 12x36 | CLT art. 59 |
+| `ALERTA_INTRAJORNADA` | Alerta | Jornada > 6h com intervalo < 1h (ou < 30 min com CCT) | CLT art. 71; 611-A, III |
+| `ALERTA_MEDIA_SEMANAL_EXCEDIDA` | Alerta | Média no ciclo > carga contratual → gera HE (alimenta M6) | CF art. 7º, XIII |
+| `ERRO_COBERTURA_POSTO_CRITICO` | Bloqueio | `cobertura[h] < N_req[h]` em posto crítico | FR-02 |
+| `INFO_DIVERGENCIA_59A_SUMULA60` | Info | §5.3 | |
+
+Algoritmo:
+```python
+def validar(turmas, ctx) -> list[Achado]:            # O(K · J_k · R), R = nº de regras
+    achados = []
+    for turma in turmas:                              # ~5 turmas
+        j = turma.jornadas                            # ndarray (n,2) ordenado
+        gaps = j[1:, 0] - j[:-1, 1]                   # vetorizado
+        for k in np.flatnonzero(gaps < 11*60): achados.append(Achado(ERRO_CRITICO_QUEBRA_INTERJORNADA, turma, k))
+        # janela deslizante 7 dias para 35h: max(gaps) em cada janela via sliding_window_view → O(n)
+        ...
+    return achados
+```
+Colaboradores individuais só são validados quando há **exceção** (troca, dobra, folguista — História 2); nesse caso a regra roda sobre a linha expandida do colaborador. A sugestão de folguista (História 2) é uma busca `O(C)` por colaboradores com `ultimo_fim ≤ ini_plantao − 36h` e mesma qualificação.
+
+### 5.7 M6 — Motor financeiro (FR-13, FR-14)
+
+Tudo em `Decimal` com `getcontext().prec = 28`; quantização intermediária em 6 casas (`Decimal('0.000001')`, `ROUND_HALF_EVEN`) e final em 2 casas (`ROUND_HALF_UP`).
+
+```python
+valor_hora   = salario_base / carga_mensal                       # ex.: 220h (44h) / 200h (40h) / 180h (36h)
+adic_not     = horas_fictas_mes * valor_hora * pct_adic_not      # pct ≥ 0,20 (urbano); CCT pode elevar
+dsr_adic     = adic_not * (domingos_feriados_mes / dias_uteis_mes)   # Súmula 172 TST / Lei 605/49 art. 7º
+he_horas     = max(0, horas_reais_periodo - carga_contratual_periodo)
+custo_he     = he_horas * valor_hora * (1 + pct_he) * (1 + pct_adic_not if he_noturna else 1)   # HE noturna: adicional sobre adicional (OJ 97 SDI-1)
+dsr_he       = custo_he * (domingos_feriados_mes / dias_uteis_mes)          # Súmula 172
+encargos     = (salario + adic_not + dsr_adic + custo_he + dsr_he + adic_peric_insal) * pct_encargos
+total        = salario + adic_not + dsr_adic + custo_he + dsr_he + adic_peric_insal + encargos
+```
+
+**Correções:**
+- PRD multiplica `CustoHE` por `(1 + Encargos)` e depois soma `EncargosSociais` na fórmula do total → **dupla contagem**. Encargos incidem uma vez, sobre a soma das verbas.
+- PRD não inclui **DSR sobre HE** (também Súmula 172) — incluído.
+- `dias_uteis_mes` = dias do mês − domingos − feriados (inclui sábados), parametrizável por CCT.
+- Periculosidade (30% sobre salário base, art. 193) e insalubridade (10/20/40% sobre salário mínimo, salvo CCT) são **base** de cálculo do adicional noturno quando habituais (OJ 259 SDI-1).
+- HE em 4 turmas: média de 42h/sem só gera HE contra contratos < 42h (40h → 2h/sem; 36h → 6h/sem). Contra 44h **não há HE** — o PRD sugere "demandando ajustes" sem quantificar.
+- Anualização: `total_mensal_medio × 12 + 13º + férias + 1/3` (provisões configuráveis).
+
+Complexidade: `O(K · meses)` — o cálculo é por turma × nº de colaboradores (multiplicação escalar), não por colaborador.
+
+---
+
+## 6. Estratégia de performance (NFR-01: 1.000 colaboradores ≤ 2 s)
+
+**Ideia central:** colaboradores de uma mesma turma têm escala idêntica. Simulação, compliance e financeiro são calculados para `K` turmas (+ exceções) e **expandidos** por indexação NumPy apenas para exibição/export.
+
+| Etapa | Custo | Estimativa (C=1000, K=5, D=56) |
+| :--- | :--- | :--- |
+| M1+M1b demanda/shrinkage | `O(H)` vetorizado | < 1 ms |
+| M3 CP-SAT (se modo otimizador) | ~140 vars inteiras | 50–500 ms (limite 1,5 s) |
+| M4 matriz de turmas | `O(K·D)` | < 1 ms |
+| Cobertura 168h | `O(K·D·24)` | < 5 ms |
+| M5 compliance por turma | `O(K·n·R)` | < 10 ms |
+| M6 financeiro (Decimal) | `O(K·meses)` | < 20 ms |
+| Expansão `C×D` int8 | `O(C·D)` | < 5 ms (56 KB) |
+| Serialização JSON (orjson) | resposta paginada; matriz completa só em export | < 50 ms |
+
+Medidas complementares:
+- `ORJSONResponse`; matriz individual enviada **compacta** (por turma + mapa colaborador→turma), expandida no cliente.
+- Cache por `hash_entrada` em Redis (TTL 24h); recalcular apenas módulos afetados (DAG de dependências: alterar `%adic` recomputa só M6).
+- `pytest-benchmark` em CI com orçamento: `p95 ≤ 1,5 s` para fixture `1000 colaboradores, 5 turmas, 8 semanas`; falha o build se exceder.
+- Frontend: heatmap 7×24 é trivial; calendário de colaboradores usa virtualização (`@tanstack/react-virtual`).
+
+---
+
+## 7. Precisão numérica (NFR-02)
+
+| Grandeza | Tipo | Regra |
+| :--- | :--- | :--- |
+| Tempo | `int` minutos absolutos (época = `data_ancora 00:00` local) | Sem `datetime` no núcleo; fuso `America/Sao_Paulo` só na borda (Brasil sem horário de verão desde 2019, mas tratar via `zoneinfo`) |
+| Hora ficta | `Fraction` (8/7 exato) → `Decimal` 6 casas na saída | Nunca 1.142857 literal |
+| Dinheiro | `Decimal` 28 dígitos; 6 casas intermediárias; 2 casas final `ROUND_HALF_UP` | Proibido `float` (lint `flake8` custom / `ruff` regra de banimento em `engine/financeiro.py`) |
+| Coeficientes ILP | `int` centavos | CP-SAT exige inteiros |
+| Serialização | Decimal → **string** no JSON (`"1234.560000"`) | Frontend usa `decimal.js`/formatação `Intl` sem aritmética |
+| Banco | `NUMERIC(18,6)` | |
+
+Auditoria: cada `ResultadoFinanceiro` traz `memoria_calculo` (lista de passos com fórmula, entradas e resultado), exigida pelo Jurídico/Controladoria.
+
+---
+
+## 8. Segurança e multi-tenancy
+
+- **Autenticação:** JWT de acesso RS256 (15 min) + refresh token rotativo (7 dias, httpOnly `SameSite=Strict` cookie, revogável em tabela). Claims: `sub`, `org_id`, `roles`, `exp`, `jti`. Compatível com OIDC futuro (Azure AD/Google).
+- **Autorização:** papéis `admin_org`, `planejador`, `juridico` (pode homologar/sobrescrever alerta com justificativa), `financeiro`, `leitor`. Dependência FastAPI `require_role(...)`.
+- **Isolamento de tenant:** (1) `org_id` vindo **só** do token; (2) repositórios filtram por `org_id` obrigatoriamente; (3) **PostgreSQL RLS** com `SET LOCAL app.org_id` por transação como defesa em profundidade; (4) testes que tentam acesso cruzado (IDOR) em todos os endpoints.
+- **LGPD:** colaboradores têm dado pessoal (nome, matrícula) → minimização (simulação usa só matrícula/pseudônimo), criptografia em repouso, trilha de auditoria (`audit_log`: quem, quando, o quê), retenção configurável.
+- **Entrada:** limites Pydantic (demanda ≤ 10.000/hora, ≤ 5.000 colaboradores, horizonte ≤ 52 semanas), upload CSV/XLSX ≤ 5 MB validado por schema (openpyxl `read_only`), rate limit por org (`slowapi`), CORS restrito.
+- **Overrides jurídicos:** sobrescrever um bloqueio exige papel `juridico`, justificativa e referência a CCT — registrado de forma imutável.
+
+---
+
+## 9. Observabilidade
+
+- **Logs** estruturados (`structlog` JSON) com `request_id`, `org_id`, `cenario_id`, `hash_entrada`, `versao_motor` — sem PII.
+- **Métricas** Prometheus: `escalas_simulacao_duracao_seconds{modulo}` (histograma por M1..M6), `escalas_cpsat_status_total{status}`, `escalas_cpsat_gap`, `escalas_achados_total{codigo}`, `escalas_cache_hit_ratio`, `celery_job_duracao`.
+- **Traces** OpenTelemetry: span por módulo do motor; exportador OTLP.
+- **SLOs:** p95 `/simulacoes` síncrono ≤ 2 s; erro 5xx < 0,5%; jobs assíncronos p95 ≤ 30 s.
+- **Alertas:** p95 > 2 s por 10 min; taxa de `INFEASIBLE` anômala; fila Celery > 100.
+
+---
+
+## 10. Estratégia de testes
+
+| Nível | Ferramenta | Conteúdo |
+| :--- | :--- | :--- |
+| Unit | pytest | Cada regra de compliance e cada fórmula com casos de borda (turno cruzando meia-noite, mês de 31 dias, fevereiro, feriado em domingo) |
+| **Golden** | pytest + syrupy | Escalas conhecidas com resultado esperado conferido manualmente/por especialista: 12x36 4T, 6x2 4T `MMTTNNFF`, 3x1 4T, 5 turmas 35 dias, 6x1 baseline. Asserções: cobertura 100% nas 168h, horas fictas exatas (19–07 = 8,000000 + 2,285714 com Súmula 60), zero `ERRO_*`, valores R$ de folha de referência |
+| **Property-based** | hypothesis | Invariantes: (a) horas fictas ≥ horas de relógio noturnas; (b) `horas_fictas · 7/8 == minutos_noturnos/60` exato; (c) cobertura total = Σ horas trabalhadas das turmas; (d) deslocar todos os offsets por `c` não altera achados (invariância a rotação); (e) qualquer sequência gerada sem `ERRO_CRITICO_QUEBRA_INTERJORNADA` tem todos os gaps ≥ 660 min; (f) total financeiro é monotônico em `%adic_noturno`; (g) `K < s·L/w` ⇒ sempre há déficit |
+| Contrato | schemathesis sobre OpenAPI | Fuzz dos endpoints |
+| Segurança | pytest | Acesso cruzado entre orgs, JWT expirado/adulterado |
+| Performance | pytest-benchmark | Orçamento §6 no CI |
+| Frontend | Vitest + Testing Library + MSW; Playwright | Schemas zod ≡ OpenAPI; fluxo História 1–3 E2E |
+
+Cobertura mínima do pacote `engine/`: 90% linhas, 100% das regras com teste positivo e negativo.
+
+---
+
+## 11. Inconsistências matemáticas e jurídicas do PRD (correções)
+
+| # | Ponto do PRD | Problema | Correção adotada |
+| :--- | :--- | :--- | :--- |
+| 1 | **6x2 4 turmas `[M,M,T,T,N,N,F,F]`, offset 2** (§6.3.B) | A cobertura **está correta** (`K* = 3·8/6 = 4`; com offsets 0,2,4,6 há exatamente 1 turma em M, T, N e F por dia) e transições M→T→N têm 24h de interjornada. Porém: (a) média = 6·8/8·7 = **42h/sem**, acima de 36h → exige ACT/CCT (CF 7º XIV) e gera **HE contra contrato de 40h ou 36h**; (b) com **1h de intervalo** em turno de 8h a cobertura efetiva é 7h → **furo de 1h por turno** sem volante/rendição; (c) "1 turma" = 1 equipe; nº de pessoas = `4 × postos`, + reserva de shrinkage. A frase "100% sem necessidade de horas extras" só vale para contrato ≥ 42h | Gerar com aviso de ACT obrigatório, intervalo coberto por volante (parâmetro) e HE calculada vs. carga contratual |
+| 2 | **4x2 com "4 ou 5 turmas"** (§4, §6.3.C) | `K* = 3·6/4 = 4,5`: **4 turmas não cobrem** 3 turnos de 8h (cobertura média 2,67 equipes/dia → déficit de 11%); 5 turmas sobrecobrem (3,33). Padrão `[M,T,N,N,F,F]` com 6 turmas dá 1M/1T/2N — desbalanceado | 4x2 contínuo de 8h exige 9 turmas em ciclo duplo (ou 5 turmas + folguistas), ou turnos de 12h (`K*=2·6/4=3`). Motor rejeita 4T com `ERRO_COBERTURA_POSTO_CRITICO` |
+| 3 | **5x2 contínuo** | `K* = 3·7/5 = 4,2` → não inteiro; precisa 5 turmas com sobrecobertura ou turnos escalonados | Sinalizado pelo teste de viabilidade |
+| 4 | **3x1 / 3x2** | 3x1: `K*=3·4/3=4` ✔; 3x2: `K*=3·5/3=5` ✔ (o PRD diz "4 a 5" sem vincular) | Vincular K ao padrão |
+| 5 | **K_min = 168/J_sem** (§6.3.1) | Válido apenas para **1 posto** e sem intervalo/shrinkage. 44h ⇒ 3,81 ⇒ 4 turmas, mas 4 turmas trabalham 42h, não 44h. Fórmula geral: `HC = ceil(168·P / (J_sem·(1−S)))` | Adotada a fórmula geral |
+| 6 | **5 turmas "36h/40h"** (§4) vs. "33,6h" (§6.3.D) | 21×8 = 168h/35 dias = **33,6h/sem**; 36h ou 40h não saem desse ciclo. 5 turmas × 21 = 105 = 3 turnos × 35 dias ✔ | Exibir 33,6h; 36h exige outro ciclo (ex.: turnos de 8h34) |
+| 7 | **Fator 1.142857** | Arredondamento de 8/7 | `Fraction(8,7)` |
+| 8 | **12x36 por `d mod 2`, d∈1..30** | Quebra em meses de 31 dias e na virada | Dia absoluto desde âncora |
+| 9 | **12x36 "2 diurnas, 2 noturnas"** | Turmas fixas noturnas não alternam dia/noite ⇒ **não** são turno ininterrupto de revezamento; correto. Média 42h/sem; Súmula 60 vs. art. 59-A divergente | Parâmetro + `INFO_DIVERGENCIA_59A_SUMULA60` |
+| 10 | **Interjornada `(I−F) mod 24`** | Falha com folgas e turnos que cruzam a meia-noite | Timestamps absolutos |
+| 11 | **ILP**: `a_{j,t}` por hora do dia, `|x|` não linear, `c_j` mistura unidades | Ver §5.4 | Vetor circular 168h, linearização, custo semanal em centavos |
+| 12 | **Custo HE × (1+Encargos) + EncargosSociais** | Dupla contagem de encargos; falta DSR sobre HE e HE noturna | §5.7 |
+| 13 | **DSR 35h** | Correto (Súmula 110 TST), mas falta a regra do 7º dia (OJ 410) | Regra `ERRO_DSR_APOS_7O_DIA` |
+| 14 | **Turno ininterrupto** | Limite com negociação coletiva é **8h** (Súmula 423); jornadas de 12h em revezamento dia/noite são inválidas mesmo com ACT | `ALERTA_CF_TURNO_REVEZAMENTO_6H` vira bloqueio se jornada > 8h em revezamento |
+| 15 | **História 3**: "4 turmas com 2 HE semanais" | Verdadeiro apenas para contrato de 40h (42 − 40) | Explicitar a carga contratual no comparador |
+
+---
+
+## 12. Contratos de API (resumo)
+
+Base: `/api/v1/escalas`. JSON, `Decimal` serializado como string, tempos em minutos ou `HH:MM`.
+
+| Método | Rota | Descrição |
+| :--- | :--- | :--- |
+| `POST` | `/auth/token`, `/auth/refresh` | Login / refresh |
+| `GET` | `/catalogo/padroes` | Padrões cíclicos com `K*`, média semanal, flags legais |
+| `CRUD` | `/cenarios` | Cenário (demanda, turnos, turmas, CCT) |
+| `POST` | `/cenarios/{id}/demanda/import` | Upload CSV/XLSX 168h |
+| `POST` | `/cenarios/{id}/simulacoes` | Executa M1→M6. `?modo=sync|async`. 200 com resultado ou 202 `{job_id}` |
+| `GET` | `/simulacoes/{id}` | Resultado: `cobertura[7][24]`, `heatmap_status`, `turmas`, `achados[]`, `financeiro`, `memoria_calculo` |
+| `GET` | `/jobs/{job_id}` | Status do job assíncrono |
+| `POST` | `/comparacoes` | `{cenario_ids:[...]}` → tabela lado a lado + payback |
+| `POST` | `/simulacoes/{id}/overrides` | Homologação jurídica de achado (papel `juridico`) |
+| `GET` | `/simulacoes/{id}/export?formato=afdt|acjef|totvs|senior|adp|sap|xlsx|ics` | Export WFM / calendário pessoal (async) |
+
+Exemplo (resumido):
+```json
+POST /api/v1/escalas/cenarios/{id}/simulacoes
+{ "horizonte_semanas": 8, "padrao": "6X2_4T_MMTTNNFF", "data_ancora": "2026-12-07",
+  "otimizar": false, "sumula60": true }
+
+200 OK
+{ "simulacao_id": "…", "versao_motor": "1.0.0", "hash_entrada": "sha256:…",
+  "cobertura": { "requerido": [[…24]…7], "alocado": [[…]], "status": [["OK","SOBRA","DEFICIT",…]] },
+  "turmas": [{ "codigo":"A", "headcount": 12, "sequencia":["M","M","T","T","N","N","F","F"], "offset":0,
+               "media_semanal_horas":"42.000000", "horas_fictas_ciclo":"…" }],
+  "achados": [{ "codigo":"ALERTA_CF_TURNO_REVEZAMENTO_6H", "severidade":"ALERTA",
+                "turma":"A", "fonte":"CF/88 art. 7º XIV; Súmula 423 TST", "bloqueante": false }],
+  "financeiro": { "mensal": { "salarios":"…", "adicional_noturno":"…", "dsr_adicional_noturno":"…",
+                  "horas_extras":"…", "dsr_horas_extras":"…", "encargos":"…", "total":"…" },
+                  "anual_total":"…" } }
+```
+Erros: RFC 7807 (`application/problem+json`) com `code` estável (`VALIDACAO_ENTRADA`, `CENARIO_NAO_ENCONTRADO`, `ERRO_DEMANDA_INVIAVEL_COM_TURNOS`, `TENANT_PROIBIDO`).
+
+---
+
+## 13. ADRs principais
+
+### ADR-001: Monólito modular no backend FastAPI existente
+**Status:** Aceito. **Contexto:** repositório já tem FastAPI com módulo `atas`; time pequeno. **Opções:** (A) novo pacote `app/escalas` no monólito; (B) microserviço separado. **Decisão:** A. Menor custo operacional, reutiliza deploy; o motor puro permite extrair para serviço depois. **Consequência:** disciplina de fronteira (motor sem I/O) verificada por `import-linter`.
+
+### ADR-002: OR-Tools CP-SAT como solver
+**Status:** Aceito. **Opções:** CP-SAT, PuLP+CBC, HiGHS (scipy.milp), Gurobi. | Critério | CP-SAT | PuLP/CBC | HiGHS | Gurobi | — Licença: Apache / EPL / MIT / comercial. Desempenho em inteiros puros: alto / médio / alto / altíssimo. Restrições lógicas (cíclicas, no-overlap): nativas / não / não / parcial. **Decisão:** CP-SAT — gratuito, multi-thread, suporta restrições de padrão de escala (automata, `AddCircuit`) úteis no modo avançado. **Contra:** coeficientes inteiros (resolvido com centavos), wheel ~30 MB.
+
+### ADR-003: Simular por turma e expandir por colaborador
+**Status:** Aceito. **Contexto:** NFR-01. Alternativa: modelo por colaborador (`C×D×24` variáveis = 1,3 M para 1000×56). **Decisão:** turma como unidade; exceções individuais como *overlay*. **Consequência:** custo independe de C; casos de escala individualizada total (sem turmas) ficam fora do MVP.
+
+### ADR-004: Decimal/Fraction para dinheiro e hora ficta; int minutos para tempo
+**Status:** Aceito. **Contexto:** NFR-02, auditoria jurídica. **Decisão:** §7. **Consequência:** M6 ~10× mais lento que float, irrelevante pois é `O(K)`.
+
+### ADR-005: Regras de compliance como plugins versionados com fonte normativa
+**Status:** Aceito. **Contexto:** legislação e CCTs mudam (transição do 6x1). **Decisão:** registro de regras com `codigo`, `versao`, `vigencia`, `fonte`; parâmetros vindos da CCT. Simulação grava `versao_regras`. **Consequência:** resultados antigos reprodutíveis; nova lei = nova regra com vigência, sem alterar as antigas.
+
+### ADR-006: Síncrono por padrão, Celery para exceções
+**Status:** Aceito. Celery/Redis já estão no `requirements.txt`. Simulações catalogadas síncronas; ILP com horizonte > 12 semanas, comparações > 4 cenários e exports via job.
+
+### ADR-007: Estado no frontend — TanStack Query + Zustand
+**Status:** Aceito. Query para dados do servidor (cache por `hash_entrada`, invalidação após mutation); Zustand (já instalado) só para o rascunho do cenário em edição e undo/redo. Formulários com react-hook-form + zod; zod gerado/validado contra OpenAPI para evitar divergência.
+
+### ADR-008: Plotly para heatmap, Recharts para séries financeiras
+**Status:** Aceito. Plotly já está no projeto e entrega heatmap com hover/anotação; Recharts é mais leve e idiomático para barras/linhas. Paleta do heatmap acessível (verde/azul/vermelho + padrão/ícone, não só cor — daltonismo).
+
+---
+
+## 14. Riscos técnicos
+
+| Risco | Mitigação |
+| :--- | :--- |
+| CP-SAT não convergir em 1,5 s em demandas muito irregulares | Limite de tempo + solução viável + modo async; *warm start* com padrão catalogado |
+| Divergência de interpretação jurídica (59-A × Súmula 60; periodicidade dominical) | Regras parametrizáveis, default conservador, revisão do Jurídico em cada versão de regras |
+| Divergência de esquemas FE/BE | Tipos gerados do OpenAPI + teste de contrato |
+| Formatos WFM proprietários (TOTVS, Senior, SAP) sem especificação pública estável | Adaptadores isolados por formato, começar por AFDT/ACJEF (Portaria 671) e XLSX |
