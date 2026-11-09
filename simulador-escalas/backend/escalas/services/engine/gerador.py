@@ -1,0 +1,171 @@
+"""M2 — Gerador cíclico genérico de turmas (FR-05, FR-06).
+
+Turma ``i`` no dia absoluto ``d`` executa ``seq[(d + offset_i) mod L]``, com ``d`` contado
+a partir da **data-âncora** do cenário — nunca o dia do mês (TRD §5.3, correção do 12x36).
+Nenhum modelo tem código próprio aqui: todos chegam como dados (ADR-010, ``catalogo.py``).
+"""
+
+from __future__ import annotations
+
+import time
+from datetime import date
+from fractions import Fraction
+from itertools import combinations
+from math import comb
+from string import ascii_uppercase
+
+from escalas.services.engine.types import FOLGA, RESERVA, Escala, GrupoTurmas, Padrao, Turma
+
+MAX_COMBINACOES_BUSCA = 200_000  # mantido por compatibilidade (não limita mais a busca)
+
+
+def dia_absoluto(data: date, data_ancora: date) -> int:
+    """Dias desde a data-âncora (pode ser negativo; o gerador aplica ``mod L``)."""
+    return (data - data_ancora).days
+
+
+def estado(grupo: GrupoTurmas, offset: int, d_abs: int) -> str:
+    """Estado da turma com ``offset`` no dia absoluto ``d_abs``."""
+    return grupo.sequencia[(d_abs + offset) % grupo.ciclo]
+
+
+def offsets_uniformes(ciclo: int, n_turmas: int) -> tuple[int, ...] | None:
+    """Offsets ``i·L/K`` quando ``L/K`` é inteiro; senão ``None``."""
+    if n_turmas <= 0 or ciclo % n_turmas:
+        return None
+    passo = ciclo // n_turmas
+    return tuple(i * passo for i in range(n_turmas))
+
+
+def cobertura_grupo(
+    sequencia: tuple[str, ...], offsets: tuple[int, ...], fracao: Fraction, dias: int
+) -> list[dict[str, Fraction]]:
+    """Postos-equivalentes por turno em cada dia absoluto 0..dias-1."""
+    L = len(sequencia)
+    turnos = [e for e in dict.fromkeys(sequencia) if e not in (FOLGA, RESERVA)]
+    saida: list[dict[str, Fraction]] = []
+    for d in range(dias):
+        cob = {t: Fraction(0) for t in turnos}
+        for o in offsets:
+            e = sequencia[(d + o) % L]
+            if e in cob:
+                cob[e] += fracao
+        saida.append(cob)
+    return saida
+
+
+def cobre_exatamente(grupo: GrupoTurmas, dias: int) -> bool:
+    """True se cada turno-dia tem exatamente 1 posto-equivalente em ``dias`` dias."""
+    return all(
+        v == 1
+        for cob in cobertura_grupo(grupo.sequencia, grupo.offsets, grupo.fracao_posto, dias)
+        for v in cob.values()
+    )
+
+
+MAX_COMBINACOES_EXATA = 50_000
+"""Até este nº de combinações a busca é exaustiva (resultado lexicográfico estável)."""
+
+
+def _chave_offsets(pos: list[list[int]], offs: tuple[int, ...] | list[int], s: int,
+                   alvo: Fraction) -> tuple[Fraction, Fraction]:
+    """(−mín. cobertura, Σ|cob − alvo|) em contagens inteiras; ``alvo`` = 1/fração."""
+    L = len(pos[0])
+    cont = [0] * (L * s)
+    for o in offs:
+        p = pos[o]
+        for d in range(L):
+            t = p[d]
+            if t >= 0:
+                cont[d * s + t] += 1
+    return (-Fraction(min(cont)), sum((abs(c - alvo) for c in cont), Fraction(0)))
+
+
+def buscar_offsets(
+    sequencia: tuple[str, ...], n_turmas: int, fracao: Fraction = Fraction(1),
+    limite_s: float = 0.25,
+) -> tuple[int, ...]:
+    """Offsets que maximizam a cobertura mínima por turno-dia; depois minimizam ``Σ|cob − 1|``.
+
+    Exaustiva (offset da 1ª turma = 0, combinação lexicográfica) até
+    ``MAX_COMBINACOES_EXATA``; acima disso, **heurística gulosa + busca local** com limite de
+    tempo ``limite_s`` (determinística: ordem fixa de tentativas). Aceita ``n_turmas > L``
+    (offsets repetidos = turmas sobrepostas).
+    """
+    L = len(sequencia)
+    if n_turmas < 1:
+        raise ValueError("n_turmas deve ser ≥ 1")
+    if n_turmas == 1:
+        return (0,)
+    turnos = [e for e in dict.fromkeys(sequencia) if e not in (FOLGA, RESERVA)]
+    idx = {t: i for i, t in enumerate(turnos)}
+    s = max(1, len(turnos))
+    pos = [[idx.get(sequencia[(d + o) % L], -1) for d in range(L)] for o in range(L)]
+    alvo = 1 / fracao
+    if n_turmas <= L and comb(L - 1, n_turmas - 1) <= MAX_COMBINACOES_EXATA:
+        melhor: tuple[int, ...] = ()
+        melhor_chave: tuple[Fraction, Fraction] | None = None
+        for resto in combinations(range(1, L), n_turmas - 1):
+            offs = (0, *resto)
+            chave = _chave_offsets(pos, offs, s, alvo)
+            if melhor_chave is None or chave < melhor_chave:
+                melhor, melhor_chave = offs, chave
+        return melhor
+    t0 = time.perf_counter()
+    # guloso: começa pelo espaçamento uniforme aproximado e corrige turma a turma
+    atual = [round(i * L / n_turmas) % L for i in range(n_turmas)]
+    chave = _chave_offsets(pos, atual, s, alvo)
+    melhorou = True
+    while melhorou and time.perf_counter() - t0 < limite_s:
+        melhorou = False
+        for i in range(1, n_turmas):
+            for o in range(L):
+                if o == atual[i]:
+                    continue
+                cand = atual.copy()
+                cand[i] = o
+                if n_turmas <= L and len(set(cand)) < n_turmas:
+                    continue
+                c = _chave_offsets(pos, cand, s, alvo)
+                if c < chave:
+                    atual, chave, melhorou = cand, c, True
+            if time.perf_counter() - t0 >= limite_s:
+                break
+    return tuple(sorted(atual))
+
+
+def montar_grupo(
+    sequencia: tuple[str, ...], n_turmas: int, fracao: Fraction = Fraction(1)
+) -> GrupoTurmas:
+    """Grupo com offsets uniformes se cobrem exatamente; senão com offsets buscados."""
+    unif = offsets_uniformes(len(sequencia), n_turmas)
+    if unif is not None:
+        g = GrupoTurmas(sequencia, unif, fracao)
+        if cobre_exatamente(g, len(sequencia)):
+            return g
+    return GrupoTurmas(sequencia, buscar_offsets(sequencia, n_turmas, fracao), fracao)
+
+
+def nome_turma(i: int) -> str:
+    """A, B, …, Z, AA, AB, …"""
+    nome = ""
+    i += 1
+    while i:
+        i, r = divmod(i - 1, 26)
+        nome = ascii_uppercase[r] + nome
+    return nome
+
+
+def gerar_escala(padrao: Padrao, data_ancora: date, dias: int,
+                 data_inicio: date | None = None) -> Escala:
+    """Gera a escala turma × dia de ``data_inicio`` (padrão: a âncora) por ``dias`` dias."""
+    if dias < 1:
+        raise ValueError("horizonte deve ter ≥ 1 dia")
+    d0 = dia_absoluto(data_inicio or data_ancora, data_ancora)
+    turmas: list[Turma] = []
+    estados: list[tuple[str, ...]] = []
+    for gi, g in enumerate(padrao.grupos):
+        for o in g.offsets:
+            turmas.append(Turma(nome_turma(len(turmas)), gi, o, g.fracao_posto))
+            estados.append(tuple(estado(g, o, d0 + j) for j in range(dias)))
+    return Escala(padrao.codigo, data_ancora, d0, tuple(turmas), tuple(estados))
