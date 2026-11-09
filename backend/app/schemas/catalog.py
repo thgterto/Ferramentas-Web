@@ -41,6 +41,8 @@ class ScheduleModelOut(Schema):
     legal_status: str
     phase: str
     regime_compliance: dict[str, Any]
+    teams_non_continuous: Dec6 | None = None
+    default_params: dict[str, Any] = Field(default_factory=dict)
 
 
 class ComplianceRuleOut(Schema):

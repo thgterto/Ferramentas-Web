@@ -1,5 +1,14 @@
 import { ApiError, api, apiData, type S } from '../api/client'
+import { applyTeams, totalTeams, type PatternSpec } from '../pattern/model'
 import type { WizardValues } from './schema'
+
+/** Padrão a enviar em ``params.pattern``: construtor, ou catálogo com K não fixo/tamanhos por turma. */
+export async function resolvePattern(v: WizardValues): Promise<PatternSpec | null> {
+  if (v.customized && v.pattern) return v.pattern as PatternSpec
+  if (v.kMode === 'fixo' && !v.teamSizes.length) return null
+  const base = await apiData<PatternSpec>(`/schedule-models/${v.modelCode}/pattern?team_count=${v.teamCount}`)
+  return applyTeams(base, { mode: v.kMode, k: v.teamCount, kMin: v.kMin, kMax: v.kMax, sizes: v.teamSizes })
+}
 
 const dec = (pctValue: number) => (pctValue / 100).toFixed(6)
 
@@ -39,18 +48,20 @@ export async function createAndSimulate(op: string, v: WizardValues, progress: (
   }
   progress('Criando cenário…')
   const peak = Math.max(...values)
-  const params: Record<string, number> = {}
+  const params: Record<string, unknown> = {}
   if (v.reserve === 'extras' && v.extrasPerTeam > 0) params.team_size = peak + v.extrasPerTeam
+  const pattern = await resolvePattern(v)
+  if (pattern) params.pattern = pattern
   const sc = await apiData<S['ScenarioCreated']>('/scenarios', {
     body: {
       name: v.scenarioName,
       operation_id: op,
-      schedule_model_code: v.modelCode,
+      schedule_model_code: v.customized ? 'PERSONALIZADO' : v.modelCode,
       labor_agreement_id: ag.id,
       demand_curve_id: curve.id,
       shrinkage_profile_id: shrinkId ?? null,
-      shift_template_codes: v.shiftCodes,
-      team_count: v.teamCount,
+      shift_template_codes: pattern ? [] : v.shiftCodes,
+      team_count: pattern ? Math.min(500, Math.max(1, totalTeams(pattern))) : v.teamCount,
       horizon_start: v.horizonStart,
       horizon_weeks: v.horizonWeeks,
       agreement_8h_confirmed: v.allows8h,

@@ -22,7 +22,7 @@ class ScenarioCreate(In):
     demand_curve_id: uuid.UUID
     shrinkage_profile_id: uuid.UUID | None = None
     shift_template_codes: list[str] = Field(default_factory=list, max_length=8)
-    team_count: int = Field(ge=1, le=12)
+    team_count: int = Field(ge=1, le=500)
     horizon_start: date
     horizon_weeks: int = Field(8, ge=1, le=104)
     agreement_8h_confirmed: bool = False
@@ -35,7 +35,9 @@ class ScenarioCreate(In):
     is_baseline: bool = False
     params: dict[str, Any] = Field(
         default_factory=dict,
-        description="ex.: {\"team_size\": 3} (pessoas por turma; padrão = pico da curva)")
+        description="ex.: {\"team_size\": 3} (pessoas por turma; padrão = pico da curva); "
+                    "v3.5: {\"pattern\": PatternSpec} = padrão do construtor (camadas, K "
+                    "livre, tamanhos por turma, janela de operação)")
 
 
 class ScenarioPatch(In):
@@ -43,7 +45,7 @@ class ScenarioPatch(In):
     description: str | None = None
     schedule_model_code: str | None = Field(None, pattern=r"^[A-Z0-9_]{2,24}$")
     shrinkage_profile_id: uuid.UUID | None = None
-    team_count: int | None = Field(None, ge=1, le=12)
+    team_count: int | None = Field(None, ge=1, le=500)
     horizon_start: date | None = None
     horizon_weeks: int | None = Field(None, ge=1, le=104)
     legal_regime_code: str | None = None
@@ -89,6 +91,22 @@ class ScheduleModelRef(BaseModel):
     avg_weekly_hours: Dec6
 
 
+class ShiftInfo(BaseModel):
+    code: str
+    start: str
+    duration_min: int
+    blocks: list[list[Any]] = Field(default_factory=list)
+
+
+class LayerInfo(BaseModel):
+    code: str
+    name: str | None = None
+    mode: str
+    k: int
+    offsets: list[int]
+    sequence: list[str]
+
+
 class ScenarioOut(BaseModel):
     id: uuid.UUID
     lineage_id: uuid.UUID
@@ -117,6 +135,8 @@ class ScenarioOut(BaseModel):
     rules_version: str | None
     kpis: KpisOut
     teams: list[TeamOut]
+    shifts: list[ShiftInfo] = Field(default_factory=list)
+    layers: list[LayerInfo] = Field(default_factory=list)
     calculated_at: datetime | None
     created_at: datetime
 
@@ -132,7 +152,7 @@ class SimulateIn(In):
 
 
 class TeamCountOut(BaseModel):
-    mode: Literal["fixo", "cenario"]
+    mode: Literal["fixo", "cenario", "padrao"]
     k_used: int
     k_required: Dec6
     achievable_pct: Dec6
@@ -212,7 +232,7 @@ class CoverageOut(BaseModel):
 
 class SizingIn(In):
     team_size: int | None = Field(None, ge=1, le=500)
-    team_count: int | None = Field(None, ge=1, le=12)
+    team_count: int | None = Field(None, ge=1, le=500)
 
 
 class SizingOut(BaseModel):

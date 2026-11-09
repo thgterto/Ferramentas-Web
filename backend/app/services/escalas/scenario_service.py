@@ -12,8 +12,10 @@ from collections import Counter
 from datetime import UTC, datetime
 from decimal import Decimal
 from fractions import Fraction
+from math import ceil
 from typing import TYPE_CHECKING, Any
 
+from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from app.core.errors import AppError, conflict, not_found, validation
@@ -41,6 +43,7 @@ from app.repositories.cadastros import (
 )
 from app.repositories.catalog import CatalogRepo
 from app.repositories.scenarios import ScenarioRepo
+from app.schemas import pattern as sp
 from app.schemas import scenario as ss
 from app.services.engine.catalogo import catalogo_mvp
 from app.services.engine.cobertura import status_de
@@ -60,7 +63,7 @@ from app.services.engine.regime_legal import (
 from app.services.engine.shrinkage import Shrinkage
 from app.services.engine.types import FOLGA, Achado, Severidade, para_decimal
 from app.services.engine.version import ENGINE_VERSION
-from app.services.escalas import demand_service
+from app.services.escalas import demand_service, pattern_service
 from app.services.escalas.catalog_service import resolve_engine_regime
 from app.services.escalas.engine_runner import (
     EntradaCargos,
@@ -130,6 +133,8 @@ def scenario_out(db: Session, p: Principal, s: Scenario) -> ss.ScenarioOut:
         teams=[ss.TeamOut(code=t.code, kind=t.kind, label=t.label, size_required=t.size_required,
                           size_assigned=t.size_assigned, cycle_offset_days=t.cycle_offset_days,
                           composition=by_team.get(t.id, {})) for t in teams],
+        shifts=[ss.ShiftInfo(**x) for x in (s.result_summary or {}).get("shifts", [])],
+        layers=[ss.LayerInfo(**x) for x in (s.result_summary or {}).get("layers", [])],
         calculated_at=s.calculated_at, created_at=s.created_at)
 
 
@@ -179,7 +184,22 @@ def _shift_ids(db: Session, p: Principal, codes: list[str]) -> list[int]:
     return [by_code[c] for c in codes]
 
 
+def _check_pattern(params: dict[str, Any] | None) -> None:
+    """``params.pattern`` (construtor v3.5) é validado já na criação/edição (422 cedo)."""
+    raw = (params or {}).get("pattern")
+    if raw is None:
+        return
+    try:
+        pattern_service.to_engine(sp.PatternSpec.model_validate(raw))
+    except ValidationError as exc:
+        raise validation("params.pattern inválido",
+                         [{"field": "params.pattern." + ".".join(str(x) for x in e["loc"]),
+                           "code": e["type"], "message": e["msg"]}
+                          for e in exc.errors()[:20]], code="PATTERN_INVALIDO") from exc
+
+
 def create(db: Session, p: Principal, body: ss.ScenarioCreate) -> ss.ScenarioCreated:
+    _check_pattern(body.params)
     op = OperationRepo(db, p.org_id).get(body.operation_id)
     curve = DemandCurveRepo(db, p.org_id).get(body.demand_curve_id)
     pos = PositionRepo(db, p.org_id).get_by_id(curve.position_id)
@@ -219,6 +239,7 @@ def patch(db: Session, p: Principal, sid: uuid.UUID, body: ss.ScenarioPatch,
     if s.status not in EDITABLE:
         raise conflict("scenario_immutable", "cenário calculado: crie nova versão (Fase 2)")
     vals = body.model_dump(exclude_unset=True)
+    _check_pattern(vals.get("params"))
     if "schedule_model_code" in vals:
         vals["schedule_model_id"] = _model(db, vals.pop("schedule_model_code")).id
     if "legal_regime_code" in vals:
@@ -260,7 +281,10 @@ def _entrada(db: Session, p: Principal, s: Scenario
     cat = catalogo_mvp()
     model_row = CatalogRepo(db).schedule_model_by_id(s.schedule_model_id)
     modelo = cat.modelos.get(model_row.code)
-    if modelo is None:
+    raw_pattern = s.params.get("pattern")
+    spec = sp.PatternSpec.model_validate(raw_pattern) if raw_pattern is not None else None
+    padrao = pattern_service.to_engine(spec) if spec is not None else None
+    if modelo is None and padrao is None:
         raise validation(f"modelo {model_row.code} fora do catálogo do motor")
     curve_repo = DemandCurveRepo(db, p.org_id)
     curve = curve_repo.get_by_id(s.demand_curve_id)
@@ -309,11 +333,14 @@ def _entrada(db: Session, p: Principal, s: Scenario
     entrada = EntradaSimulacao(
         modelo=modelo, catalogo=cat, curva=curva, tamanho_turma=tam, k=k,
         k_fixo_operacao=tc is not None, inicio=s.horizon_start, semanas=s.horizon_weeks,
-        shrinkage=shr, regime=regime, ctx=ctx, cargos=cargos)
+        shrinkage=shr, regime=regime, ctx=ctx, cargos=cargos, padrao=padrao)
     snapshot = {
         "engine_version": ENGINE_VERSION, "rules_version": RULES_VERSION,
         "catalog_version": cat.versao, "regimes_version": regimes_mvp().versao,
-        "schedule_model": modelo.codigo, "k": k, "k_mode": "fixo" if tc else "cenario",
+        "schedule_model": model_row.code, "k": k,
+        "k_mode": ("padrao" if padrao is not None or (modelo and not modelo.continuo_24x7)
+                   else "fixo" if tc else "cenario"),
+        "pattern": spec.model_dump(mode="json") if spec is not None else None,
         "team_size": tam, "horizon_start": s.horizon_start.isoformat(),
         "horizon_weeks": s.horizon_weeks, "demand": list(curva.valores),
         "critical": sorted(curva.criticas), "demand_checksum": curve.checksum,
@@ -346,14 +373,22 @@ def _persist(db: Session, p: Principal, s: Scenario, r: ResultadoSimulacao,
     repo = ScenarioRepo(db, p.org_id)
     repo.clear_results(s.id)
     org = p.org_id
+    generic = bool(r.extras.get("generic"))
+    layer_of = r.extras.get("team_layers", {})
+
+    def _size(t: Any) -> Fraction:
+        return Fraction(t.fracao_posto) if generic else tam * t.fracao_posto
+
     teams = repo.ensure_teams(s.id, [
-        {"code": t.nome, "kind": "regular", "label": f"Turma {t.nome}",
-         "cycle_offset_days": t.offset, "size_required": D(tam * t.fracao_posto),
-         "size_assigned": int(tam * t.fracao_posto)} for t in r.escala.turmas])
+        {"code": t.nome, "kind": "regular",
+         "label": f"Turma {t.nome}" + (f" · {layer_of[t.nome]}" if t.nome in layer_of else ""),
+         "cycle_offset_days": t.offset, "size_required": D(_size(t)),
+         "size_assigned": ceil(_size(t))} for t in r.escala.turmas])
     team_id = {t.code: t.id for t in teams}
+    turnos_map = r.extras["turnos"] if generic else catalogo_mvp().turnos
     repo.bulk_add([Assignment(organization_id=org, scenario_id=s.id,
                               team_id=team_id[a.pop("team")], source="engine", **a)
-                   for a in assignments(r.escala, catalogo_mvp())])
+                   for a in assignments(r.escala, turnos_map)])
     repo.bulk_add([CoverageResult(
         organization_id=org, scenario_id=s.id, slot_index=sl.slot_index,
         required_net=D(sl.required_net), required_gross=D(sl.required_gross),
@@ -413,6 +448,12 @@ def _persist(db: Session, p: Principal, s: Scenario, r: ResultadoSimulacao,
                        "k_required": str(D(dim.k_estrela)),
                        "achievable_pct": str(D(r.alcancavel))},
         "k_legal": str(D(r.k_legal)), "coverage_by_role": cargos_kpi,
+        "shifts": [{"code": c, "start": f"{t.inicio_min // 60:02d}:{t.inicio_min % 60:02d}",
+                    "duration_min": t.duracao_min,
+                    "blocks": [[f"{a // 60:02d}:{a % 60:02d}", d] for a, d in t.blocos]}
+                   for c, t in turnos_map.items()
+                   if any(c in linha for linha in r.escala.estados)],
+        "layers": r.extras.get("layers", []), "team_layers": layer_of,
     }
     if teams_before is not None and {t.code for t in teams_before} != set(team_id):
         s.result_summary["composition_reset"] = True
@@ -516,9 +557,9 @@ def sizing(db: Session, p: Principal, sid: uuid.UUID, body: ss.SizingIn) -> ss.S
     s = _get(db, p, sid)
     entrada, _, _ = _entrada(db, p, s)
     m = entrada.modelo
-    if m.k_estrela is None:
-        raise validation(f"{m.codigo}: modelo não contínuo — sem K* 24/7")
     tam = body.team_size or entrada.tamanho_turma
+    if entrada.padrao is not None or m is None or m.k_estrela is None:
+        return _sizing_generic(entrada, tam)
     dim = dimensionar(m, tam, body.team_count or entrada.k, entrada.shrinkage)
     reg = entrada.regime
     meias = dim.n_meias is not None
@@ -530,6 +571,30 @@ def sizing(db: Session, p: Principal, sid: uuid.UUID, body: ss.SizingIn) -> ss.S
         headcount_with_reserve=dim.headcount_reserva, k_legal=D(k_legal(reg, meias)),
         k_effective=D(k_efetivo(m, reg, meias)), legal_regime=reg.ref,
         findings=[_brief(a) for a in dim.achados])
+
+
+def _sizing_generic(entrada: EntradaSimulacao, tam: int) -> ss.SizingOut:
+    """Dimensionamento do padrão em camadas: Σ K* das camadas e Σ tamanhos por turma."""
+    from app.services.engine import personalizado as P
+
+    pad = entrada.padrao
+    if pad is None:
+        assert entrada.modelo is not None
+        pad = P.de_modelo(entrada.modelo, entrada.catalogo.turnos, entrada.k)
+    rel = [P.relatorio_camada(c, pad.turnos) for c in pad.camadas]
+    ks = [P.k_inicial(c) for c in pad.camadas]
+    hc = sum((sum(P.tamanhos_camada(c, k, Fraction(tam)), Fraction(0))
+              for c, k in zip(pad.camadas, ks, strict=True)), Fraction(0))
+    k_req = sum((r.k_estrela for r in rel), Fraction(0))
+    s_max = max(entrada.shrinkage.diurno, entrada.shrinkage.noturno)
+    tam_res = ceil(Fraction(tam) / (1 - s_max))
+    reg = entrada.regime
+    return ss.SizingOut(
+        schedule_model=pad.derivado_de or pad.codigo, team_size=tam, k_required=D(k_req),
+        whole_teams=sum(ks), half_teams=None, headcount_min=ceil(hc),
+        headcount_min_half_teams=None, team_size_with_reserve=tam_res,
+        headcount_with_reserve=sum(ks) * tam_res, k_legal=D(k_legal(reg)),
+        k_effective=D(max(k_req, k_legal(reg))), legal_regime=reg.ref, findings=[])
 
 
 def _cursor(n: int | None) -> str | None:
@@ -622,6 +687,10 @@ def transition(db: Session, p: Principal, sid: uuid.UUID, body: ss.TransitionIn
         raise validation(f"regimes inexistentes: {falt}", code="REGIME_NAO_RESOLVIDO")
     regs = Regimes(base.versao, base.regimes, tuple(codes))
     m = entrada.modelo
+    if m is None and entrada.padrao is not None and entrada.padrao.derivado_de:
+        m = entrada.catalogo.modelos.get(entrada.padrao.derivado_de)
+    if m is None:
+        raise validation("simular transição exige um modelo do catálogo (padrão sem origem)")
     turnos = tuple(sorted({e for sq in m.sequencias for e in sq} - {FOLGA}))
     fases = simular_transicao(entrada.tamanho_turma, entrada.catalogo, regs, turnos, m.codigo,
                               entrada.ctx)

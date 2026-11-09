@@ -45,6 +45,9 @@ class Turno:
     inicio_min: int
     duracao_min: int
     intervalo_min: int = 60
+    blocos: tuple[tuple[int, int], ...] = ()
+    """Jornada fracionada (split): ``((início, duração), …)`` relativos à 00:00 do dia; vazio =
+    um bloco contínuo ``[início, início + duração)``."""
 
     def __post_init__(self) -> None:
         if not 0 <= self.inicio_min < MINUTOS_DIA:
@@ -66,6 +69,17 @@ class Turno:
     @property
     def horas(self) -> Fraction:
         return Fraction(self.duracao_min, 60)
+
+    @property
+    def segmentos(self) -> tuple[tuple[int, int], ...]:
+        """Intervalos ``[ini, fim)`` em minutos desde a 00:00 do dia de início."""
+        if self.blocos:
+            return tuple((i, i + d) for i, d in self.blocos)
+        return ((self.inicio_min, self.fim_min),)
+
+    @property
+    def minutos_trabalhados(self) -> int:
+        return sum(d for _, d in self.blocos) if self.blocos else self.duracao_min
 
 
 @dataclass(frozen=True, slots=True)

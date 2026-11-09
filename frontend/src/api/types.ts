@@ -718,6 +718,105 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/escalas/schedule-models/{code}/pattern": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Model Pattern
+         * @description Padrão editável derivado do modelo ("Personalizar" / "Duplicar do catálogo").
+         */
+        get: operations["model_pattern_api_v1_escalas_schedule_models__code__pattern_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/escalas/schedule-patterns": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Patterns */
+        get: operations["list_patterns_api_v1_escalas_schedule_patterns_get"];
+        put?: never;
+        /** Create Pattern */
+        post: operations["create_pattern_api_v1_escalas_schedule_patterns_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/escalas/schedule-patterns/{pattern_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Pattern */
+        get: operations["get_pattern_api_v1_escalas_schedule_patterns__pattern_id__get"];
+        /**
+         * Put Pattern
+         * @description Alteração cria nova versão (``current_version + 1``).
+         */
+        put: operations["put_pattern_api_v1_escalas_schedule_patterns__pattern_id__put"];
+        post?: never;
+        /** Delete Pattern */
+        delete: operations["delete_pattern_api_v1_escalas_schedule_patterns__pattern_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/escalas/schedule-patterns/{pattern_id}/duplicate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Duplicate Pattern */
+        post: operations["duplicate_pattern_api_v1_escalas_schedule_patterns__pattern_id__duplicate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/escalas/schedule-patterns:validate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Validate
+         * @description Validação em tempo real: K*\/exato, h/sem, interjornada, achados e cobertura 7×24.
+         *
+         *     Achados legais nunca bloqueiam: o padrão sempre pode ser simulado.
+         */
+        post: operations["validate_api_v1_escalas_schedule_patterns_validate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/escalas/shift-templates": {
         parameters: {
             query?: never;
@@ -1125,6 +1224,18 @@ export interface components {
         Envelope_OperationOut_: {
             data: components["schemas"]["OperationOut"];
         };
+        /** Envelope[PatternSpec] */
+        Envelope_PatternSpec_: {
+            data: components["schemas"]["PatternSpec-Output"];
+        };
+        /** Envelope[PatternTemplateOut] */
+        Envelope_PatternTemplateOut_: {
+            data: components["schemas"]["PatternTemplateOut"];
+        };
+        /** Envelope[PatternValidation] */
+        Envelope_PatternValidation_: {
+            data: components["schemas"]["PatternValidation"];
+        };
         /** Envelope[PositionOut] */
         Envelope_PositionOut_: {
             data: components["schemas"]["PositionOut"];
@@ -1186,6 +1297,11 @@ export interface components {
         Envelope_list_LegalRegimeOut__: {
             /** Data */
             data: components["schemas"]["LegalRegimeOut"][];
+        };
+        /** Envelope[list[PatternTemplateOut]] */
+        Envelope_list_PatternTemplateOut__: {
+            /** Data */
+            data: components["schemas"]["PatternTemplateOut"][];
         };
         /** Envelope[list[RoleRequirementOut]] */
         Envelope_list_RoleRequirementOut__: {
@@ -1282,6 +1398,22 @@ export interface components {
             severity: "info" | "alerta" | "erro";
             /** Team */
             team?: string | null;
+        };
+        /** FindingLite */
+        FindingLite: {
+            /** Details */
+            details?: Record<string, never>;
+            /** Layer */
+            layer?: string | null;
+            /** Message */
+            message: string;
+            /** Rule Code */
+            rule_code: string;
+            /**
+             * Severity
+             * @enum {string}
+             */
+            severity: "info" | "alerta" | "erro";
         };
         /** FindingOut */
         FindingOut: {
@@ -1496,6 +1628,148 @@ export interface components {
             /** Valid To */
             valid_to?: string | null;
         };
+        /** LayerIn */
+        "LayerIn-Input": {
+            /** Active Weekdays */
+            active_weekdays?: number[];
+            /** Code */
+            code: string;
+            /** Fixed Off Weekdays */
+            fixed_off_weekdays?: number[];
+            /** K */
+            k?: number | null;
+            /** K Max */
+            k_max?: number | null;
+            /** K Min */
+            k_min?: number | null;
+            /** Name */
+            name?: string | null;
+            /**
+             * Offsets
+             * @description Offsets manuais por turma (None = auto)
+             */
+            offsets?: number[] | null;
+            /** Role Code */
+            role_code?: string | null;
+            /**
+             * Rotation
+             * @default frente
+             * @enum {string}
+             */
+            rotation: "frente" | "tras";
+            /** Sequence */
+            sequence: string[];
+            /**
+             * Team Mode
+             * @default fixo
+             * @enum {string}
+             */
+            team_mode: "fixo" | "minimo" | "faixa" | "sugerir";
+            /**
+             * Team Sizes
+             * @description Pessoas por turma (0,5 = meia-turma de 1 posto)
+             */
+            team_sizes?: (number | string)[] | null;
+            /**
+             * Weekly Anchor
+             * @description Dia 0 do ciclo = segunda-feira
+             * @default false
+             */
+            weekly_anchor: boolean;
+        };
+        /** LayerIn */
+        "LayerIn-Output": {
+            /** Active Weekdays */
+            active_weekdays?: number[];
+            /** Code */
+            code: string;
+            /** Fixed Off Weekdays */
+            fixed_off_weekdays?: number[];
+            /** K */
+            k?: number | null;
+            /** K Max */
+            k_max?: number | null;
+            /** K Min */
+            k_min?: number | null;
+            /** Name */
+            name?: string | null;
+            /**
+             * Offsets
+             * @description Offsets manuais por turma (None = auto)
+             */
+            offsets?: number[] | null;
+            /** Role Code */
+            role_code?: string | null;
+            /**
+             * Rotation
+             * @default frente
+             * @enum {string}
+             */
+            rotation: "frente" | "tras";
+            /** Sequence */
+            sequence: string[];
+            /**
+             * Team Mode
+             * @default fixo
+             * @enum {string}
+             */
+            team_mode: "fixo" | "minimo" | "faixa" | "sugerir";
+            /**
+             * Team Sizes
+             * @description Pessoas por turma (0,5 = meia-turma de 1 posto)
+             */
+            team_sizes?: string[] | null;
+            /**
+             * Weekly Anchor
+             * @description Dia 0 do ciclo = segunda-feira
+             * @default false
+             */
+            weekly_anchor: boolean;
+        };
+        /** LayerInfo */
+        LayerInfo: {
+            /** Code */
+            code: string;
+            /** K */
+            k: number;
+            /** Mode */
+            mode: string;
+            /** Name */
+            name?: string | null;
+            /** Offsets */
+            offsets: number[];
+            /** Sequence */
+            sequence: string[];
+        };
+        /** LayerReport */
+        LayerReport: {
+            /** Avg Weekly Hours */
+            avg_weekly_hours: string;
+            /** Code */
+            code: string;
+            /** Cycle Length */
+            cycle_length: number;
+            /** Exact */
+            exact: boolean;
+            /** Exact With Half Teams */
+            exact_with_half_teams: boolean;
+            /** K Required */
+            k_required: string;
+            /** K Suggested */
+            k_suggested: number;
+            /** K Used */
+            k_used: number;
+            /** Max Consecutive Work Days */
+            max_consecutive_work_days: number;
+            /** Min Rest Between Shifts Hours */
+            min_rest_between_shifts_hours: string | null;
+            /** Offsets */
+            offsets: number[];
+            /** Rest Days Per 7 */
+            rest_days_per_7: string;
+            /** Team Sizes */
+            team_sizes: string[];
+        };
         /** LegalRegimeOut */
         LegalRegimeOut: {
             /** Allows 6X1 */
@@ -1708,6 +1982,143 @@ export interface components {
             links: components["schemas"]["PageLinks"];
             meta: components["schemas"]["PageMeta"];
         };
+        /** PatternDuplicateIn */
+        PatternDuplicateIn: {
+            /** Name */
+            name?: string | null;
+        };
+        /**
+         * PatternSpec
+         * @description Padrão de escala completo — o mesmo JSON vai em ``scenario.params.pattern``.
+         */
+        "PatternSpec-Input": {
+            /** Anchor Date */
+            anchor_date?: string | null;
+            /** Derived From */
+            derived_from?: string | null;
+            /** Layers */
+            layers: components["schemas"]["LayerIn-Input"][];
+            /**
+             * Name
+             * @default Padrão personalizado
+             */
+            name: string;
+            operating_window?: components["schemas"]["WindowIn"] | null;
+            /** Shifts */
+            shifts: components["schemas"]["ShiftIn"][];
+        };
+        /**
+         * PatternSpec
+         * @description Padrão de escala completo — o mesmo JSON vai em ``scenario.params.pattern``.
+         */
+        "PatternSpec-Output": {
+            /** Anchor Date */
+            anchor_date?: string | null;
+            /** Derived From */
+            derived_from?: string | null;
+            /** Layers */
+            layers: components["schemas"]["LayerIn-Output"][];
+            /**
+             * Name
+             * @default Padrão personalizado
+             */
+            name: string;
+            operating_window?: components["schemas"]["WindowIn"] | null;
+            /** Shifts */
+            shifts: components["schemas"]["ShiftIn"][];
+        };
+        /** PatternTemplateIn */
+        PatternTemplateIn: {
+            /**
+             * Is Shared
+             * @default true
+             */
+            is_shared: boolean;
+            /** Name */
+            name: string;
+            pattern: components["schemas"]["PatternSpec-Input"];
+        };
+        /** PatternTemplateOut */
+        PatternTemplateOut: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Current Version */
+            current_version: number;
+            /** Derived From Code */
+            derived_from_code: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Is Shared */
+            is_shared: boolean;
+            /** Name */
+            name: string;
+            pattern: components["schemas"]["PatternSpec-Output"];
+            /** Updated At */
+            updated_at: string | null;
+            /** Validation */
+            validation: Record<string, never>;
+        };
+        /** PatternTemplatePut */
+        PatternTemplatePut: {
+            /** Name */
+            name?: string | null;
+            pattern?: components["schemas"]["PatternSpec-Input"] | null;
+        };
+        /** PatternValidateIn */
+        PatternValidateIn: {
+            /**
+             * Demand
+             * @description Curva 168 h (seg 00h…dom 23h)
+             */
+            demand?: number[] | null;
+            /** Legal Regime Code */
+            legal_regime_code?: string | null;
+            pattern: components["schemas"]["PatternSpec-Input"];
+            /**
+             * Postos
+             * @description Demanda plana 24/7 da pré-visualização
+             * @default 3
+             */
+            postos: number;
+            /** Team Size */
+            team_size?: number | null;
+            /**
+             * Weeks
+             * @default 4
+             */
+            weeks: number;
+        };
+        /** PatternValidation */
+        PatternValidation: {
+            /** Coverage Pct */
+            coverage_pct: string;
+            /** Deficit Post Hours Week */
+            deficit_post_hours_week: string;
+            /** Elapsed Ms */
+            elapsed_ms: number;
+            /** Excess Pct */
+            excess_pct: string;
+            /** Findings */
+            findings: components["schemas"]["FindingLite"][];
+            /** Headcount */
+            headcount: string;
+            /** K Required Total */
+            k_required_total: string;
+            /** Layers */
+            layers: components["schemas"]["LayerReport"][];
+            /** Legal Regime */
+            legal_regime: string;
+            /** Slots */
+            slots: components["schemas"]["PreviewSlot"][];
+            /** Teams Total */
+            teams_total: number;
+        };
         /** PeakOut */
         PeakOut: {
             /** At */
@@ -1765,6 +2176,17 @@ export interface components {
             name?: string | null;
             /** Required Role Code */
             required_role_code?: string | null;
+        };
+        /** PreviewSlot */
+        PreviewSlot: {
+            /** Gap Worst */
+            gap_worst: string;
+            /** Required */
+            required: string;
+            /** Scheduled Worst */
+            scheduled_worst: string;
+            /** Slot Index */
+            slot_index: number;
         };
         /** RoleCoverageKpi */
         RoleCoverageKpi: {
@@ -1931,7 +2353,7 @@ export interface components {
             overtime_planned: boolean;
             /**
              * Params
-             * @description ex.: {"team_size": 3} (pessoas por turma; padrão = pico da curva)
+             * @description ex.: {"team_size": 3} (pessoas por turma; padrão = pico da curva); v3.5: {"pattern": PatternSpec} = padrão do construtor (camadas, K livre, tamanhos por turma, janela de operação)
              */
             params?: Record<string, never>;
             /** Schedule Model Code */
@@ -2007,6 +2429,8 @@ export interface components {
              * Format: uuid
              */
             labor_agreement_id: string;
+            /** Layers */
+            layers?: components["schemas"]["LayerInfo"][];
             /** Legal Reference Date */
             legal_reference_date: string | null;
             /** Legal Regime Applied */
@@ -2034,6 +2458,8 @@ export interface components {
             /** Rules Version */
             rules_version: string | null;
             schedule_model: components["schemas"]["ScheduleModelRef"];
+            /** Shifts */
+            shifts?: components["schemas"]["ShiftInfo"][];
             /** Shrinkage Profile Id */
             shrinkage_profile_id: string | null;
             /** Simulate Transition */
@@ -2090,6 +2516,8 @@ export interface components {
             cycle_length_days: number;
             /** Daily Hours */
             daily_hours: string;
+            /** Default Params */
+            default_params?: Record<string, never>;
             /** Exact 24X7 */
             exact_24x7: boolean;
             /** Exact Alternative */
@@ -2114,6 +2542,8 @@ export interface components {
             shifts_per_day: number;
             /** Teams 24X7 */
             teams_24x7: string | null;
+            /** Teams Non Continuous */
+            teams_non_continuous?: string | null;
             /** Typical Teams */
             typical_teams: number[];
             /** Work Days */
@@ -2125,6 +2555,49 @@ export interface components {
             avg_weekly_hours: string;
             /** Code */
             code: string;
+        };
+        /** ShiftIn */
+        ShiftIn: {
+            /**
+             * Blocks
+             * @description Jornada fracionada: [["07:00", 240], ["17:00", 240]]
+             */
+            blocks?: [
+                string,
+                number
+            ][] | null;
+            /**
+             * Break Min
+             * @default 60
+             */
+            break_min: number;
+            /**
+             * Code
+             * @description Sigla do turno (≠ F e R)
+             */
+            code: string;
+            /** Color */
+            color?: string | null;
+            /**
+             * Duration Min
+             * @description Tempo à disposição (min)
+             */
+            duration_min: number;
+            /** Name */
+            name?: string | null;
+            /** Start */
+            start: string;
+        };
+        /** ShiftInfo */
+        ShiftInfo: {
+            /** Blocks */
+            blocks?: unknown[][];
+            /** Code */
+            code: string;
+            /** Duration Min */
+            duration_min: number;
+            /** Start */
+            start: string;
         };
         /** ShiftTemplateOut */
         ShiftTemplateOut: {
@@ -2431,7 +2904,7 @@ export interface components {
              * Mode
              * @enum {string}
              */
-            mode: "fixo" | "cenario";
+            mode: "fixo" | "cenario" | "padrao";
         };
         /** TeamOut */
         TeamOut: {
@@ -2541,6 +3014,21 @@ export interface components {
             msg: string;
             /** Error Type */
             type: string;
+        };
+        /** WindowIn */
+        WindowIn: {
+            /**
+             * End
+             * @default 18:00
+             */
+            end: string;
+            /**
+             * Start
+             * @default 08:00
+             */
+            start: string;
+            /** Weekdays */
+            weekdays?: number[];
         };
     };
     responses: never;
@@ -6060,6 +6548,497 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Envelope_ScheduleModelOut_"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description not_found (inclui outro tenant) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description validation_error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    model_pattern_api_v1_escalas_schedule_models__code__pattern_get: {
+        parameters: {
+            query?: {
+                team_count?: number | null;
+                team_size?: number | null;
+            };
+            header?: {
+                "x-organization-id"?: string | null;
+            };
+            path: {
+                code: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_PatternSpec_"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description not_found (inclui outro tenant) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description validation_error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_patterns_api_v1_escalas_schedule_patterns_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-organization-id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_list_PatternTemplateOut__"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description not_found (inclui outro tenant) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description validation_error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    create_pattern_api_v1_escalas_schedule_patterns_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-organization-id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PatternTemplateIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_PatternTemplateOut_"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description not_found (inclui outro tenant) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description validation_error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_pattern_api_v1_escalas_schedule_patterns__pattern_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-organization-id"?: string | null;
+            };
+            path: {
+                pattern_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_PatternTemplateOut_"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description not_found (inclui outro tenant) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description validation_error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    put_pattern_api_v1_escalas_schedule_patterns__pattern_id__put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-organization-id"?: string | null;
+            };
+            path: {
+                pattern_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PatternTemplatePut"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_PatternTemplateOut_"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description not_found (inclui outro tenant) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description validation_error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    delete_pattern_api_v1_escalas_schedule_patterns__pattern_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-organization-id"?: string | null;
+            };
+            path: {
+                pattern_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description not_found (inclui outro tenant) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description validation_error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    duplicate_pattern_api_v1_escalas_schedule_patterns__pattern_id__duplicate_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-organization-id"?: string | null;
+            };
+            path: {
+                pattern_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PatternDuplicateIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_PatternTemplateOut_"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description not_found (inclui outro tenant) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description validation_error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    validate_api_v1_escalas_schedule_patterns_validate_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-organization-id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PatternValidateIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_PatternValidation_"];
                 };
             };
             /** @description unauthenticated */

@@ -147,7 +147,7 @@ def test_legal_regimes_resolve_com_d0(ctx: Ctx, monkeypatch: object) -> None:
 
 def test_catalogo_e_regras(ctx: Ctx) -> None:
     ms = ctx.get("/schedule-models?regime=PEC_40H").json()["data"]
-    assert len(ms) == 10
+    assert len(ms) == 37  # v3.5: catálogo completo (PERSONALIZADO não é listado)
     m = next(x for x in ms if x["code"] == "6X2")
     assert m["regime_compliance"] == {"PEC_40H": {"status": "nao_conforme"}}
     assert m["avg_weekly_hours"] == "42.000000" and m["teams_24x7"] == "4.000000"
@@ -230,6 +230,11 @@ def test_coverage_antes_de_simular_409(ctx: Ctx) -> None:
     assert ctx.get(f"/scenarios/{ids['scenario']}/coverage").status_code == 409
 
 
-def test_modelo_nao_continuo_422(ctx: Ctx) -> None:
-    ids = setup_operation(ctx, model="4X3", teams=4)
-    assert ctx.post(f"/scenarios/{ids['scenario']}/simulate").status_code == 422
+def test_modelo_nao_continuo_simula_com_janela(ctx: Ctx) -> None:
+    """v3.5: 4x3 (não contínuo) simula normalmente; demanda fora da janela 07–17 = 0."""
+    ids = setup_operation(ctx, model="4X3", teams=2)
+    r = ctx.post(f"/scenarios/{ids['scenario']}/simulate")
+    assert r.status_code == 200, r.text
+    d = r.json()["data"]
+    assert d["team_count"]["mode"] == "padrao" and d["team_count"]["k_used"] == 2
+    assert d["kpis"]["coverage_pct"] == "1.000000"

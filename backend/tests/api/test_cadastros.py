@@ -128,7 +128,7 @@ def test_cenario_crud_if_match(ctx: Ctx) -> None:
 def test_cenario_modelo_inexistente_422(ctx: Ctx) -> None:
     ids = setup_operation(ctx)
     r = ctx.post("/scenarios", json={
-        "name": "x y", "operation_id": ids["operation"], "schedule_model_code": "PITMAN",
+        "name": "x y", "operation_id": ids["operation"], "schedule_model_code": "INEXISTENTE_X",
         "labor_agreement_id": ids["agreement"], "demand_curve_id": ids["curve"],
         "team_count": 4, "horizon_start": "2027-01-04"})
     assert r.status_code == 422

@@ -9,11 +9,13 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import date, datetime, timedelta
 from fractions import Fraction
+from math import ceil
 from typing import Any
 
+from app.services.engine import personalizado as P
 from app.services.engine.catalogo import Catalogo, ModeloEscala
 from app.services.engine.cobertura import ResultadoCobertura, calcular_cobertura, visao_reserva
 from app.services.engine.cobertura_cargos import (
@@ -33,7 +35,7 @@ from app.services.engine.regime_legal import (
 )
 from app.services.engine.shrinkage import Shrinkage
 from app.services.engine.turmas_k import padrao_k_fixo, simular_k_fixo
-from app.services.engine.types import FOLGA, RESERVA, Achado, Escala
+from app.services.engine.types import FOLGA, RESERVA, Achado, Escala, Turno
 from app.services.engine.version import ENGINE_VERSION
 
 
@@ -51,7 +53,7 @@ class EntradaCargos:
 
 @dataclass(frozen=True, slots=True)
 class EntradaSimulacao:
-    modelo: ModeloEscala
+    modelo: ModeloEscala | None
     catalogo: Catalogo
     curva: CurvaDemanda
     tamanho_turma: int
@@ -63,6 +65,7 @@ class EntradaSimulacao:
     regime: RegimeLegal
     ctx: ContextoRegime
     cargos: EntradaCargos | None = None
+    padrao: P.PadraoPersonalizado | None = None   # v3.5: construtor / não contínuo
 
 
 @dataclass(frozen=True, slots=True)
@@ -137,11 +140,66 @@ def _agregar_cargos(rc: ResultadoCargos, inicio: date) -> list[SlotCargo]:
     return out
 
 
+def _run_generico(e: EntradaSimulacao) -> ResultadoSimulacao:
+    """Padrão arbitrário em camadas (K livre, tamanhos por turma, janela de operação)."""
+    p = e.padrao
+    assert p is not None
+    dias = e.semanas * 7
+    try:
+        r = P.simular(p, e.curva, e.inicio, dias, e.tamanho_turma)
+    except ValueError as exc:
+        raise EntradaInvalida(str(exc)) from exc
+    res = r.cobertura
+    achados: list[Achado] = list(r.achados)
+    if e.shrinkage.diurno or e.shrinkage.noturno:
+        achados += list(visao_reserva(res, e.shrinkage, e.tamanho_turma).achados)
+    achados += P.validar_padrao(p, e.regime, e.ctx)
+    turmas = r.escala.turmas
+    s_max = max(e.shrinkage.diurno, e.shrinkage.noturno)
+    tam_res = ceil(Fraction(e.tamanho_turma) / (1 - s_max))
+    dim = Dimensionamento(
+        k_estrela=r.k_estrela_total, turmas_inteiras=len(turmas), n_meias=None,
+        headcount_min=ceil(r.headcount), headcount_min_meias=None,
+        tamanho_turma_reserva=tam_res,
+        headcount_reserva=ceil(sum((t.tamanho / e.tamanho_turma * tam_res for t in turmas),
+                                   Fraction(0))) if e.tamanho_turma else ceil(r.headcount),
+        achados=())
+    rc = None
+    slots_cargo: list[SlotCargo] = []
+    if e.cargos is not None:
+        comp = list(e.cargos.composicao_por_turma)
+        if len(comp) != len(turmas):
+            raise EntradaInvalida(f"composição definida para {len(comp)} turmas; padrão tem "
+                                  f"{len(turmas)}")
+        try:
+            rc = cobertura_por_cargo(None, p.turnos, comp[0], e.cargos.demandas,
+                                     e.cargos.regras, e.inicio, e.cargos.minimos, dias=dias,
+                                     composicao_por_turma=comp, ocupacao=r.ocupacao)
+        except ValueError as exc:
+            raise EntradaInvalida(str(exc)) from exc
+        achados += list(rc.achados)
+        slots_cargo = _agregar_cargos(rc, e.inicio)
+    return ResultadoSimulacao(
+        escala=r.escala.como_escala(p.codigo), cobertura=res, dimensionamento=dim,
+        slots=_agregar(res, e.shrinkage), cargos=rc, slots_cargo=slots_cargo, achados=achados,
+        k_legal=k_legal(e.regime), alcancavel=res.kpis.pct_horas_posto_cobertas,
+        extras={"engine_version": ENGINE_VERSION, "generic": True, "turnos": p.turnos,
+                "layers": [{"code": c.codigo, "name": c.nome, "mode": c.k_modo, "k": k,
+                            "offsets": list(o), "sequence": list(c.efetiva)}
+                           for c, k, o in zip(p.camadas, r.escala.ks, r.escala.offsets,
+                                              strict=True)],
+                "team_layers": {t.nome: t.camada for t in turmas}})
+
+
 def run_simulation(e: EntradaSimulacao) -> ResultadoSimulacao:
+    if e.padrao is not None:
+        return _run_generico(e)
     m = e.modelo
+    if m is None:
+        raise EntradaInvalida("cenário sem modelo nem padrão personalizado")
     if not m.continuo_24x7:
-        raise EntradaInvalida(f"{m.codigo}: modelo não contínuo — simulação 24/7 indisponível "
-                              "no MVP")
+        # v3.5: não contínuo simula normalmente pelo motor genérico (janela de operação)
+        return _run_generico(replace(e, padrao=P.de_modelo(m, e.catalogo.turnos, e.k)))
     try:
         padrao = padrao_k_fixo(m, e.k)
     except ValueError as exc:
@@ -181,18 +239,21 @@ def run_simulation(e: EntradaSimulacao) -> ResultadoSimulacao:
         extras={"engine_version": ENGINE_VERSION})
 
 
-def assignments(escala: Escala, catalogo: Catalogo) -> list[dict[str, Any]]:
-    """Turma × dia (FOLGA/RESERVA = folga)."""
+def assignments(escala: Escala, catalogo: Catalogo | Mapping[str, Turno]
+                ) -> list[dict[str, Any]]:
+    """Turma × dia (FOLGA/RESERVA = folga). Aceita o catálogo ou o mapa de turnos."""
+    turnos: Mapping[str, Turno] = (catalogo.turnos if isinstance(catalogo, Catalogo)
+                                   else catalogo)
     out = []
     for k, t in enumerate(escala.turmas):
         for j, est in enumerate(escala.estados[k]):
             d = escala.data_ancora + timedelta(days=escala.dia_absoluto_inicial + j)
-            if est in (FOLGA, RESERVA) or est not in catalogo.turnos:
+            if est in (FOLGA, RESERVA) or est not in turnos:
                 out.append({"team": t.nome, "work_date": d, "shift_code": None,
                             "is_day_off": True, "starts_at": None, "ends_at": None,
                             "clock_minutes": 0})
                 continue
-            tt = catalogo.turnos[est]
+            tt = turnos[est]
             ini = datetime(d.year, d.month, d.day) + timedelta(minutes=tt.inicio_min)
             out.append({"team": t.nome, "work_date": d, "shift_code": est, "is_day_off": False,
                         "starts_at": ini, "ends_at": ini + timedelta(minutes=tt.duracao_min),

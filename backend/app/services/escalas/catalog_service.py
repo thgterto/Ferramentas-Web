@@ -28,6 +28,8 @@ def schedule_models(db: Session, regime: str | None, group: str | None,
                     exact: bool | None) -> list[ScheduleModelOut]:
     out = []
     for m in CatalogRepo(db).schedule_models():
+        if m.catalog_group == "personalizado":
+            continue
         if group and m.catalog_group != group:
             continue
         if exact is not None and m.exact_24x7 != exact:

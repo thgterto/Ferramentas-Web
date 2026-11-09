@@ -122,7 +122,68 @@ def _rodar_catalogo(entrada: dict[str, Any], esp: dict[str, Any]) -> None:
     assert m.folgas_7d == Fraction(esp["folgas_7d"])
 
 
+def _hm(t: str) -> int:
+    h, m = t.split(":")
+    return int(h) * 60 + int(m)
+
+
+def _rodar_personalizado(entrada: dict[str, Any], esp: dict[str, Any]) -> None:
+    """v3.5: motor genérico (padrão livre/camadas/K livre/janela), cobertura hora a hora."""
+    from app.services.engine import personalizado as P
+    from app.services.engine.regime_legal import regimes_mvp
+    from app.services.engine.types import Turno
+
+    cat = catalogo_mvp()
+    turnos = dict(cat.turnos)
+    for c, (ini, dur) in (entrada.get("turnos") or {}).items():
+        turnos[c] = Turno(c, _hm(ini), dur)
+    if "modelo" in entrada:
+        p = P.de_modelo(cat[entrada["modelo"]], turnos, entrada.get("k"))
+    else:
+        camadas = tuple(P.Camada(
+            codigo=c["codigo"], sequencia=tuple(c["sequencia"]), k=c.get("k"),
+            k_modo=c.get("k_modo", "fixo"), rotacao=c.get("rotacao", "frente"),
+            semanal=bool(c.get("semanal", False)),
+            tamanhos=tuple(Fraction(x) for x in c["tamanhos"]) if "tamanhos" in c else None)
+            for c in entrada["camadas"])
+        p = P.PadraoPersonalizado("GOLDEN", turnos, camadas)
+    if "janela" in entrada:
+        j = entrada["janela"]
+        p = P.PadraoPersonalizado(p.codigo, p.turnos, p.camadas, p.data_ancora,
+                                  P.Janela(frozenset(j["dias"]), _hm(j["inicio"]), _hm(j["fim"])),
+                                  p.derivado_de)
+    curva = (demanda.postos_24x7(int(entrada["postos"])) if "postos" in entrada
+             else _curva(entrada))
+    r = P.simular(p, curva, date.fromisoformat(entrada["data_inicio"]), entrada["dias"],
+                  entrada.get("tamanho", entrada.get("postos", 1)))
+    k = r.cobertura.kpis
+    if "ks" in esp:
+        assert list(r.escala.ks) == esp["ks"]
+    if "pct" in esp:
+        assert k.pct_horas_posto_cobertas == Fraction(esp["pct"])
+    if "pct_excesso" in esp:
+        assert k.pct_excesso == Fraction(esp["pct_excesso"])
+    if "excesso_hp" in esp:
+        assert k.excesso_hp == Fraction(esp["excesso_hp"])
+    if "horas_requeridas" in esp:
+        assert k.horas_posto_requeridas == esp["horas_requeridas"]
+    if "horas_cobertas" in esp:
+        assert sum(1 for c in r.cobertura.cobertura if c > 0) == esp["horas_cobertas"]
+    if "horas_semanais" in esp:
+        assert [rel.horas_semanais for rel in r.relatorios] == [
+            Fraction(h) for h in esp["horas_semanais"]]
+    for nome, seq in esp.get("estados_iniciais", {}).items():
+        i = next(n for n, t in enumerate(r.escala.turmas) if t.nome == nome)
+        assert "".join(e[0] for e in r.escala.estados[i][: len(seq)]) == seq
+    if "achados" in esp:
+        assert set(esp["achados"]) <= {a.codigo for a in r.achados}
+    if "achados_legais" in esp:
+        legais = P.validar_padrao(p, regimes_mvp()["CLT_44H_ATUAL"])
+        assert set(esp["achados_legais"]) <= {a.codigo for a in legais}
+
+
 EXECUTORES = {
+    "personalizado": _rodar_personalizado,
     "demanda": _rodar_demanda,
     "shrinkage": _rodar_shrinkage,
     "gerador": _rodar_gerador,

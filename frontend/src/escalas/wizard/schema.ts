@@ -43,9 +43,16 @@ export const step3 = z.object({
 })
 
 export const step4 = z.object({
-  modelCode: z.string().min(1, 'Escolha um modelo de escala'),
-  teamCount: int(1, 12, 'Nº de turmas'),
-  shiftCodes: z.array(z.string()).min(1, 'Escolha ao menos um turno'),
+  modelCode: z.string().min(1, 'Escolha um modelo de escala ou personalize'),
+  teamCount: int(1, 60, 'Nº de turmas'),
+  kMode: z.enum(['fixo', 'minimo', 'faixa', 'sugerir']),
+  kMin: int(1, 60, 'K mínimo'),
+  kMax: int(1, 60, 'K máximo'),
+  teamSizes: z.array(z.number().positive('Pessoas por turma > 0')).max(60),
+  shiftCodes: z.array(z.string()),
+  customized: z.boolean(),
+  // padrão do construtor (PatternSpec) — validado pelo backend (/schedule-patterns:validate)
+  pattern: z.any().nullable(),
 })
 
 export const wizardSchema = step1
@@ -56,6 +63,8 @@ export const wizardSchema = step1
     if (v.legalMode === 'regime' && !v.legalRegimeCode) ctx.addIssue({ code: 'custom', path: ['legalRegimeCode'], message: 'Escolha o regime' })
     if (v.legalMode === 'data' && !/^\d{4}-\d{2}-\d{2}$/.test(v.legalReferenceDate))
       ctx.addIssue({ code: 'custom', path: ['legalReferenceDate'], message: 'Informe a data de referência' })
+    if (v.kMode === 'faixa' && v.kMin > v.kMax) ctx.addIssue({ code: 'custom', path: ['kMax'], message: 'K máximo deve ser ≥ K mínimo' })
+    if (v.customized && !v.pattern) ctx.addIssue({ code: 'custom', path: ['modelCode'], message: 'Abra o construtor para definir o padrão' })
     if (v.demandMode === 'fixos' && v.postos < 1) ctx.addIssue({ code: 'custom', path: ['postos'], message: 'Informe ao menos 1 posto' })
     if (v.demandMode === 'curva' && !v.curve.some((x) => x > 0)) ctx.addIssue({ code: 'custom', path: ['curve'], message: 'A grade precisa de ao menos uma hora com demanda > 0' })
     const codes = v.roles.map((r) => r.code)
@@ -87,7 +96,7 @@ function nextMonday(from = new Date()): string {
 
 export function defaultValues(): WizardValues {
   return {
-    scenarioName: '6x2 4 turmas',
+    scenarioName: 'Novo cenário',
     agreementKind: 'CLT_PADRAO',
     allows8h: false,
     horizonStart: nextMonday(),
@@ -108,9 +117,15 @@ export function defaultValues(): WizardValues {
     roles: [],
     subs: [],
     minimums: [],
-    modelCode: '6X2',
-    teamCount: 4,
-    shiftCodes: ['M', 'T', 'N'],
+    modelCode: '',
+    teamCount: 1,
+    kMode: 'fixo',
+    kMin: 1,
+    kMax: 12,
+    teamSizes: [],
+    shiftCodes: [],
+    customized: false,
+    pattern: null,
   }
 }
 

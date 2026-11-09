@@ -79,7 +79,7 @@ describe('Wizard de 5 passos (A26/A47)', () => {
     expect(card).toHaveTextContent('Conforme')
     expect(screen.getByTestId('modelo-2X2_12H')).toHaveTextContent('Só com ACT/CCT')
     fireEvent.click(card)
-    fireEvent.change(screen.getByLabelText('Nº de turmas (K fixo)'), { target: { value: '4' } })
+    fireEvent.change(screen.getByLabelText('Nº de turmas (K)'), { target: { value: '4' } })
     expect(await screen.findByText(/COB_TURMAS_INSUFICIENTES: 4 turmas < K necessário 4,5 — sugestão: 5 turmas ou 9 meias-turmas/)).toBeInTheDocument()
     expect(await axeViolations(container)).toEqual([])
   })
@@ -96,7 +96,7 @@ describe('Wizard de 5 passos (A26/A47)', () => {
     fireEvent.change(screen.getByLabelText('Shrinkage diurno (%)'), { target: { value: '8' } })
     next()
     await screen.findByRole('heading', { name: /Passo 4/ })
-    await screen.findByTestId('modelo-6X2')
+    fireEvent.click(await screen.findByTestId('modelo-6X2'))
     next()
     await screen.findByRole('heading', { name: /Passo 5/ })
     expect(screen.getByText('6X2 · 4 turmas · turnos M/T/N')).toBeInTheDocument()
@@ -106,5 +106,63 @@ describe('Wizard de 5 passos (A26/A47)', () => {
     expect(sc).toMatchObject({ schedule_model_code: '6X2', team_count: 4, legal_regime_code: 'CLT_44H_ATUAL', simulate_transition: true, shrinkage_profile_id: 'sh1', shift_template_codes: ['M', 'T', 'N'] })
     const curve = calls.find((c) => c.url === '/positions/pos1/demand-curves')!.body as { values: string[] }
     expect(curve.values).toHaveLength(168)
+    expect((sc.params as Record<string, unknown>).pattern).toBeUndefined()
+  })
+
+  it('passo 4: busca e filtro no catálogo completo; nenhum modelo pré-selecionado', async () => {
+    mocks()
+    renderWithProviders(<WizardPage />, { route: ROUTE.replace('passo=1', 'passo=4'), path: PATH })
+    await screen.findByTestId('modelo-4X2')
+    expect(screen.getByText('4 de 4 modelos')).toBeInTheDocument()
+    expect(screen.queryByRole('radio', { checked: true })).toBeNull()
+    fireEvent.change(screen.getByLabelText('Buscar modelo'), { target: { value: '12 h' } })
+    expect(screen.getByText('1 de 4 modelos')).toBeInTheDocument()
+    expect(screen.getByTestId('modelo-2X2_12H')).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText('Buscar modelo'), { target: { value: '' } })
+    fireEvent.click(screen.getByRole('checkbox', { name: /Só exatos 24\/7/ }))
+    expect(screen.getByText('4 de 4 modelos')).toBeInTheDocument()
+    next()
+    expect(await screen.findByText(/Escolha um modelo de escala ou personalize/)).toBeInTheDocument()
+  })
+
+  it('passo 4: K "sugerir" e tamanhos por turma enviam params.pattern derivado', async () => {
+    const derived = { name: '4x2', derived_from: '4X2', shifts: [{ code: 'M', start: '06:00', duration_min: 480, break_min: 60 }, { code: 'T', start: '14:00', duration_min: 480, break_min: 60 }, { code: 'N', start: '22:00', duration_min: 480, break_min: 60 }], layers: [{ code: 'NUCLEO', sequence: ['M', 'M', 'M', 'M', 'F', 'F', 'T', 'T', 'T', 'T', 'F', 'F', 'N', 'N', 'N', 'N', 'F', 'F'], rotation: 'frente', team_mode: 'fixo', k: 5, weekly_anchor: false }] }
+    const calls = mocks({ 'GET /schedule-models/4X2/pattern': { data: derived } })
+    renderWithProviders(<WizardPage />, { route: ROUTE.replace('passo=1', 'passo=4'), path: PATH })
+    fireEvent.click(await screen.findByTestId('modelo-4X2'))
+    expect(screen.getByLabelText('Nº de turmas (K)')).toHaveValue(5)
+    fireEvent.change(screen.getByLabelText('Modo de K'), { target: { value: 'sugerir' } })
+    next()
+    await screen.findByRole('heading', { name: /Passo 5/ })
+    expect(screen.getByText('4X2 · K sugerido pelo motor · turnos M/T/N')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Simular cobertura' }))
+    await waitFor(() => expect(calls.some((c) => c.url === '/scenarios/sc1/simulate')).toBe(true))
+    const sc = calls.find((c) => c.method === 'POST' && c.url === '/scenarios')!.body as { params: { pattern: { layers: { team_mode: string }[] } }; schedule_model_code: string; shift_template_codes: string[] }
+    expect(sc.schedule_model_code).toBe('4X2')
+    expect(sc.params.pattern.layers[0].team_mode).toBe('sugerir')
+    expect(sc.shift_template_codes).toEqual([])
+  })
+
+  it('construtor: "Começar do zero" com K = 5, envia padrão personalizado', async () => {
+    const calls = mocks({
+      'GET /schedule-patterns': { data: [] },
+      'POST /schedule-patterns:validate': { data: { layers: [{ code: 'NUCLEO', cycle_length: 10, k_required: '5.000000', k_suggested: 5, k_used: 5, offsets: [0, 2, 4, 6, 8], exact: true, exact_with_half_teams: false, avg_weekly_hours: '33.600000', rest_days_per_7: '2.800000', max_consecutive_work_days: 6, min_rest_between_shifts_hours: '16.000000', team_sizes: ['3.000000'] }], teams_total: 5, headcount: '15.000000', k_required_total: '5.000000', coverage_pct: '1.000000', deficit_post_hours_week: '0.000000', excess_pct: '0.000000', slots: Array.from({ length: 168 }, (_, i) => ({ slot_index: i, required: '3.000000', scheduled_worst: '3.000000', gap_worst: '0.000000' })), findings: [], legal_regime: 'CLT_44H_ATUAL@1', elapsed_ms: 12 } },
+    })
+    const { container } = renderWithProviders(<WizardPage />, { route: ROUTE.replace('passo=1', 'passo=4'), path: PATH })
+    await screen.findByTestId('modelo-4X2')
+    fireEvent.click(screen.getByRole('button', { name: 'Começar do zero' }))
+    expect(await screen.findByTestId('construtor')).toBeInTheDocument()
+    expect(await screen.findByText('100,0%')).toBeInTheDocument()
+    expect(screen.getAllByRole('spinbutton', { name: /^Pessoas na turma/ })).toHaveLength(5)
+    expect(await axeViolations(container)).toEqual([])
+    next()
+    await screen.findByRole('heading', { name: /Passo 5/ })
+    expect(screen.getByText(/Personalizado “Padrão personalizado” · 5 turmas/)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Simular cobertura' }))
+    await waitFor(() => expect(calls.some((c) => c.url === '/scenarios/sc1/simulate')).toBe(true))
+    const sc = calls.find((c) => c.method === 'POST' && c.url === '/scenarios')!.body as { params: { pattern: { layers: { k: number }[] } }; schedule_model_code: string; team_count: number }
+    expect(sc.schedule_model_code).toBe('PERSONALIZADO')
+    expect(sc.team_count).toBe(5)
+    expect(sc.params.pattern.layers[0].k).toBe(5)
   })
 })

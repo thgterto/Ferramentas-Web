@@ -171,6 +171,12 @@ def calcular_cobertura(
     ocup = ocupacao_horaria(padrao, turnos, data_ancora, dias, inicio)
     cob = tuple(sum((postos * fracoes[k] for k, _ in o), Fraction(0)) for o in ocup)
     req = tuple(curva.valores[_dow(inicio, h) * 24 + h % 24] for h in range(dias * 24))
+    return montar_resultado(inicio, req, cob, curva)
+
+
+def montar_resultado(inicio: date, req: tuple[int, ...], cob: tuple[Fraction, ...],
+                     curva: CurvaDemanda) -> ResultadoCobertura:
+    """KPIs, agregação 7×24 e achados COB_* a partir de demanda e cobertura por hora."""
     gap = [c - r for c, r in zip(cob, req, strict=True)]
     kpis = calcular_kpis(inicio, req, cob)
     pior, media = agregar_7x24(inicio, gap)

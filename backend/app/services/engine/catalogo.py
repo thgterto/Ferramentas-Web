@@ -19,7 +19,7 @@ from typing import Any, cast
 import yaml
 
 from app.services.engine.gerador import cobre_exatamente, montar_grupo, offsets_uniformes
-from app.services.engine.types import FOLGA, GrupoTurmas, Padrao, Turno
+from app.services.engine.types import FOLGA, RESERVA, GrupoTurmas, Padrao, Turno
 
 GENERICO = "X"
 
@@ -50,6 +50,12 @@ class ModeloEscala:
     modelo_base: str | None = None
     esperado: Mapping[str, Any] | None = None
     regime_compliance: Mapping[str, Mapping[str, str]] | None = None  # FR-42 (seed)
+    grupo: str = "continuo"            # continuo | nao_continuo | complementar | variacao
+    fase: str = "mvp"                  # mvp | fase2 (catálogo completo v3.5)
+    semanal: bool = False              # sequência alinhada à segunda-feira
+    k_estrela_dado: Fraction | None = None   # override (ex.: 18x36, cobertura por hora)
+    exato_dado: bool | None = None
+    offsets_dados: tuple[int, ...] | None = None
 
     # ---- métricas analíticas -------------------------------------------------
     def _grupos_canonicos(self, meias: bool = False) -> tuple[GrupoTurmas, ...]:
@@ -70,6 +76,8 @@ class ModeloEscala:
         """K* = Σ s·L/w por grupo; ``None`` para modelo não contínuo."""
         if not self.continuo_24x7:
             return None
+        if self.k_estrela_dado is not None:
+            return self.k_estrela_dado
         return sum((_k_estrela_seq(s) for s in self.sequencias), Fraction(0))
 
     @property
@@ -83,7 +91,7 @@ class ModeloEscala:
     def horas_semanais(self, duracao_min: int | None = None) -> Fraction:
         """h/sem média = w × h × 7 / L (por turma)."""
         seq = self.sequencias[0]
-        w = sum(1 for e in seq if e != FOLGA)
+        w = sum(1 for e in seq if e not in (FOLGA, RESERVA))
         dur = self.duracoes_min[0] if duracao_min is None else duracao_min
         return Fraction(w * dur * 7, len(seq) * 60)
 
@@ -95,6 +103,8 @@ class ModeloEscala:
     def _exato(self, meias: bool) -> bool | None:
         if not self.continuo_24x7:
             return None
+        if self.exato_dado is not None:
+            return self.exato_dado and not meias
         try:
             grupos = self._grupos_canonicos(meias)
         except ValueError:
@@ -128,6 +138,8 @@ class ModeloEscala:
         if not self.continuo_24x7:
             raise ValueError(f"{self.codigo}: modelo não contínuo — gerador 24/7 não se aplica")
         v = variante or (self.variantes[0] if self.variantes else Variante("K*"))
+        if self.offsets_dados is not None and not v.meias:
+            return Padrao(self.codigo, (GrupoTurmas(self.sequencias[0], self.offsets_dados),))
         n_grupos = len(self.sequencias)
         grupos: list[GrupoTurmas] = []
         for seq in self.sequencias:
@@ -146,8 +158,8 @@ class ModeloEscala:
 
 
 def _k_estrela_seq(seq: tuple[str, ...]) -> Fraction:
-    turnos = {e for e in seq if e != FOLGA}
-    w = sum(1 for e in seq if e != FOLGA)
+    turnos = {e for e in seq if e not in (FOLGA, RESERVA)}
+    w = sum(1 for e in seq if e not in (FOLGA, RESERVA))
     return Fraction(len(turnos) * len(seq), w)
 
 
@@ -180,7 +192,8 @@ class Catalogo:
 def carregar_catalogo(dados: Mapping[str, Any]) -> Catalogo:
     """Interpreta o dicionário do seed (estrutura de ``catalogo_mvp.yaml``)."""
     turnos = {
-        c: Turno(c, _hhmm(str(t["inicio"])), int(t["duracao_min"]))
+        c: Turno(c, _hhmm(str(t["inicio"])), int(t["duracao_min"]),
+                 blocos=tuple((_hhmm(str(b[0])), int(b[1])) for b in t.get("blocos", ())))
         for c, t in dados["turnos"].items()
     }
     brutos = {str(m["codigo"]): m for m in dados["modelos"]}
@@ -195,7 +208,8 @@ def carregar_catalogo(dados: Mapping[str, Any]) -> Catalogo:
                              [str(t) for t in m.get("turnos", [])])
             fonte = m
         for seq in seqs:
-            desconhecidos = {e for e in seq if e not in turnos and e not in (FOLGA, GENERICO)}
+            desconhecidos = {e for e in seq
+                             if e not in turnos and e not in (FOLGA, RESERVA, GENERICO)}
             if desconhecidos:
                 raise ValueError(f"{codigo}: turnos desconhecidos {sorted(desconhecidos)}")
         if "modelo_base" in m:
@@ -216,6 +230,13 @@ def carregar_catalogo(dados: Mapping[str, Any]) -> Catalogo:
             modelo_base=m.get("modelo_base"),
             esperado=m.get("esperado"),
             regime_compliance=m.get("regime_compliance"),
+            grupo=str(m.get("grupo") or fonte.get("grupo")
+                      or ("continuo" if fonte["continuo_24x7"] else "nao_continuo")),
+            fase=str(m.get("fase", "mvp")),
+            semanal=bool(m.get("semanal", False)),
+            k_estrela_dado=Fraction(str(m["k_estrela"])) if "k_estrela" in m else None,
+            exato_dado=m.get("exato"),
+            offsets_dados=tuple(m["offsets"]) if "offsets" in m else None,
         )
     return Catalogo(str(dados["versao"]), turnos, modelos)
 

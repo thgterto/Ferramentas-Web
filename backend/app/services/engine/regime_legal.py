@@ -459,7 +459,8 @@ def simular_transicao(postos: int, catalogo: Catalogo, regimes: Regimes,
     fases = []
     alvo = set(turnos_cenario)
     candidatos = [m for m in catalogo.modelos.values()
-                  if m.continuo_24x7 and {e for s in m.sequencias for e in s} - {FOLGA} == alvo]
+                  if m.continuo_24x7 and m.fase == "mvp"
+                  and {e for s in m.sequencias for e in s} - {FOLGA} == alvo]
     for cod in regimes.linha_do_tempo:
         reg = regimes[cod]
         opcoes = [o for m in candidatos for v in m.variantes

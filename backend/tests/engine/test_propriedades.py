@@ -105,8 +105,18 @@ def test_catalogo_sem_erro_clt_no_44h_salvo_excecoes() -> None:
     # Exceções: 2x2 12 h (jornada > 10 h, Q13) e 6x1 (8 h ⇒ carga 48 h; rotação N→F→M dá
     # repouso < 35 h — CLT_DSR_35H, ver resumo do S2).
     for c in CAT.codigos:
-        if c in {"2X2_12H", "6X1_BASE"}:
+        if c in {"2X2_12H", "6X1_BASE"} or CAT[c].fase != "mvp":
             continue
         achados = validar_modelo(CAT[c], CAT.turnos, REG["CLT_44H_ATUAL"])
         assert not [a for a in achados if a.severidade == Severidade.ERRO], c
     assert Variante("x") is not None
+
+
+def test_catalogo_completo_inviaveis_viram_achados_nao_bloqueiam() -> None:
+    """v3.5: modelos 'exatos mas inviáveis na CLT' (§6.1) são achados ERRO, não exclusão."""
+    erros = {c: {a.codigo for a in validar_modelo(CAT[c], CAT.turnos, REG["CLT_44H_ATUAL"])
+                 if a.severidade == Severidade.ERRO} for c in CAT.codigos}
+    assert "CLT_JORNADA_DIARIA" in erros["24X48"] and "CLT_JORNADA_DIARIA" in erros["18X36"]
+    assert "CLT_SETIMO_DIA" in erros["CONTINENTAL_8H"]
+    assert "CLT_INTERJORNADA" in erros["ROT_TRAS"] and not erros["ROT_FRENTE"]
+    assert not erros["3X2"] and not erros["6T"] and not erros["5T_FR"]

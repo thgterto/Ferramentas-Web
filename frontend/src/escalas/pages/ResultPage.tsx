@@ -27,10 +27,12 @@ import { ComplianceBadge } from '../components/ComplianceBadge'
 import { ErrorBox, Spinner, inputCls } from '../components/ui'
 import { useLegalRegimes } from '../wizard/useRegime'
 import { defaultShifts } from '../wizard/shifts'
-import { teamsBySlot } from '../api/schedule'
+import { presenceAtSlot, presenceByHour } from '../api/schedule'
+import { ShiftBoard } from '../components/ShiftBoard'
 
 const TABS = [
   ['cobertura', 'Cobertura'],
+  ['quadro', 'Quadro de turnos'],
   ['escala', 'Escala'],
   ['viabilidade', 'Viabilidade'],
   ['transicao', 'Simular transição'],
@@ -72,7 +74,11 @@ export default function ResultPage() {
   })
   const modelsQ = useQuery({ queryKey: ['schedule-models'], queryFn: () => apiData<ScheduleModelOut[]>('/schedule-models'), staleTime: Infinity })
 
-  const teamMap = useMemo(() => teamsBySlot(aQ.data ?? []), [aQ.data])
+  const presence = useMemo(() => presenceByHour(aQ.data ?? [], sQ.data?.horizon_start ?? '2000-01-03'), [aQ.data, sQ.data?.horizon_start])
+  const sizeOf = useMemo(() => {
+    const m = new Map((sQ.data?.teams ?? []).map((t) => [t.code, Number(t.size_required) || t.size_assigned || 1]))
+    return (team: string) => m.get(team) ?? 1
+  }, [sQ.data?.teams])
   const teamCodes = useMemo(() => {
     const fromAsg = [...new Set((aQ.data ?? []).map((a) => a.team).filter(Boolean) as string[])].sort()
     return fromAsg.length ? fromAsg : (sQ.data?.teams ?? []).map((t) => t.code)
@@ -139,7 +145,8 @@ export default function ResultPage() {
         <div>
           <h1 className="text-h1 font-semibold">{sc.name}</h1>
           <p className="text-caption text-ink-muted">
-            {sc.schedule_model.code} · {sc.team_count} turmas · v{sc.version} · regime {sc.legal_regime_applied ?? '—'}
+            {sc.schedule_model.code === 'PERSONALIZADO' ? `Personalizado “${(sc.params as { pattern?: { name?: string } }).pattern?.name ?? ''}”` : sc.schedule_model.code} · {sc.teams.length || sc.team_count} turmas
+            {(sc.layers?.length ?? 0) > 1 ? ` em ${sc.layers!.length} camadas (${sc.layers!.map((l) => `${l.code} K=${l.k}`).join(' + ')})` : ''} · v{sc.version} · regime {sc.legal_regime_applied ?? '—'}
             {sc.calculated_at && ` · calculado ${new Date(sc.calculated_at).toLocaleString('pt-BR')}`}
           </p>
         </div>
@@ -207,13 +214,23 @@ export default function ResultPage() {
                 <Heatmap7x24
                   slots={covQ.data.slots}
                   weeks={sc.horizon_weeks}
-                  teamsAt={role ? undefined : (i) => [...(teamMap.get(i) ?? [])].sort()}
+                  presenceAt={role || !aQ.data ? undefined : (i) => presenceAtSlot(presence, i, sc.horizon_start, sc.horizon_weeks, sizeOf, view === 'postos' && agg === 'pior' ? Number(covQ.data.slots[i]?.scheduled_worst) : undefined)}
                   caption={`Cobertura 7×24 · ${view === 'postos' ? 'postos' : 'postos + reserva'} · ${agg === 'pior' ? 'pior caso' : 'média'}${role ? ` · cargo ${role}` : ''}`}
                 />
               )}
             </div>
             {showTransition && transition}
           </>
+        )}
+        {calculated && tab === 'quadro' && (
+          <div className="rounded-card border border-border bg-surface p-4">
+            <h2 className="mb-2 text-h2 font-semibold">Quadro de turnos</h2>
+            {aQ.isLoading ? (
+              <Spinner />
+            ) : (
+              <ShiftBoard assignments={aQ.data ?? []} teams={sc.teams} shifts={sc.shifts} start={sc.horizon_start} weeks={sc.horizon_weeks} roles={(rolesQ.data?.data ?? []).map((r) => ({ code: r.code, name: r.name }))} />
+            )}
+          </div>
         )}
         {calculated && tab === 'escala' && (
           <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_380px]">

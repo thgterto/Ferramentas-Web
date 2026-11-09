@@ -1,0 +1,100 @@
+# Golden v3.5 — motor genérico (padrão arbitrário, K livre, camadas, janela). revisao: pendente-SME
+# entrada.modelo = deriva do catálogo; entrada.camadas = padrão livre (turnos do catálogo ou
+# entrada.turnos). Cobertura medida hora a hora no horizonte (não por turno-dia).
+casos:
+  - id: GT-PER-4X3-JANELA
+    descricao: "4x3 10 h (não contínuo) com 2 turmas na janela 07–17 todos os dias: 100%"
+    tipo: personalizado
+    entrada: {modelo: 4X3, k: 2, postos: 2, janela: {dias: [0, 1, 2, 3, 4, 5, 6], inicio: "07:00", fim: "17:00"},
+              data_inicio: "2027-01-04", dias: 28}
+    esperado: {ks: [2], pct: "1", horas_requeridas: 560, excesso_hp: "80"}
+  - id: GT-PER-5X2-COM
+    descricao: "5x2 comercial ADM 08–16h48 seg–sex, janela seg–sex: alinhado à segunda"
+    tipo: personalizado
+    entrada: {modelo: 5X2_COM, k: 1, postos: 1, data_inicio: "2027-01-06", dias: 14}
+    esperado: {ks: [1], pct: "1", estados_iniciais: {A: "AAAFFAA"}}
+  - id: GT-PER-2X2-8H
+    descricao: "2x2 8 h rotativo (L=12) com 6 turmas: exato 24/7"
+    tipo: personalizado
+    entrada: {modelo: 2X2_8H, postos: 3, data_inicio: "2027-01-04", dias: 84}
+    esperado: {ks: [6], pct: "1", excesso_hp: "0"}
+  - id: GT-PER-2X2-12H
+    descricao: "2x2 12 h: 2 D + 2 N exato"
+    tipo: personalizado
+    entrada: {modelo: 2X2_12H, postos: 2, data_inicio: "2027-01-04", dias: 28}
+    esperado: {ks: [2, 2], pct: "1", excesso_hp: "0"}
+  - id: GT-PER-4X4
+    descricao: "4x4 12 h (L=8): 2 D + 2 N, exato, 42 h/sem"
+    tipo: personalizado
+    entrada: {modelo: 4X4, postos: 3, data_inicio: "2027-01-04", dias: 56}
+    esperado: {ks: [2, 2], pct: "1", excesso_hp: "0", horas_semanais: ["42", "42"]}
+  - id: GT-PER-4X4-K3
+    descricao: "4x4 com K = 3 (1 D + ... 2 N): cobertura parcial medida, sem bloqueio"
+    tipo: personalizado
+    entrada: {modelo: 4X4, k: 3, postos: 1, data_inicio: "2027-01-04", dias: 56}
+    esperado: {ks: [2, 1], pct: "3/4"}
+  - id: GT-PER-18X36
+    descricao: "18x36 (ciclo 54 h em 9 dias) com 3 turmas: exato hora a hora"
+    tipo: personalizado
+    entrada: {modelo: 18X36, postos: 1, data_inicio: "2027-01-04", dias: 63}
+    esperado: {ks: [3], pct: "1", excesso_hp: "0"}
+  - id: GT-PER-CUSTOM-K5
+    descricao: "Sequência livre M,M,T,T,N,N,F,F,F (K*=4,5) com K = 5 fixo: 100%, excesso 1/9"
+    tipo: personalizado
+    entrada: {camadas: [{codigo: A, sequencia: [M, M, T, T, N, N, F, F, F], k: 5}], postos: 2,
+              data_inicio: "2027-01-04", dias: 63}
+    esperado: {ks: [5], pct: "1", pct_excesso: "1/9"}
+  - id: GT-PER-CUSTOM-SUGERIR
+    descricao: "Mesma sequência no modo 'sugerir': o motor escolhe K = 5 (menor que zera déficit)"
+    tipo: personalizado
+    entrada: {camadas: [{codigo: A, sequencia: [M, M, T, T, N, N, F, F, F], k_modo: sugerir}],
+              postos: 2, data_inicio: "2027-01-04", dias: 63}
+    esperado: {ks: [5], pct: "1", achados: [COB_K_SUGERIDO, COB_PADRAO_NAO_EXATO]}
+  - id: GT-PER-CUSTOM-TAMANHOS
+    descricao: "6x2 com tamanhos 2/2/2/1: horas da turma D ficam com 1 pessoa (déficit medido)"
+    tipo: personalizado
+    entrada: {camadas: [{codigo: A, sequencia: [M, M, T, T, N, N, F, F], k: 4,
+                         tamanhos: [2, 2, 2, 1]}], postos: 2, data_inicio: "2027-01-04", dias: 56}
+    esperado: {ks: [4], pct: "7/8"}
+  - id: GT-PER-CUSTOM-SOBREPOSTOS-6H
+    descricao: "Turnos livres sobrepostos: 4 × 6 h + reforço 10 h (08–18), K = 6 + 1"
+    tipo: personalizado
+    entrada:
+      turnos: {A6: ["00:00", 360], B6: ["06:00", 360], C6: ["12:00", 360], D6: ["18:00", 360],
+               R10: ["08:00", 600]}
+      camadas:
+        - {codigo: BASE, sequencia: [A6, A6, B6, B6, C6, C6, F, D6, D6, F, F, F], k: 6}
+        - {codigo: REF, sequencia: [R10, R10, R10, R10, R10, F, F], k: 1, semanal: true}
+      faixas: [{dias: [0, 1, 2, 3, 4, 5, 6], hora_ini: 0, hora_fim: 24, postos: 1},
+               {dias: [0, 1, 2, 3, 4], hora_ini: 8, hora_fim: 18, postos: 1}]
+      data_inicio: "2027-01-04"
+      dias: 84
+      tamanho: 1
+    esperado: {ks: [6, 1], pct: "1", excesso_hp: "0"}
+  - id: GT-PER-CAMADAS-12X36-REFORCO
+    descricao: "FR-30: núcleo 12x36 (2 postos) + reforço 5x2 INT 10–18 (1 posto): 168/168, excesso 0"
+    tipo: personalizado
+    entrada:
+      camadas:
+        - {codigo: D, sequencia: [D12, F], k: 2}
+        - {codigo: N, sequencia: [N12, F], k: 2}
+        - {codigo: REFORCO, sequencia: [INT, INT, INT, INT, INT, F, F], k: 1, semanal: true,
+           tamanhos: [1]}
+      faixas: [{dias: [0, 1, 2, 3, 4, 5, 6], hora_ini: 0, hora_fim: 24, postos: 2},
+               {dias: [0, 1, 2, 3, 4], hora_ini: 10, hora_fim: 18, postos: 1}]
+      data_inicio: "2027-01-04"
+      dias: 28
+      tamanho: 2
+    esperado: {ks: [2, 2, 1], pct: "1", excesso_hp: "0"}
+  - id: GT-PER-SPLIT
+    descricao: "Jornada fracionada 07–11 + 17–21: cobre só os dois blocos (8 h/dia seg–sex)"
+    tipo: personalizado
+    entrada: {modelo: SPLIT, k: 1, postos: 1, data_inicio: "2027-01-04", dias: 7}
+    esperado: {ks: [1], horas_cobertas: 40}
+  - id: GT-PER-ROT-TRAS
+    descricao: "Rotação para trás aplicada a M,M,T,T,N,N,F,F vira N,N,T,T,M,M,F,F e acusa interjornada"
+    tipo: personalizado
+    entrada: {camadas: [{codigo: A, sequencia: [M, M, T, T, N, N, F, F], k: 4, rotacao: tras}],
+              postos: 1, data_inicio: "2027-01-04", dias: 56}
+    esperado: {ks: [4], pct: "1", estados_iniciais: {A: "NNTTMMFF"},
+               achados_legais: [CLT_INTERJORNADA]}

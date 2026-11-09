@@ -10,7 +10,10 @@ Create Date: 2026-11-08
 """
 
 from alembic import op
-from app.db.models import GLOBAL_TABLES, SHARED_TABLES, TENANT_TABLES
+from app.db.models import GLOBAL_TABLES, SHARED_TABLES, V35_TENANT_TABLES
+from app.db.models import TENANT_TABLES as _ALL_TENANT
+
+TENANT_TABLES = tuple(t for t in _ALL_TENANT if t not in V35_TENANT_TABLES)
 
 revision = "0003_mvp_rls"
 down_revision = "0002_mvp_seeds"

@@ -2,6 +2,7 @@
 
 from app.db.models.catalog import (
     ComplianceRule,
+    CustomSchedulePattern,
     LegalRegime,
     RotationPattern,
     ScheduleModel,
@@ -32,11 +33,33 @@ from app.db.models.scenarios import Assignment, Scenario, ScenarioShiftTemplate,
 from app.db.models.tenancy import Membership, Organization, User
 
 __all__ = [
-    "Assignment", "ComplianceFinding", "ComplianceRule", "CoverageResult", "CoverageRoleResult",
-    "DemandCurve", "DemandSlot", "LaborAgreement", "LegalRegime", "Membership", "Operation",
-    "Organization", "Position", "Role", "RoleCoverageRequirement", "RotationPattern", "Scenario",
-    "ScenarioShiftTemplate", "ScenarioTransitionResult", "ScheduleModel", "ShiftTemplate",
-    "ShrinkageProfile", "SubstitutionRule", "Team", "TeamConstraint", "TeamRoleComposition",
+    "Assignment",
+    "ComplianceFinding",
+    "ComplianceRule",
+    "CoverageResult",
+    "CoverageRoleResult",
+    "CustomSchedulePattern",
+    "DemandCurve",
+    "DemandSlot",
+    "LaborAgreement",
+    "LegalRegime",
+    "Membership",
+    "Operation",
+    "Organization",
+    "Position",
+    "Role",
+    "RoleCoverageRequirement",
+    "RotationPattern",
+    "Scenario",
+    "ScenarioShiftTemplate",
+    "ScenarioTransitionResult",
+    "ScheduleModel",
+    "ShiftTemplate",
+    "ShrinkageProfile",
+    "SubstitutionRule",
+    "Team",
+    "TeamConstraint",
+    "TeamRoleComposition",
     "User",
 ]
 
@@ -46,9 +69,12 @@ TENANT_TABLES = (
     "demand_slots", "shrinkage_profiles", "scenarios", "scenario_shift_templates", "teams",
     "assignments", "coverage_results", "compliance_findings", "roles", "substitution_rules",
     "role_coverage_requirements", "team_constraints", "team_role_composition",
-    "coverage_role_results", "scenario_transition_results",
+    "coverage_role_results", "scenario_transition_results", "custom_schedule_patterns",
 )
 # Catálogos com linhas globais (organization_id NULL) + linhas do tenant.
 SHARED_TABLES = ("shift_templates", "rotation_patterns")
 # Globais somente leitura para app_user.
 GLOBAL_TABLES = ("schedule_models", "compliance_rules", "legal_regimes")
+
+# Tabelas criadas depois da 0003 (a RLS delas é ativada na própria migração).
+V35_TENANT_TABLES = ("custom_schedule_patterns",)

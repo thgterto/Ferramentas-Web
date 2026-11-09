@@ -13,11 +13,24 @@ from app.services.engine.types import para_decimal
 ESSENCIAIS = ("6X1_BASE", "5X2", "12X36", "6X2", "4X2", "2X2_12H", "5T", "4X3", "FIXO_D", "FIXO_N")
 
 
-def test_catalogo_tem_os_10_codigos() -> None:
-    assert set(catalogo_mvp().codigos) == set(ESSENCIAIS)
+COMPLETO = (
+    *ESSENCIAIS,
+    "5X1", "6X3", "3X1", "3X2", "2X2_8H", "4X4", "PITMAN", "PANAMA", "DUPONT",
+    "CONTINENTAL_8H", "12X60", "24X48", "24X72", "18X36", "5T_FR", "6T", "6T_6H",
+    "ROT_FRENTE", "ROT_TRAS", "5X2_COM", "SDF_12H", "PARCIAL_20", "PARCIAL_25", "PARCIAL_30",
+    "INT_PICO", "ESCALONADO", "SPLIT")
 
 
-@pytest.mark.parametrize("codigo", ESSENCIAIS)
+def test_catalogo_completo_da_secao_6_1() -> None:
+    """v3.5: catálogo completo (§6.1 + 2x2 8 h + 4x4 + 5x2 comercial) — 37 modelos."""
+    cat = catalogo_mvp()
+    assert set(cat.codigos) == set(COMPLETO)
+    assert {c for c in cat.codigos if cat[c].fase == "mvp"} == set(ESSENCIAIS)
+    assert {cat[c].grupo for c in cat.codigos} == {
+        "continuo", "nao_continuo", "complementar", "variacao"}
+
+
+@pytest.mark.parametrize("codigo", COMPLETO)
 def test_catalogo_confere_esperado_do_seed(codigo: str) -> None:
     m = catalogo_mvp()[codigo]
     esp = m.esperado or {}

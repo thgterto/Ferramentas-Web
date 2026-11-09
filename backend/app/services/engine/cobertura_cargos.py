@@ -149,7 +149,7 @@ class ResultadoCargos:
 
 
 def cobertura_por_cargo(
-    padrao: Padrao,
+    padrao: Padrao | None,
     turnos: Mapping[str, Turno],
     composicao: Mapping[str, int],
     demandas: Mapping[str, CurvaDemanda],
@@ -158,16 +158,28 @@ def cobertura_por_cargo(
     minimos: Sequence[MinimoCargo] = (),
     dias: int | None = None,
     composicao_por_turma: Sequence[Mapping[str, int]] | None = None,
+    ocupacao: Sequence[Sequence[tuple[int, str]]] | None = None,
 ) -> ResultadoCargos:
-    """``composicao`` = pessoas por cargo em cada turma (ou ``composicao_por_turma``)."""
-    dias = dias or padrao.ciclo_calendario
+    """``composicao`` = pessoas por cargo em cada turma (ou ``composicao_por_turma``).
+
+    ``ocupacao`` (v3.5) = ocupação horária já calculada (padrão personalizado em camadas);
+    nesse caso ``padrao`` só fornece o ciclo quando ``dias`` não é informado.
+    """
+    if padrao is None and (ocupacao is None or dias is None):
+        raise ValueError("sem padrão: informe ocupacao e dias")
+    dias = dias or (padrao.ciclo_calendario if padrao else 7)
     cargos = tuple(dict.fromkeys([*composicao, *demandas]))
     regras_t = tuple(sorted(set(regras), key=lambda g: (g.de, g.para, g.prioridade)))
     for g in regras_t:
         if g.de not in cargos or g.para not in cargos:
             raise ValueError(f"regra com cargo desconhecido: {g}")
-    ocup = ocupacao_horaria(padrao, turnos, data_ancora, dias)
-    n_turmas = sum(len(g.offsets) for g in padrao.grupos)
+    if ocupacao is not None:
+        ocup = ocupacao
+        n_turmas = len(composicao_por_turma) if composicao_por_turma else 1
+    else:
+        assert padrao is not None
+        ocup = ocupacao_horaria(padrao, turnos, data_ancora, dias)
+        n_turmas = sum(len(g.offsets) for g in padrao.grupos)
     comp = list(composicao_por_turma) if composicao_por_turma else [composicao] * n_turmas
     r = len(cargos)
     horas: list[tuple[tuple[int, int, int, int], ...]] = []
