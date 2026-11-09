@@ -58,12 +58,14 @@ def test_matriz_export_xlsx_csv_ics(ctx: Ctx) -> None:
     wb = load_workbook(io.BytesIO(r.content))
     assert wb.sheetnames == ["2027-01", "2027-02"]
     ws = wb["2027-01"]
-    assert ws["A2"].value == "A-01" and ws["D1"].value == "01 sex"
-    cell = next(c for c in ws[2][3:34] if c.value in ("M", "T", "N"))
+    assert ws["A2"].value == "A-01" and ws["F1"].value == "01 sex"
+    assert ws["D1"].value == "subsetor" and ws["E1"].value == "posição"
+    cell = next(c for c in ws[2][5:36] if c.value in ("M", "T", "N"))
     assert cell.fill.fill_type == "solid" and cell.font.bold
     r = ctx.get(f"/scenarios/{sid}/monthly-matrix/export?month=2027-02&format=csv")
     rows = list(csv.reader(io.StringIO(r.content.decode("utf-8-sig")), delimiter=";"))
-    assert rows[0][:4] == ["pessoa", "turma", "cargo", "01 seg"] and len(rows[0]) == 3 + 28 + 5
+    assert rows[0][:6] == ["pessoa", "turma", "cargo", "subsetor", "posição", "01 seg"]
+    assert len(rows[0]) == 5 + 28 + 5
     assert any(r[0] == "em folga" for r in rows)
     r = ctx.get(f"/scenarios/{sid}/monthly-matrix/export?month=2027-02&format=csv&person=B-02")
     rows = list(csv.reader(io.StringIO(r.content.decode("utf-8-sig")), delimiter=";"))

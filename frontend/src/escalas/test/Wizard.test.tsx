@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { fireEvent, screen, waitFor } from '@testing-library/react'
 import WizardPage from '../wizard/WizardPage'
-import { parseDemandCsv } from '../wizard/schema'
+import { parseDemandCsv, sectorCurve, workstationCurve } from '../wizard/schema'
 import { MODELS, REGIMES } from './fixtures'
 import { axeViolations, mockFetch, renderWithProviders } from './utils'
 
@@ -62,6 +62,49 @@ describe('Wizard de 5 passos (A26/A47)', () => {
     expect(parseDemandCsv('a;b\n1;2').errors[0]).toMatch(/esperado 168 linhas/)
     expect(parseDemandCsv(Array.from({ length: 168 }, () => '2').join('\n')).values).toHaveLength(168)
     expect(parseDemandCsv(Array.from({ length: 7 }, () => Array(24).fill('-1').join(';')).join('\n')).errors[0]).toMatch(/inteiro ≥ 0/)
+  })
+
+  it('passo 2 (v3.7): subsetores, posições e pool → demanda = soma das posições e CRUD no envio', async () => {
+    const calls = mocks({
+      'POST /operations/op1/subsectors': (_u: string, init?: RequestInit) => ({ data: { id: `sub-${JSON.parse(String(init?.body)).code}` } }),
+      'POST /subsectors/*': { data: { id: 'w' } },
+      'POST /operations/op1/subsector-pools': { data: { id: 'p' } },
+    })
+    const { container } = renderWithProviders(<WizardPage />, { route: ROUTE, path: PATH })
+    await screen.findByRole('heading', { name: /Passo 1/ })
+    next()
+    await screen.findByRole('heading', { name: /Passo 2/ })
+    fireEvent.click(screen.getByRole('button', { name: '+ Subsetor' }))
+    fireEvent.click(screen.getByRole('button', { name: '+ Subsetor' }))
+    fireEvent.change(screen.getByLabelText('Nome do subsetor 1'), { target: { value: 'Caldeiras' } })
+    fireEvent.click(screen.getAllByRole('button', { name: '+ Posição' })[1])
+    fireEvent.change(screen.getByLabelText('Subsetor 2 posição 2 início'), { target: { value: '14' } })
+    fireEvent.change(screen.getByLabelText('Subsetor 2 posição 2 fim'), { target: { value: '22' } })
+    expect(screen.queryByLabelText('Postos simultâneos (todas as horas)')).toBeNull()
+    expect(screen.getByText(/Demanda do setor \(soma das posições\)/)).toHaveTextContent('pico 3')
+    fireEvent.click(screen.getByRole('button', { name: '+ Pool' }))
+    expect(screen.getByLabelText('Pool 1 inclui S1')).toBeChecked()
+    expect(await axeViolations(container)).toEqual([])
+    next()
+    await screen.findByRole('heading', { name: /Passo 3/ })
+    next()
+    await screen.findByRole('heading', { name: /Passo 4/ })
+    fireEvent.click(await screen.findByTestId('modelo-6X2'))
+    next()
+    await screen.findByRole('heading', { name: /Passo 5/ })
+    expect(screen.getByText(/soma de 3 posições em 2 subsetores \(Caldeiras, Subsetor 2\)/)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Simular cobertura' }))
+    await waitFor(() => expect(calls.some((c) => c.url === '/scenarios/sc1/simulate')).toBe(true))
+    const ws = calls.filter((c) => c.url.endsWith('/workstations')).map((c) => c.body as { code: string; demand: { mode: string; values?: number[] } })
+    expect(ws.map((w) => w.code)).toEqual(['S1P1', 'S2P1', 'P2'])
+    expect(ws[2].demand.mode).toBe('curva_168h')
+    const pool = calls.find((c) => c.url === '/operations/op1/subsector-pools')!.body
+    expect(pool).toMatchObject({ subsector_codes: ['S1', 'S2'], mode: 'total', prefer_home: true })
+    const curve = calls.find((c) => c.url === '/positions/pos1/demand-curves')!.body as { values: string[] }
+    expect(curve.values[15]).toBe('3')
+    expect(curve.values[3]).toBe('2')
+    expect(workstationCurve({ posts: 2, from: 22, to: 6 }).slice(0, 24).join('')).toBe('222222000000000000000022')
+    expect(Math.max(...sectorCurve([{ positions: [{ posts: 1, from: 0, to: 24 }, { posts: 2, from: 6, to: 14 }] }]))).toBe(3)
   })
 
   it('passo 3: shrinkage ≥ 60% é inválido', async () => {

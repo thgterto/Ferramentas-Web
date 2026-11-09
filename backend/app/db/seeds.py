@@ -28,6 +28,10 @@ COMPLIANCE_RULES: list[dict[str, Any]] = [
          "Excesso planejado de passagem de turno / reforço de pico", "FR-09", _V, False),
         ("COB_DEFICIT_ESPERADO_SHRINKAGE", "alerta", "Déficit esperado após absenteísmo",
          "FR-11", _V, False),
+        ("COB_REMANEJAMENTO_SUBSETOR", "info",
+         "Pessoas remanejadas entre subsetores intercambiáveis (pool)", "FR-34/v3.7", _V, False),
+        ("COB_DEFICIT_SUBSETOR", "alerta", "Déficit em subsetor após remanejamento",
+         "FR-09/v3.7", _V, False),
         ("COB_TURMAS_INSUFICIENTES", "erro", "Nº de turmas abaixo do K necessário", "FR-08",
          _V, True),
         ("COB_K_INSUFICIENTE", "alerta", "K fixo da operação não cobre a demanda", "FR-32",
@@ -207,3 +211,4 @@ def seed_globals(session: Any) -> None:
 
 MVP_SHIFTS = frozenset({"M", "T", "N", "D12", "N12"})
 RULES_V35 = frozenset({"COB_K_SUGERIDO", "COB_PADRAO_NAO_EXATO", "COB_FORA_JANELA"})
+RULES_V37 = frozenset({"COB_REMANEJAMENTO_SUBSETOR", "COB_DEFICIT_SUBSETOR"})

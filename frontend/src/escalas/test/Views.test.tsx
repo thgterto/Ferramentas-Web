@@ -21,7 +21,7 @@ const SH = {
 } as const
 
 /** 6x2 · 4 turmas × 2 pessoas · fevereiro/2027 (começa na segunda); turma D com cargo ENF. */
-function matrix(opts: { deficitDay?: number } = {}): MM {
+function matrix(opts: { deficitDay?: number; sub?: boolean } = {}): MM {
   const n = 28
   const days = Array.from({ length: n }, (_, i) => {
     const date = `2027-02-${String(i + 1).padStart(2, '0')}`
@@ -32,7 +32,7 @@ function matrix(opts: { deficitDay?: number } = {}): MM {
     Array.from({ length: n }, (_, d) => {
       const code = SEQ[(d + ti * 2) % 8]
       const prev = SEQ[(d - 1 + ti * 2 + 8) % 8]
-      return { code, reserve: false, carry: prev === 'N' ? 'N' : null }
+      return { code, reserve: false, carry: prev === 'N' ? 'N' : null, moved: false, workstation: null, subsector: null } as MM['people'][number]['cells'][number]
     })
   const totals = (cells: { code: string }[]) => ({
     worked_days: cells.filter((c) => c.code !== 'F').length,
@@ -45,7 +45,19 @@ function matrix(opts: { deficitDay?: number } = {}): MM {
     const cells = teamCells(ti)
     return { code: t, size: '2', cells, totals: totals(cells) }
   })
-  const people = teams.flatMap((t) => [1, 2].map((k) => ({ id: `${t.code}-0${k}`, name: `${t.code}-0${k}`, team: t.code, role: t.code === 'D' ? 'ENF' : null, cells: t.cells, totals: t.totals })))
+  const people = teams.flatMap((t) =>
+    [1, 2].map((k) => ({
+      id: `${t.code}-0${k}`,
+      name: `${t.code}-0${k}`,
+      team: t.code,
+      role: t.code === 'D' ? 'ENF' : null,
+      subsector: opts.sub ? (k === 1 ? 'SA' : 'SB') : null,
+      workstation: opts.sub ? (k === 1 ? 'A1' : 'B1') : null,
+      moved_days: 0,
+      cells: opts.sub && t.code === 'A' && k === 1 ? t.cells.map((c, i) => (i === 0 ? { ...c, moved: true, subsector: 'SB', workstation: 'B2' } : c)) : t.cells,
+      totals: t.totals,
+    })),
+  )
   const daily = days.map((d, i) => {
     const by: Record<string, number> = { M: 0, T: 0, N: 0 }
     teams.forEach((t) => {
@@ -53,7 +65,8 @@ function matrix(opts: { deficitDay?: number } = {}): MM {
       if (c !== 'F') by[c] += 2
     })
     if (opts.deficitDay === i) by.T = 1
-    return { date: d.date, by_shift: by, required_by_shift: { M: 2, T: 2, N: 2 }, off: 2, deficit_shifts: opts.deficitDay === i ? ['T'] : [], deficit_hours: opts.deficitDay === i ? 8 : 0, handover_hours: 0, required_peak: 2 }
+    const bySub: Record<string, number> = opts.sub ? { SA: 3, SB: 3 } : {}
+    return { date: d.date, by_shift: by, required_by_shift: { M: 2, T: 2, N: 2 }, off: 2, deficit_shifts: opts.deficitDay === i ? ['T'] : [], deficit_hours: opts.deficitDay === i ? 8 : 0, handover_hours: 0, required_peak: 2, by_subsector: bySub }
   })
   return {
     month: '2027-02',
@@ -63,8 +76,59 @@ function matrix(opts: { deficitDay?: number } = {}): MM {
     people,
     teams,
     daily,
+    subsectors: opts.sub ? [{ code: 'SA', name: 'Caldeiras' }, { code: 'SB', name: 'Turbinas' }] : [],
+    workstations: opts.sub
+      ? [
+          { code: 'A1', name: 'Caldeira 1', subsector: 'SA', role: null },
+          { code: 'B1', name: 'Turbina 1', subsector: 'SB', role: null },
+          { code: 'B2', name: 'Turbina 2', subsector: 'SB', role: null },
+        ]
+      : [],
+    moved_hours: opts.sub ? 8 : 0,
+    generated_people_note: null,
   }
 }
+
+describe('Subsetores e posições na matriz (v3.7)', () => {
+  it('colunas fixas Subsetor/Posição, célula remanejada, rodapé por subsetor e filtros', async () => {
+    const { container } = render(<MonthlyMatrix data={matrix({ sub: true })} />)
+    const grid = screen.getByRole('grid', { name: 'Matriz mensal 2027-02' })
+    expect(within(grid).getByRole('columnheader', { name: 'Subsetor' })).toHaveClass('sticky')
+    expect(within(grid).getByRole('columnheader', { name: 'Posição' })).toHaveClass('sticky')
+    const rowA = container.querySelector('tr[data-row="A-01"]')!
+    expect(rowA.querySelector('[data-col="subsetor"]')).toHaveTextContent('Caldeiras')
+    expect(rowA.querySelector('[data-col="posicao"]')).toHaveTextContent('A1')
+    const moved = container.querySelector('td[data-moved]')!
+    expect(moved).toHaveTextContent('⇄SB/B2')
+    expect(moved).toHaveAccessibleName(/remanejado para SB\/B2/)
+    // agrupado por subsetor por padrão
+    expect(screen.getByRole('rowheader', { name: /Subsetor Caldeiras \(4\)/ })).toBeInTheDocument()
+    expect(container.querySelector('tr[data-foot="sub-SB"]')).toHaveTextContent('No subsetor Turbinas')
+    // filtros
+    fireEvent.change(screen.getByLabelText('Subsetor'), { target: { value: 'SB' } })
+    expect(screen.getAllByRole('gridcell')).toHaveLength(5 * 28) // 4 lotados em SB + A-01 remanejado
+    fireEvent.change(screen.getByLabelText('Subsetor'), { target: { value: '' } })
+    fireEvent.click(screen.getByLabelText('Só remanejados'))
+    expect(screen.getAllByRole('gridcell')).toHaveLength(28)
+    fireEvent.click(screen.getByLabelText('Só remanejados'))
+    fireEvent.change(screen.getByLabelText('Agrupar por'), { target: { value: 'posicao' } })
+    expect(screen.getByRole('rowheader', { name: /Posição Turbina 1 \(4\)/ })).toBeInTheDocument()
+    expect(screen.getByText(/8 horas remanejadas no mês/)).toBeInTheDocument()
+    expect(await axeViolations(container)).toEqual([])
+  })
+
+  it('Por turno agrupa por subsetor com posição; Pessoa mostra a lotação', () => {
+    const { unmount } = render(<ByShiftView data={matrix({ sub: true })} initialDay={0} />)
+    const m = screen.getByRole('region', { name: 'Turno M' })
+    expect(m).toHaveTextContent(/Subsetor Turbinas: .*A-01 \[B2\] ⇄ de Caldeiras/)
+    fireEvent.change(screen.getByLabelText('Agrupar por'), { target: { value: 'turma' } })
+    expect(screen.getByRole('region', { name: 'Turno M' })).toHaveTextContent('Turma A')
+    unmount()
+    render(<PersonCalendar data={matrix({ sub: true })} person="A-01" />)
+    expect(screen.getByTestId('lotacao')).toHaveTextContent('subsetor Caldeiras · posição padrão A1')
+    expect(screen.getByLabelText(/01\/02\/2027: turno M.*remanejado para SB\/B2/)).toHaveTextContent('⇄ SB/B2')
+  })
+})
 
 describe('Matriz mensal (v3.6)', () => {
   it('pessoas × dias com sigla, F, ←N, feriado, rodapé e totais; grade acessível', async () => {

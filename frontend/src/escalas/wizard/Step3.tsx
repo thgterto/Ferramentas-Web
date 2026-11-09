@@ -1,6 +1,6 @@
 import { useFieldArray, useFormContext } from 'react-hook-form'
 import { Button, Field, inputCls } from '../components/ui'
-import type { WizardValues } from './schema'
+import { sectorCurve, type WizardValues } from './schema'
 
 export function Step3() {
   const { register, watch, formState, control } = useFormContext<WizardValues>()
@@ -12,7 +12,8 @@ export function Step3() {
   const night = Number(watch('shrinkNight')) || 0
   const reserve = watch('reserve')
   const roleCodes = watch('roles').map((r) => r.code).filter(Boolean)
-  const postos = watch('demandMode') === 'fixos' ? Number(watch('postos')) || 0 : Math.max(...watch('curve').map(Number))
+  const sectorSubs = watch('subsectors')
+  const postos = sectorSubs.length ? Math.max(...sectorCurve(sectorSubs)) : watch('demandMode') === 'fixos' ? Number(watch('postos')) || 0 : Math.max(...watch('curve').map(Number))
   const gross = (p: number) => (p < 60 ? postos / (1 - p / 100) : NaN)
   return (
     <div className="flex flex-col gap-6">

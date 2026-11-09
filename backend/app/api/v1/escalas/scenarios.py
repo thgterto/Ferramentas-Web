@@ -67,8 +67,10 @@ def simulate(scenario_id: uuid.UUID, p: Writer, db: DB,
 @router.get("/scenarios/{scenario_id}/coverage", response_model=Envelope[ss.CoverageOut])
 def coverage(scenario_id: uuid.UUID, p: Current, db: DB,
              view: Literal["postos", "reserva"] = "postos",
-             agg: Literal["pior", "media"] = "pior", role: str | None = None) -> object:
-    return {"data": svc.coverage(db, p, scenario_id, view, agg, role)}
+             agg: Literal["pior", "media"] = "pior", role: str | None = None,
+             subsector: str | None = None, workstation: str | None = None) -> object:
+    """v3.7: ``subsector``/``workstation`` filtram heatmap e KPIs (após remanejamento)."""
+    return {"data": svc.coverage(db, p, scenario_id, view, agg, role, subsector, workstation)}
 
 
 @router.post("/scenarios/{scenario_id}/sizing", response_model=Envelope[ss.SizingOut])
@@ -151,3 +153,28 @@ def monthly_matrix_export(scenario_id: uuid.UUID, p: Current, db: DB, month: Mon
                                               person)
     return Response(content=data, media_type=media,
                     headers={"Content-Disposition": f'attachment; filename="{name}"'})
+
+
+@router.post("/scenarios/{scenario_id}/optimize", response_model=Envelope[ss.OptimizeOut],
+             tags=["optimize"])
+def optimize(scenario_id: uuid.UUID, body: ss.OptimizeIn, p: Current, db: DB) -> object:
+    """v3.7 — otimizadores (OR-Tools CP-SAT), síncronos com ``time_limit_s``.
+
+    ``min_headcount`` (K/tamanho mínimos p/ cobertura alvo, por subsetor/pool), ``offsets``
+    (defasagem ótima dado K), ``best_model`` (ranking do catálogo + personalizados),
+    ``pool_allocation`` (pessoas → posições nos pools) e ``fairness`` (offsets com folgas/
+    noites/domingos equilibrados). Devolve solução, métricas antes/depois, gap e status.
+    """
+    from app.services.escalas import optimize_service
+
+    return {"data": optimize_service.optimize(db, p, scenario_id, body)}
+
+
+@router.post("/scenarios/{scenario_id}/optimize/apply",
+             response_model=Envelope[ss.OptimizeApplyOut], tags=["optimize"])
+def optimize_apply(scenario_id: uuid.UUID, body: ss.OptimizeApplyIn, p: Writer,
+                   db: DB) -> object:
+    """Cria um cenário a partir da solução (``mode=create``) ou aplica no atual e simula."""
+    from app.services.escalas import optimize_service
+
+    return {"data": optimize_service.apply(db, p, scenario_id, body)}

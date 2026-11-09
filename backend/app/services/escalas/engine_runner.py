@@ -16,8 +16,14 @@ from math import ceil
 from typing import Any
 
 from app.services.engine import personalizado as P
+from app.services.engine import subsetores as SUB
 from app.services.engine.catalogo import Catalogo, ModeloEscala
-from app.services.engine.cobertura import ResultadoCobertura, calcular_cobertura, visao_reserva
+from app.services.engine.cobertura import (
+    ResultadoCobertura,
+    calcular_cobertura,
+    ocupacao_horaria,
+    visao_reserva,
+)
 from app.services.engine.cobertura_cargos import (
     MinimoCargo,
     ResultadoCargos,
@@ -35,7 +41,7 @@ from app.services.engine.regime_legal import (
 )
 from app.services.engine.shrinkage import Shrinkage
 from app.services.engine.turmas_k import padrao_k_fixo, simular_k_fixo
-from app.services.engine.types import FOLGA, RESERVA, Achado, Escala, Turno
+from app.services.engine.types import FOLGA, RESERVA, Achado, Escala, GrupoTurmas, Padrao, Turno
 from app.services.engine.version import ENGINE_VERSION
 
 
@@ -49,6 +55,15 @@ class EntradaCargos:
     demandas: Mapping[str, CurvaDemanda]
     regras: Sequence[Substituicao]
     minimos: Sequence[MinimoCargo] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class PessoaCadastrada:
+    id: str
+    nome: str
+    cargo: str | None
+    subsetor: str | None
+    posicao: str | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -66,6 +81,9 @@ class EntradaSimulacao:
     ctx: ContextoRegime
     cargos: EntradaCargos | None = None
     padrao: P.PadraoPersonalizado | None = None   # v3.5: construtor / não contínuo
+    estrutura: SUB.Estrutura | None = None        # v3.7: subsetores, posições e pools
+    pessoas: Mapping[str, Sequence[PessoaCadastrada]] | None = None  # v3.7: por turma
+    offsets: tuple[tuple[int, ...], ...] | None = None   # v3.7: offsets do otimizador
 
 
 @dataclass(frozen=True, slots=True)
@@ -102,6 +120,63 @@ class ResultadoSimulacao:
     k_legal: Fraction
     alcancavel: Fraction
     extras: dict[str, Any] = field(default_factory=dict)
+    subsetores: SUB.ResultadoSubsetores | None = None
+    pessoas_lotadas: list[SUB.PessoaLotada] = field(default_factory=list)
+
+
+def padrao_cenario(m: ModeloEscala, k: int,
+                   offsets: Sequence[Sequence[int]] | None = None) -> Padrao:
+    """Padrão do cenário: offsets do otimizador (``params.offsets``) ou a busca padrão."""
+    if offsets:
+        try:
+            ks = m.distribuir_k(k)
+        except ValueError as exc:
+            raise EntradaInvalida(str(exc)) from exc
+        if (len(offsets) == len(m.sequencias)
+                and all(len(o) == kk for o, kk in zip(offsets, ks, strict=True))):
+            try:
+                return Padrao(m.codigo, tuple(GrupoTurmas(seq, tuple(o)) for seq, o
+                                              in zip(m.sequencias, offsets, strict=True)))
+            except ValueError as exc:
+                raise EntradaInvalida(f"params.offsets inválido: {exc}") from exc
+    try:
+        return padrao_k_fixo(m, k)
+    except ValueError as exc:
+        raise EntradaInvalida(str(exc)) from exc
+
+
+def pessoas_lotadas(estr: SUB.Estrutura, turmas: Sequence[tuple[str, int]],
+                    comp: Sequence[Mapping[str, int]] | None,
+                    cadastradas: Mapping[str, Sequence[PessoaCadastrada]] | None
+                    ) -> tuple[list[SUB.PessoaLotada], dict[str, str]]:
+    """Pessoas lotadas por turma (cadastradas quando houver; senão fictícias ``A-01``…)."""
+    out: list[SUB.PessoaLotada] = []
+    nomes: dict[str, str] = {}
+    for ti, (nome, tam) in enumerate(turmas):
+        cad = list((cadastradas or {}).get(nome, ()))
+        if cad:
+            for pc in cad:
+                sub = pc.subsetor or (estr.subsetores[0] if estr.subsetores else "")
+                out.append(SUB.PessoaLotada(pc.id, ti, sub, pc.posicao, pc.cargo))
+                nomes[pc.id] = pc.nome
+            continue
+        c = comp[ti] if comp and ti < len(comp) else {}
+        cargos = [r for r, n in c.items() for _ in range(n)]
+        for pe in SUB.distribuir_pessoas(estr, [(nome, max(tam, len(cargos)), cargos)]):
+            out.append(SUB.PessoaLotada(pe.id, ti, pe.subsetor, pe.posicao, pe.cargo))
+    return out, nomes
+
+
+def _subsetores(e: EntradaSimulacao, turmas: Sequence[tuple[str, int]],
+                ocup: Sequence[Sequence[tuple[int, str]]]
+                ) -> tuple[SUB.ResultadoSubsetores, list[SUB.PessoaLotada]]:
+    assert e.estrutura is not None
+    comp = list(e.cargos.composicao_por_turma) if e.cargos is not None else None
+    pes, _ = pessoas_lotadas(e.estrutura, turmas, comp, e.pessoas)
+    try:
+        return SUB.alocar_horizonte(e.estrutura, pes, ocup, e.inicio, por_pessoa=False), pes
+    except ValueError as exc:
+        raise EntradaInvalida(str(exc)) from exc
 
 
 def canonical_hash(snapshot: Mapping[str, Any]) -> str:
@@ -185,7 +260,13 @@ def _run_generico(e: EntradaSimulacao) -> ResultadoSimulacao:
             raise EntradaInvalida(str(exc)) from exc
         achados += list(rc.achados)
         slots_cargo = _agregar_cargos(rc, e.inicio)
+    rs: SUB.ResultadoSubsetores | None = None
+    pes: list[SUB.PessoaLotada] = []
+    if e.estrutura is not None:
+        rs, pes = _subsetores(e, [(t.nome, ceil(t.tamanho)) for t in turmas], r.ocupacao)
+        achados += list(rs.achados)
     return ResultadoSimulacao(
+        subsetores=rs, pessoas_lotadas=pes,
         escala=r.escala.como_escala(p.codigo), cobertura=res, dimensionamento=dim,
         slots=_agregar(res, e.shrinkage), cargos=rc, slots_cargo=slots_cargo, achados=achados,
         k_legal=k_legal(e.regime), alcancavel=res.kpis.pct_horas_posto_cobertas,
@@ -206,10 +287,7 @@ def run_simulation(e: EntradaSimulacao) -> ResultadoSimulacao:
     if not m.continuo_24x7 or m.motor == "generico":
         # v3.5: não contínuo simula normalmente pelo motor genérico (janela de operação)
         return _run_generico(replace(e, padrao=P.de_modelo(m, e.catalogo.turnos, e.k)))
-    try:
-        padrao = padrao_k_fixo(m, e.k)
-    except ValueError as exc:
-        raise EntradaInvalida(str(exc)) from exc
+    padrao = padrao_cenario(m, e.k, e.offsets)
     turnos = e.catalogo.turnos
     dias = e.semanas * 7
     res = calcular_cobertura(padrao, turnos, e.curva, e.tamanho_turma, e.inicio, dias=dias)
@@ -238,7 +316,15 @@ def run_simulation(e: EntradaSimulacao) -> ResultadoSimulacao:
         achados += list(rc.achados)
         slots_cargo = _agregar_cargos(rc, e.inicio)
     escala = gerar_escala(padrao, e.inicio, dias)
+    rs: SUB.ResultadoSubsetores | None = None
+    pes: list[SUB.PessoaLotada] = []
+    if e.estrutura is not None:
+        ocup = ocupacao_horaria(padrao, turnos, e.inicio, dias)
+        rs, pes = _subsetores(e, [(t.nome, ceil(e.tamanho_turma * t.fracao_posto))
+                                  for t in escala.turmas], ocup)
+        achados += list(rs.achados)
     return ResultadoSimulacao(
+        subsetores=rs, pessoas_lotadas=pes,
         escala=escala, cobertura=res, dimensionamento=dim, slots=_agregar(res, e.shrinkage),
         cargos=rc, slots_cargo=slots_cargo, achados=achados, k_legal=kl,
         alcancavel=res.kpis.pct_horas_posto_cobertas,

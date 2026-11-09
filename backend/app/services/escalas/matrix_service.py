@@ -30,10 +30,11 @@ from app.repositories.scenarios import ScenarioRepo
 from app.schemas import scenario as ss
 from app.services.engine import matriz_mensal as MM
 from app.services.engine import personalizado as P
+from app.services.engine import subsetores as SUB
 from app.services.engine.gerador import gerar_escala
-from app.services.engine.turmas_k import padrao_k_fixo
 from app.services.engine.types import FOLGA, RESERVA, Turno
 from app.services.escalas import scenario_service as svc
+from app.services.escalas.engine_runner import padrao_cenario, pessoas_lotadas
 
 if TYPE_CHECKING:
     from app.api.deps import Principal
@@ -71,7 +72,7 @@ def parse_month(texto: str) -> date:
 
 def _estados_mes(db: Session, p: Principal, sid: uuid.UUID, inicio: date, dias: int
                  ) -> tuple[list[tuple[str, Fraction]], list[tuple[str, ...]],
-                            Mapping[str, Turno], Any, Any]:
+                            Mapping[str, Turno], Any, Any, Any]:
     """Turmas (nome, tamanho em pessoas) e estados de ``inicio − 1`` por ``dias + 1`` dias."""
     s = svc._get(db, p, sid)
     svc._require_calc(s)
@@ -93,19 +94,45 @@ def _estados_mes(db: Session, p: Principal, sid: uuid.UUID, inicio: date, dias: 
         estados = list(esc.estados)
     else:
         assert m is not None
-        padrao = padrao_k_fixo(m, e.k)
+        padrao = padrao_cenario(m, e.k, e.offsets)
         g = gerar_escala(padrao, s.horizon_start, dias + 1, inicio - timedelta(days=1))
         turmas = [(t.nome, e.tamanho_turma * t.fracao_posto) for t in g.turmas]
         turnos = e.catalogo.turnos
         estados = list(g.estados)
-    return turmas, estados, turnos, e.curva, janela
+    return turmas, estados, turnos, e.curva, janela, e
+
+
+def _ocupacao(estados: Sequence[Sequence[str]], turnos: Mapping[str, Turno], n: int
+              ) -> list[list[tuple[int, str]]]:
+    """Ocupação horária do mês a partir das linhas turma × dia (que começam na véspera)."""
+    ocup: list[list[tuple[int, str]]] = [[] for _ in range(n * 24)]
+    for k, lin in enumerate(estados):
+        for j, est in enumerate(lin):
+            t = turnos.get(est)
+            if t is None:
+                continue
+            base = (j - 1) * 1440
+            for a, b in t.segmentos:
+                for h in range(max(0, (base + a) // 60), min(n * 24, ceil((base + b) / 60))):
+                    ocup[h].append((k, est))
+    return ocup
+
+
+def _posicao_do_dia(aloc: Sequence[int], t: Turno, j: int, n: int) -> int:
+    """Posição predominante da pessoa no turno que começa no dia ``j`` do mês."""
+    cont: dict[int, int] = {}
+    for a, b in t.segmentos:
+        for h in range(max(0, j * 24 + a // 60), min(n * 24, j * 24 + ceil(b / 60))):
+            if aloc[h] >= 0:
+                cont[aloc[h]] = cont.get(aloc[h], 0) + 1
+    return max(cont, key=lambda k: (cont[k], -k)) if cont else -1
 
 
 def monthly_matrix(db: Session, p: Principal, sid: uuid.UUID, month: str
                    ) -> ss.MonthlyMatrixOut:
     m0 = parse_month(month)
     n = calendar.monthrange(m0.year, m0.month)[1]
-    turmas, estados, turnos, curva, janela = _estados_mes(db, p, sid, m0, n)
+    turmas, estados, turnos, curva, janela, entrada = _estados_mes(db, p, sid, m0, n)
     dias = [m0 + timedelta(days=i) for i in range(n)]
     s = svc._get(db, p, sid)
     repo = ScenarioRepo(db, p.org_id)
@@ -119,6 +146,26 @@ def monthly_matrix(db: Session, p: Principal, sid: uuid.UUID, month: str
         [(nome, teams[nome].size_assigned if nome in teams else ceil(tam), comp.get(nome, {}))
          for nome, tam in turmas])
     linha_turma = {nome: estados[i] for i, (nome, _) in enumerate(turmas)}
+    estr = entrada.estrutura
+    lotadas: list[Any] = []
+    pos_cel: list[list[int]] = []
+    rs = None
+    nomes_cad: dict[str, str] = {}
+    if estr is not None:
+        tam = [(nome, teams[nome].size_assigned if nome in teams else ceil(t))
+               for nome, t in turmas]
+        lotadas, nomes_cad = pessoas_lotadas(estr, tam, [comp.get(nm, {}) for nm, _ in turmas],
+                                             entrada.pessoas)
+        nomes_t = [nm for nm, _ in turmas]
+        pessoas = [MM.Pessoa(lp.id, nomes_cad.get(lp.id, lp.id), nomes_t[lp.turma], lp.cargo)
+                   for lp in lotadas]
+        # o dia anterior entra na ocupação (noite que continua); o mês começa em 24 h
+        rs = SUB.alocar_horizonte(estr, lotadas, _ocupacao(estados, turnos, n),
+                                  m0, comparar_sem_pool=False)
+        for i, pe in enumerate(pessoas):
+            lin = linha_turma[pe.turma]
+            pos_cel.append([_posicao_do_dia(rs.alocacao_pessoas[i], turnos[lin[j + 1]], j, n)
+                            if lin[j + 1] in turnos else -1 for j in range(n)])
     linhas = [linha_turma[pe.turma] for pe in pessoas]
 
     def demanda(d: date, h: int) -> int:
@@ -132,14 +179,33 @@ def monthly_matrix(db: Session, p: Principal, sid: uuid.UUID, month: str
     usados = sorted({e for lin in estados for e in lin if e in turnos},
                     key=lambda c: (turnos[c].inicio_min, c))
 
-    def celulas(lin: Sequence[str]) -> list[ss.MatrixCell]:
+    def celulas(lin: Sequence[str], i: int | None = None) -> list[ss.MatrixCell]:
         out = []
         for j in range(n):
             est = lin[j + 1]
+            ws = sub = None
+            moved = False
+            if i is not None and rs is not None and pos_cel[i][j] >= 0:
+                ws = rs.posicoes[pos_cel[i][j]]
+                sub = rs.subsetor_de[pos_cel[i][j]]
+                moved = sub != lotadas[i].subsetor
             out.append(ss.MatrixCell(code=est if est in turnos else FOLGA,
                                      reserve=est == RESERVA,
-                                     carry=MM.continuacao(lin[j], turnos)))
+                                     carry=MM.continuacao(lin[j], turnos),
+                                     workstation=ws, subsector=sub if moved else None,
+                                     moved=moved))
         return out
+
+    by_sub: list[dict[str, int]] = [{} for _ in range(n)]
+    linhas_p = [linha_turma[pe.turma] for pe in pessoas]
+    if rs is not None:
+        for i in range(len(pessoas)):
+            for j in range(n):
+                k = pos_cel[i][j]
+                if k >= 0 or linhas_p[i][j + 1] in turnos:   # sem posição = na lotação
+                    sb = rs.subsetor_de[k] if k >= 0 else lotadas[i].subsetor
+                    by_sub[j][sb] = by_sub[j].get(sb, 0) + 1
+    ws_name = {pp.codigo: pp.nome or pp.codigo for pp in estr.posicoes} if estr else {}
 
     def tot(lin: Sequence[str]) -> ss.PersonTotals:
         t = MM.totais(list(lin[1:]), dias, turnos)
@@ -148,7 +214,7 @@ def monthly_matrix(db: Session, p: Principal, sid: uuid.UUID, month: str
                                nights=t.noites)
 
     return ss.MonthlyMatrixOut(
-        month=f"{m0.year:04d}-{m0.month:02d}", generated_people=True,
+        month=f"{m0.year:04d}-{m0.month:02d}", generated_people=not nomes_cad,
         days=[ss.MatrixDay(date=d, weekday=d.weekday() + 1, is_weekend=d.weekday() >= 5,
                            holiday=feriados.get(d)) for d in dias],
         shifts=[ss.MatrixShift(code=c, start=_hhmm(turnos[c].inicio_min),
@@ -158,17 +224,29 @@ def monthly_matrix(db: Session, p: Principal, sid: uuid.UUID, month: str
                                night=MM.e_noturno(turnos[c]),
                                crosses_midnight=turnos[c].cruza_meia_noite)
                 for c in usados],
-        people=[ss.MatrixPerson(id=pe.id, name=pe.nome, team=pe.turma, role=pe.cargo,
-                                cells=celulas(lin), totals=tot(lin))
-                for pe, lin in zip(pessoas, linhas, strict=True)],
+        people=[ss.MatrixPerson(
+            id=pe.id, name=pe.nome, team=pe.turma, role=pe.cargo,
+            subsector=lotadas[i].subsetor if lotadas else None,
+            workstation=lotadas[i].posicao if lotadas else None,
+            moved_days=sum(1 for c in cel if c.moved), cells=cel, totals=tot(lin))
+            for i, (pe, lin) in enumerate(zip(pessoas, linhas, strict=True))
+            for cel in [celulas(lin, i)]],
+        subsectors=[ss.MatrixSubsector(code=c, name=estr.nome(c)) for c in estr.subsetores]
+        if estr else [],
+        workstations=[ss.MatrixWorkstation(code=pp.codigo, name=ws_name[pp.codigo],
+                                           subsector=pp.subsetor, role=pp.cargo)
+                      for pp in estr.posicoes] if estr else [],
+        moved_hours=rs.horas_remanejadas if rs is not None else 0,
+        generated_people_note=None if not nomes_cad else "pessoas cadastradas nas turmas com "
+        "cadastro; fictícias nas demais",
         teams=[ss.MatrixTeam(code=nome, size=svc.D(tam), cells=celulas(linha_turma[nome]),
                              totals=tot(linha_turma[nome])) for nome, tam in turmas],
         daily=[ss.MatrixDaily(date=r.data, by_shift=r.por_turno,
                               required_by_shift=r.necessario_por_turno, off=r.folgas,
                               deficit_shifts=list(r.turnos_em_deficit),
                               deficit_hours=r.horas_deficit, handover_hours=r.horas_passagem,
-                              required_peak=r.necessario_pico)
-               for r in resumo])
+                              required_peak=r.necessario_pico, by_subsector=by_sub[j])
+               for j, r in enumerate(resumo)])
 
 
 # ---- exportações --------------------------------------------------------------------------
@@ -186,12 +264,14 @@ def _clara(hexa: str) -> str:
 
 def _cell_txt(c: ss.MatrixCell) -> str:
     base = "R" if c.reserve else c.code
+    if c.moved and c.workstation:
+        return f"{base} → {c.subsector}/{c.workstation}"
     return f"←{c.carry} {base}" if c.carry and base == FOLGA else base
 
 
 def matrix_rows(mx: ss.MonthlyMatrixOut, person: str | None = None) -> list[list[Any]]:
     """Tabela da matriz (cabeçalho + pessoas + rodapé por turno/folga) — usada no CSV/XLSX."""
-    head = ["pessoa", "turma", "cargo",
+    head = ["pessoa", "turma", "cargo", "subsetor", "posição",
             *[f"{d.date.day:02d} {WEEKDAYS[d.weekday - 1]}" for d in mx.days],
             "dias_trab", "folgas", "horas", "domingos_folga", "noites"]
     rows: list[list[Any]] = [head]
@@ -199,19 +279,23 @@ def matrix_rows(mx: ss.MonthlyMatrixOut, person: str | None = None) -> list[list
         if person and pe.id != person:
             continue
         t = pe.totals
-        rows.append([pe.name, pe.team, pe.role or "", *[_cell_txt(c) for c in pe.cells],
+        rows.append([pe.name, pe.team, pe.role or "", pe.subsector or "", pe.workstation or "",
+                     *[_cell_txt(c) for c in pe.cells],
                      t.worked_days, t.off_days, float(t.hours), t.sundays_off, t.nights])
     if person:
         return rows
     for sh in mx.shifts:
-        rows.append([f"em {sh.code} ({sh.label})", "", "",
+        rows.append([f"em {sh.code} ({sh.label})", "", "", "", "",
                      *[d.by_shift.get(sh.code, 0) for d in mx.daily], "", "", "", "", ""])
         if any(sh.code in d.required_by_shift for d in mx.daily):
-            rows.append([f"necessário {sh.code}", "", "",
+            rows.append([f"necessário {sh.code}", "", "", "", "",
                          *[d.required_by_shift.get(sh.code, "") for d in mx.daily],
                          "", "", "", "", ""])
-    rows.append(["em folga", "", "", *[d.off for d in mx.daily], "", "", "", "", ""])
-    rows.append(["horas c/ déficit", "", "", *[d.deficit_hours for d in mx.daily],
+    for sb in mx.subsectors:
+        rows.append([f"no subsetor {sb.name}", "", "", sb.code, "",
+                     *[d.by_subsector.get(sb.code, 0) for d in mx.daily], "", "", "", "", ""])
+    rows.append(["em folga", "", "", "", "", *[d.off for d in mx.daily], "", "", "", "", ""])
+    rows.append(["horas c/ déficit", "", "", "", "", *[d.deficit_hours for d in mx.daily],
                  "", "", "", "", ""])
     return rows
 
@@ -252,7 +336,7 @@ def to_xlsx(mats: Sequence[ss.MonthlyMatrixOut], person: str | None = None) -> b
         rows = person_rows(mx, person) if person else matrix_rows(mx)
         for r in rows:
             ws.append(r)
-        ws.freeze_panes = "B2" if person else "D2"
+        ws.freeze_panes = "B2" if person else "F2"
         for c in ws[1]:
             c.font = Font(bold=True)
             c.alignment = Alignment(horizontal="center", wrap_text=True)
@@ -264,7 +348,7 @@ def to_xlsx(mats: Sequence[ss.MonthlyMatrixOut], person: str | None = None) -> b
             continue
         n_people = len(mx.people)
         for j, d in enumerate(mx.days):
-            col = 4 + j
+            col = 6 + j
             ws.column_dimensions[get_column_letter(col)].width = 6.5
             head = ws.cell(row=1, column=col)
             if d.holiday or d.is_weekend:
@@ -274,10 +358,10 @@ def to_xlsx(mats: Sequence[ss.MonthlyMatrixOut], person: str | None = None) -> b
                 cell.alignment = Alignment(horizontal="center")
                 cell.border = borda
                 txt = str(cell.value or "")
-                code = txt.split()[-1] if txt else ""
+                code = (txt.split(" → ")[0].split()[-1]) if txt else ""
                 if code in codes:
                     cell.fill = PatternFill("solid", fgColor=_clara(_cor(code, codes)))
-                    cell.font = Font(bold=True)
+                    cell.font = Font(bold=True, italic=" → " in txt)
                 elif d.is_weekend or d.holiday:
                     cell.fill = PatternFill("solid", fgColor="F1F5F9")
             daily = mx.daily[j]
@@ -294,7 +378,8 @@ def to_xlsx(mats: Sequence[ss.MonthlyMatrixOut], person: str | None = None) -> b
                         + (f" (passagem {sh.handover_min} min)" if sh.handover_min else "")
                         + (" (reforço de pico)" if sh.peak else ""))
             c.fill = PatternFill("solid", fgColor=_clara(_cor(sh.code, codes)))
-        ws.cell(row=legenda + 1 + len(mx.shifts), column=1, value="F folga · ←X continua de ontem")
+        ws.cell(row=legenda + 1 + len(mx.shifts), column=1,
+                value="F folga · ←X continua de ontem · M → SUB/POS remanejado (pool)")
     buf = io.BytesIO()
     wb.save(buf)
     return buf.getvalue()

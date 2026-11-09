@@ -36,6 +36,7 @@ export function PersonCalendar({ data, person: initial, onPersonChange, onExport
               <option key={x.id} value={x.id}>
                 {x.name} · turma {x.team}
                 {x.role ? ` · ${x.role}` : ''}
+                {x.subsector ? ` · ${x.subsector}/${x.workstation ?? '—'}` : ''}
               </option>
             ))}
           </select>
@@ -50,6 +51,12 @@ export function PersonCalendar({ data, person: initial, onPersonChange, onExport
           </div>
         )}
       </div>
+      {p.subsector && (
+        <p className="text-caption" data-testid="lotacao">
+          Lotação: <strong>subsetor {data.subsectors?.find((x) => x.code === p.subsector)?.name ?? p.subsector}</strong> · posição padrão <strong>{p.workstation ?? '—'}</strong>
+          {p.moved_days ? ` · remanejado em ${p.moved_days} dia${p.moved_days === 1 ? '' : 's'}` : ''}
+        </p>
+      )}
       <dl className="flex flex-wrap gap-4 text-caption" aria-label={`Totais de ${p.name} no mês`}>
         <div>
           <dt className="text-ink-muted">Dias trabalhados</dt>
@@ -94,7 +101,7 @@ export function PersonCalendar({ data, person: initial, onPersonChange, onExport
                 return (
                   <td
                     key={ci}
-                    aria-label={`${fmtDate(d.date)}${d.holiday ? ` (feriado ${d.holiday})` : ''}: ${off ? 'folga' : `turno ${c.code} ${sh?.label ?? ''}`}${c.carry ? `; continua de ontem: ${c.carry}` : ''}`}
+                    aria-label={`${fmtDate(d.date)}${d.holiday ? ` (feriado ${d.holiday})` : ''}: ${off ? 'folga' : `turno ${c.code} ${sh?.label ?? ''}`}${c.moved ? `; remanejado para ${c.subsector}/${c.workstation}` : ''}${c.carry ? `; continua de ontem: ${c.carry}` : ''}`}
                     className={clsx('h-16 rounded-cell border border-border p-1 align-top', off && 'pattern-off bg-surface-2 text-ink-muted', d.holiday && 'ring-2 ring-sev-alerta')}
                     style={off ? undefined : swatchOf(c.code, codes)}
                   >
@@ -108,6 +115,11 @@ export function PersonCalendar({ data, person: initial, onPersonChange, onExport
                     {sh && (
                       <span aria-hidden="true" className="block text-micro tabular-nums">
                         {sh.label}
+                      </span>
+                    )}
+                    {c.moved && (
+                      <span aria-hidden="true" className="block text-micro font-semibold text-primary">
+                        ⇄ {c.subsector}/{c.workstation}
                       </span>
                     )}
                     {c.carry && (

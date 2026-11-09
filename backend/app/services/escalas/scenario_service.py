@@ -9,7 +9,7 @@ import base64
 import time
 import uuid
 from collections import Counter
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from fractions import Fraction
 from math import ceil
@@ -104,7 +104,6 @@ def scenario_out(db: Session, p: Principal, s: Scenario) -> ss.ScenarioOut:
     by_team: dict[int, dict[str, int]] = {}
     for c in comp:
         by_team.setdefault(c.team_id, {})[roles.get(c.role_id, "?")] = c.headcount
-    n_alerts = (s.result_summary or {}).get("warnings", 0)
     shr = ShrinkageRepo(db, p.org_id).get_by_id(s.shrinkage_profile_id) \
         if s.shrinkage_profile_id else None
     return ss.ScenarioOut(
@@ -125,16 +124,15 @@ def scenario_out(db: Session, p: Principal, s: Scenario) -> ss.ScenarioOut:
         overtime_planned=s.overtime_planned, simulate_transition=s.simulate_transition,
         params=s.params, inputs_hash=s.inputs_hash, engine_version=s.engine_version,
         rules_version=s.rules_version,
-        kpis=ss.KpisOut(teams_required=s.teams_required, coverage_pct=s.coverage_pct,
-                        deficit_post_hours=s.deficit_post_hours,
-                        peak_undercoverage=s.peak_undercoverage, deficit_hours=s.deficit_hours,
-                        headcount_min=s.headcount_min, blocking_findings=s.blocking_findings,
-                        warnings=n_alerts),
+        kpis=_kpis(s),
         teams=[ss.TeamOut(code=t.code, kind=t.kind, label=t.label, size_required=t.size_required,
                           size_assigned=t.size_assigned, cycle_offset_days=t.cycle_offset_days,
                           composition=by_team.get(t.id, {})) for t in teams],
         shifts=[ss.ShiftInfo(**x) for x in (s.result_summary or {}).get("shifts", [])],
         layers=[ss.LayerInfo(**x) for x in (s.result_summary or {}).get("layers", [])],
+        subsectors=[ss.SubsectorKpi(code=c, **v) for c, v in
+                    ((s.result_summary or {}).get("subsectors") or {}).get("kpis", {}).items()
+                    if not c.startswith("pos:")],
         calculated_at=s.calculated_at, created_at=s.created_at)
 
 
@@ -276,6 +274,17 @@ def _team_size(s: Scenario, curva: CurvaDemanda) -> int:
     return max(1, max(curva.valores))
 
 
+def _offsets_param(params: dict[str, Any]) -> tuple[tuple[int, ...], ...] | None:
+    """v3.7 — ``params.offsets`` (solução do otimizador): offsets por grupo do modelo."""
+    raw = params.get("offsets")
+    if raw is None:
+        return None
+    if (not isinstance(raw, list) or not all(isinstance(g, list) for g in raw)
+            or not all(isinstance(o, int) and o >= 0 for g in raw for o in g)):
+        raise validation("params.offsets deve ser lista de listas de inteiros ≥ 0")
+    return tuple(tuple(g) for g in raw)
+
+
 def _entrada(db: Session, p: Principal, s: Scenario
              ) -> tuple[EntradaSimulacao, dict[str, Any], list[Team] | None]:
     cat = catalogo_mvp()
@@ -330,10 +339,15 @@ def _entrada(db: Session, p: Principal, s: Scenario
                        "regras": sorted((g.de, g.para, g.prioridade) for g in regras),
                        "minimos": sorted((m.cargo, m.minimo, m.turnos, m.aceita_substituto)
                                          for m in minimos)}
+    from app.services.escalas.structure_service import engine_structure
+
+    estr, pessoas, snap_estr = engine_structure(db, p, s.operation_id)
+    offsets = _offsets_param(s.params)
     entrada = EntradaSimulacao(
         modelo=modelo, catalogo=cat, curva=curva, tamanho_turma=tam, k=k,
         k_fixo_operacao=tc is not None, inicio=s.horizon_start, semanas=s.horizon_weeks,
-        shrinkage=shr, regime=regime, ctx=ctx, cargos=cargos, padrao=padrao)
+        shrinkage=shr, regime=regime, ctx=ctx, cargos=cargos, padrao=padrao,
+        estrutura=estr, pessoas=pessoas, offsets=offsets)
     snapshot = {
         "engine_version": ENGINE_VERSION, "rules_version": RULES_VERSION,
         "catalog_version": cat.versao, "regimes_version": regimes_mvp().versao,
@@ -346,6 +360,7 @@ def _entrada(db: Session, p: Principal, s: Scenario
         "critical": sorted(curva.criticas), "demand_checksum": curve.checksum,
         "shrinkage": [str(shr.diurno), str(shr.noturno)], "regime": regime.ref,
         "ctx": [ctx.act_cct_declarado, ctx.he_planejada], "roles": snap_cargos,
+        "structure": snap_estr, "offsets": [list(o) for o in offsets] if offsets else None,
     }
     return entrada, snapshot, teams if comp_rows else None
 
@@ -361,11 +376,15 @@ def _sev(a: Achado) -> Any:
 
 
 def _kpis(s: Scenario) -> ss.KpisOut:
+    sub = (s.result_summary or {}).get("subsectors") or {}
     return ss.KpisOut(teams_required=s.teams_required, coverage_pct=s.coverage_pct,
                       deficit_post_hours=s.deficit_post_hours,
                       peak_undercoverage=s.peak_undercoverage, deficit_hours=s.deficit_hours,
                       headcount_min=s.headcount_min, blocking_findings=s.blocking_findings,
-                      warnings=(s.result_summary or {}).get("warnings", 0))
+                      warnings=(s.result_summary or {}).get("warnings", 0),
+                      moved_hours=sub.get("moved_hours"),
+                      subsector_deficit_post_hours=sub.get("deficit_post_hours"),
+                      subsector_deficit_without_pool=sub.get("deficit_without_pool"))
 
 
 def _persist(db: Session, p: Principal, s: Scenario, r: ResultadoSimulacao,
@@ -461,8 +480,42 @@ def _persist(db: Session, p: Principal, s: Scenario, r: ResultadoSimulacao,
                                                  str(D(sl.planned_mean))]
                            for sl in r.slots if sl.planned_worst or sl.planned_mean},
     }
+    if r.subsetores is not None:
+        s.result_summary["subsectors"] = _subsectors_summary(r, s.horizon_start)
     if teams_before is not None and {t.code for t in teams_before} != set(team_id):
         s.result_summary["composition_reset"] = True
+
+
+def _subsectors_summary(r: ResultadoSimulacao, inicio: date) -> dict[str, Any]:
+    """KPIs por subsetor/posição + slots 7×24 (pior) para filtrar heatmap/KPIs."""
+    from app.services.engine import subsetores as SUB
+
+    rs = r.subsetores
+    assert rs is not None
+    pos_sub = dict(zip(rs.posicoes, rs.subsetor_de, strict=True))
+    kpis = {sub: {"demand_post_hours": k.demanda_hp, "own_post_hours": k.proprio_hp,
+                  "received_post_hours": k.recebido_hp, "lent_post_hours": k.cedido_hp,
+                  "deficit_post_hours": k.deficit_hp,
+                  "pct_hours_covered": str(D(Fraction(k.demanda_hp - k.deficit_hp, k.demanda_hp)
+                                             if k.demanda_hp else 1))}
+            for sub, k in rs.kpis.items()}
+    for k, c in enumerate(rs.posicoes):
+        dem = sum(hh[k][0] for hh in rs.horas)
+        defi = sum(max(0, hh[k][3]) for hh in rs.horas)
+        kpis[f"pos:{c}"] = {
+            "demand_post_hours": dem, "own_post_hours": sum(hh[k][1] for hh in rs.horas),
+            "received_post_hours": sum(hh[k][2] for hh in rs.horas), "lent_post_hours": 0,
+            "deficit_post_hours": defi,
+            "pct_hours_covered": str(D(Fraction(dem - defi, dem) if dem else 1))}
+    slots = {f"pos:{c}": [list(x) for x in SUB.agregar_7x24(rs, inicio, [c])]
+             for c in rs.posicoes}
+    for sub in rs.kpis:
+        codes = [c for c in rs.posicoes if pos_sub[c] == sub]
+        slots[f"sub:{sub}"] = [list(x) for x in SUB.agregar_7x24(rs, inicio, codes)]
+    return {"kpis": kpis, "moved_hours": rs.horas_remanejadas,
+            "deficit_post_hours": rs.deficit_hp,
+            "deficit_without_pool": rs.deficit_sem_pool_hp, "slots": slots,
+            "workstations": pos_sub}
 
 
 def simulate(db: Session, p: Principal, sid: uuid.UUID, body: ss.SimulateIn) -> ss.SimulateOut:
@@ -504,7 +557,8 @@ def _require_calc(s: Scenario) -> None:
 
 # ---- resultados ---------------------------------------------------------------------------
 def coverage(db: Session, p: Principal, sid: uuid.UUID, view: str, agg: str,
-             role: str | None) -> ss.CoverageOut:
+             role: str | None, subsector: str | None = None,
+             workstation: str | None = None) -> ss.CoverageOut:
     s = _get(db, p, sid)
     _require_calc(s)
     repo = ScenarioRepo(db, p.org_id)
@@ -520,6 +574,8 @@ def coverage(db: Session, p: Principal, sid: uuid.UUID, view: str, agg: str,
         break_gap_post_hours=Decimal(0), headcount_min=s.headcount_min,
         teams_required=s.teams_required)
     slots: list[ss.CoverageSlot] = []
+    if subsector or workstation:
+        return _coverage_structure(summ, kpis, subsector, workstation)
     if role:
         r = RoleRepo(db, p.org_id).by_code(role)
         if r is None:
@@ -563,6 +619,34 @@ def coverage(db: Session, p: Principal, sid: uuid.UUID, view: str, agg: str,
             handover=plan, status=st))  # type: ignore[arg-type]
     return ss.CoverageOut(granularity="60", view=view, agg=agg,  # type: ignore[arg-type]
                           kpis=kpis, slots=slots)
+
+
+def _coverage_structure(summ: dict[str, Any], kpis: ss.CoverageKpis, subsector: str | None,
+                        workstation: str | None) -> ss.CoverageOut:
+    """v3.7 — heatmap/KPIs filtrados por subsetor ou posição (após remanejamento)."""
+    st_ = summ.get("subsectors")
+    if not st_:
+        raise validation("cenário sem subsetores/posições (cadastre a estrutura e simule)")
+    key = f"pos:{workstation}" if workstation else f"sub:{subsector}"
+    if key not in st_["slots"]:
+        raise not_found("subsetor/posição")
+    k = st_["kpis"][key[4:] if key.startswith("sub:") else key]
+    kpis.pct_hours_covered = Decimal(k["pct_hours_covered"])
+    kpis.deficit_post_hours = Decimal(k["deficit_post_hours"])
+    kpis.excess_post_hours = Decimal(0)
+    kpis.peak_undercoverage = None
+    slots = []
+    for i, (dem, cob, rec) in enumerate(st_["slots"][key]):
+        gap = Decimal(cob - dem)
+        slots.append(ss.CoverageSlot(
+            slot_index=i, weekday=i // 24 + 1, start=f"{i % 24:02d}:00",
+            required_net=Decimal(dem), required_gross=Decimal(dem), scheduled_worst=Decimal(cob),
+            scheduled_mean=Decimal(cob), expected_worst=Decimal(cob), break_gap=Decimal(0),
+            deficit_occurrences=0, gap=gap, borrowed=Decimal(rec),
+            status=_STATUS_DB[status_de(Fraction(cob - dem))]))  # type: ignore[arg-type]
+    kpis.deficit_hours = sum(1 for sl in slots if sl.gap < 0)
+    return ss.CoverageOut(granularity="60", view="postos", agg="pior", subsector=subsector,
+                          workstation=workstation, kpis=kpis, slots=slots)
 
 
 def sizing(db: Session, p: Principal, sid: uuid.UUID, body: ss.SizingIn) -> ss.SizingOut:

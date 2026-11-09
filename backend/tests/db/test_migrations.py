@@ -48,7 +48,8 @@ def _ciclo(url: str) -> None:
     tabelas = set(inspect(eng).get_table_names())
     assert {"scenarios", "legal_regimes", "scenario_transition_results", "team_constraints",
             "substitution_rules", "coverage_role_results", "custom_schedule_patterns"} <= tabelas
-    assert "employees" not in tabelas and "financial_results" not in tabelas  # Fase 2 / P2
+    assert {"subsectors", "workstations", "subsector_pools", "employees"} <= tabelas  # v3.7
+    assert "financial_results" not in tabelas  # P2
     from sqlalchemy.orm import Session
 
     with Session(eng) as s:

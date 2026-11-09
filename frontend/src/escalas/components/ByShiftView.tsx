@@ -7,9 +7,13 @@ import { shiftColor } from '../pattern/model'
 /**
  * Visão "Por turno" (v3.6): para cada dia, quem está em cada turno (lista agrupada por
  * turma), quem continua a noite de ontem e quem folga — com necessário × escalados.
+ * v3.7: agrupar por subsetor (onde a pessoa trabalhou no dia, com posição; ⇄ = remanejado).
  */
 export function ByShiftView({ data, initialDay = 0 }: { data: MonthlyMatrix; initialDay?: number }) {
   const [day, setDay] = useState(Math.min(initialDay, data.days.length - 1))
+  const hasSub = (data.subsectors?.length ?? 0) > 0
+  const [groupBy, setGroupBy] = useState<'turma' | 'subsetor'>(hasSub ? 'subsetor' : 'turma')
+  const subName = useMemo(() => new Map((data.subsectors ?? []).map((x) => [x.code, x.name])), [data.subsectors])
   const codes = data.shifts.map((s) => s.code)
   const d = data.days[day]
   const daily = data.daily[day]
@@ -18,7 +22,12 @@ export function ByShiftView({ data, initialDay = 0 }: { data: MonthlyMatrix; ini
       const out = new Map<string, string[]>()
       data.people.forEach((p, i) => {
         if (!pred(i)) return
-        out.set(p.team, [...(out.get(p.team) ?? []), p.name + (p.role ? ` (${p.role})` : '')])
+        const c = p.cells[day]
+        const where = c.moved ? c.subsector : p.subsector
+        const key = groupBy === 'subsetor' && where ? `Subsetor ${subName.get(where) ?? where}` : `Turma ${p.team}`
+        const pos = groupBy === 'subsetor' && c.code !== 'F' ? (c.workstation ?? p.workstation) : null
+        const label = p.name + (p.role ? ` (${p.role})` : '') + (pos ? ` [${pos}]` : '') + (c.moved ? ` ⇄ de ${subName.get(p.subsector ?? '') ?? p.subsector}` : '')
+        out.set(key, [...(out.get(key) ?? []), label])
       })
       return [...out.entries()]
     }
@@ -27,7 +36,7 @@ export function ByShiftView({ data, initialDay = 0 }: { data: MonthlyMatrix; ini
       carry: by((i) => !!data.people[i].cells[day].carry),
       off: by((i) => data.people[i].cells[day].code === 'F'),
     }
-  }, [data, day])
+  }, [data, day, groupBy, subName])
 
   return (
     <div className="flex flex-col gap-3" data-testid="visao-por-turno">
@@ -49,6 +58,15 @@ export function ByShiftView({ data, initialDay = 0 }: { data: MonthlyMatrix; ini
         <button type="button" className="rounded-cell border border-border px-3 py-1.5 disabled:opacity-50" disabled={day >= data.days.length - 1} onClick={() => setDay(day + 1)} aria-label="Próximo dia">
           ▶
         </button>
+        {hasSub && (
+          <label className="flex items-center gap-2 text-caption text-ink-muted">
+            Agrupar por
+            <select className="min-h-9 rounded-cell border border-border bg-surface px-3 py-1.5 text-body text-ink" value={groupBy} onChange={(e) => setGroupBy(e.target.value as typeof groupBy)}>
+              <option value="subsetor">Subsetor / posição</option>
+              <option value="turma">Turma</option>
+            </select>
+          </label>
+        )}
         <h3 className="ml-2 text-body font-semibold" aria-live="polite">
           {WEEKDAYS_LONG[d.weekday - 1]}, {fmtDate(d.date)}
           {d.holiday ? ` · feriado (${d.holiday})` : ''}
@@ -101,9 +119,9 @@ export function ByShiftView({ data, initialDay = 0 }: { data: MonthlyMatrix; ini
 function GroupList({ groups }: { groups: [string, string[]][] }) {
   return (
     <ul className="flex flex-col gap-1 text-caption">
-      {groups.map(([team, names]) => (
-        <li key={team}>
-          <span className="font-semibold">Turma {team}:</span> {names.join(', ')}
+      {groups.map(([group, names]) => (
+        <li key={group}>
+          <span className="font-semibold">{group}:</span> {names.join(', ')}
         </li>
       ))}
     </ul>

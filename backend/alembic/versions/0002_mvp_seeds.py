@@ -34,7 +34,7 @@ def upgrade() -> None:
     op.bulk_insert(_table("schedule_models"),
                    [r for r in seeds.schedule_model_rows() if r["phase"] == "mvp"])
     op.bulk_insert(_table("compliance_rules"),
-                   [r for r in seeds.COMPLIANCE_RULES if r["code"] not in seeds.RULES_V35])
+                   [r for r in seeds.COMPLIANCE_RULES if r["code"] not in seeds.RULES_V35 | seeds.RULES_V37])
     op.bulk_insert(_table("legal_regimes"), seeds.legal_regime_rows())
 
 

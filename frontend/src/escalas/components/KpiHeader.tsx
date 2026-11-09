@@ -27,11 +27,18 @@ export function KpiHeader({ scenario, coverage, errors, alerts }: { scenario: Sc
   return (
     <section aria-label="Indicadores de cobertura" className="flex flex-col gap-2">
       <dl className="flex flex-wrap gap-3">
-        <Kpi label="Horas-posto cobertas" value={pct(k?.pct_hours_covered ?? scenario.kpis.coverage_pct)} sub={coverage?.role ? `cargo ${coverage.role}` : coverage?.view === 'reserva' ? 'postos + reserva' : 'postos'} />
+        <Kpi label="Horas-posto cobertas" value={pct(k?.pct_hours_covered ?? scenario.kpis.coverage_pct)} sub={coverage?.workstation ? `posição ${coverage.workstation}` : coverage?.subsector ? `subsetor ${coverage.subsector}` : coverage?.role ? `cargo ${coverage.role}` : coverage?.view === 'reserva' ? 'postos + reserva' : 'postos'} />
         <Kpi label="Horas-posto em déficit" value={fmt(k?.deficit_post_hours ?? scenario.kpis.deficit_post_hours)} sub={`${k?.deficit_hours ?? scenario.kpis.deficit_hours ?? 0} horas com déficit`} />
         <Kpi label="Pico de subcobertura" value={peak ? `−${fmt(peak.value)}` : '—'} sub={peak ? peakText(peak.at) : 'sem déficit'} />
         <Kpi label="Turmas (atual / necessárias)" value={`${scenario.team_count} / ${teamsReq != null ? fmt(teamsReq, 1) : '—'}`} />
         <Kpi label="Headcount mínimo" value={String(k?.headcount_min ?? scenario.kpis.headcount_min ?? '—')} />
+        {scenario.kpis.moved_hours != null && (
+          <Kpi
+            label="Horas remanejadas"
+            value={String(scenario.kpis.moved_hours)}
+            sub={`déficit subsetores ${scenario.kpis.subsector_deficit_post_hours ?? 0} h-p${scenario.kpis.subsector_deficit_without_pool != null ? ` (sem pool: ${scenario.kpis.subsector_deficit_without_pool})` : ''}`}
+          />
+        )}
         <Kpi label="Viabilidade" value={`✕${errors} !${alerts}`} sub={`${errors} erro(s) · ${alerts} alerta(s)`} />
       </dl>
     </section>

@@ -336,6 +336,19 @@ Saídas: `coverage_role_results` (por slot × cargo: demanda, próprio, por subs
 
 **Folguistas (FR-13) com cargo:** a heurística gulosa itera por cargo em ordem de déficit; candidato = folguista de cargo `a` tal que `sub[a→b]` existe para o cargo em déficit `b`, preferindo `a = b` e depois menor prioridade; o mínimo de folguistas é calculado **por cargo**.
 
+### 5.4.3 M3c — Subsetores, posições e pools (FR-46–48) [MVP v3.7] — `engine/subsetores.py`
+
+Entrada: `Estrutura(subsetores, posicoes[codigo, subsetor, demanda168, cargo?], pools[subsetores, cargos?, max_horas_semana?, preferir_origem], regras de substituição)`, pessoas lotadas `(turma, subsetor, posição padrão, cargo)` e a ocupação horária das turmas (a mesma do M3). Por hora, as pessoas presentes são agregadas em **grupos** `(subsetor, cargo)` e resolvidas por **min-cost max-flow** (o mesmo Bellman-Ford inteiro do §5.4.2, generalizado):
+
+```
+fonte → g=(sub, cargo) [cap = presentes]
+g → posição p do mesmo subsetor            [custo 0, ou prioridade da substituição se cargo ≠ exigido]
+g → emp(g) [cap = saldo de horas emprestáveis do grupo na semana]  → p de outro subsetor do pool
+                                           [custo CUSTO_EMPRESTIMO=10 (1 se não prefere a origem) + custo de cargo]
+p → sumidouro [cap = demanda(p, h)]
+```
+Fluxo máximo = maior cobertura; custo mínimo = menor remanejamento. Saldo = `limite × pessoas do grupo − usado na semana` (agregado por grupo). Perfis sem limite usam `lru_cache`. O fluxo agregado vira alocação por pessoa (mantém a posição da hora anterior, depois a posição padrão), usada na matriz mensal (`⇄ SUB/POS`). Saída: `(demanda, próprio, recebido, déficit)` por hora × posição, KPIs por subsetor (próprio, recebido, cedido, déficit), horas remanejadas e o **déficit sem pool** (mesma rodada com `usar_pools=False`). Complexidade por hora: `O(V·E)` com `V ≤ 2G + P + 2`; 8 semanas × 4 posições ≈ 10 ms.
+
 ### 5.5 M4 — Viabilidade CLT: validador de restrições (FR-15–FR-20) [MVP parcial: interjornada, DSR/7º dia, jornada/média; demais regras Fase 2]
 
 Entrada: para cada **turma** (não colaborador), lista ordenada de jornadas `(ini_abs, fim_abs, turno)` em minutos absolutos. Regras são plugins registrados (`@regra(codigo, severidade, fonte)`) e recebem `(jornadas, ctx_cct)`.
@@ -469,7 +482,36 @@ Regras de aplicação da Súmula 60 (II):
 - Turno 19h–07h: 7 h de relógio (22–05) → **8,000000 h fictas**; prorrogação 05–07 (2 h) → +2,285714 h fictas se Súmula 60 ativa. Turno 22h–06h: 7 h + 1 h prorrogada → 8 h + 1,142857 h = 9,142857 h fictas.
 - **Intervalo intrajornada** que cai na janela noturna é descontado antes da conversão.
 
-### 5.6 M5 — Otimizador ILP (CP-SAT) — Fase 2 [Fase 2]
+### 5.6 M5 — Otimizadores CP-SAT (v3.7, FR-49) [MVP v3.7: a–e] — `engine/otimizadores.py`
+
+OR-Tools **9.14.6206** (fixado em `pyproject.toml`), `CpSolver` com `max_time_in_seconds = time_limit_s` (padrão 5 s), `num_workers = 4`, `random_seed = 7`. Status: `OPTIMAL → otimo`, `FEASIBLE → viavel` (devolve `gap = |obj − bound| / |obj|`), `INFEASIBLE → inviavel`, sem solução no tempo → `sem_solucao`.
+
+**Presença por offset.** Para cada grupo `g` do modelo e offset `o ∈ 0..L_g−1`, `a[g,o,h] ∈ {0,1}` = turma em turno na hora `h` do ciclo calendário `mmc(L,7)·24` (mesma `ocupacao_horaria` do M3, turnos que cruzam a meia-noite incluídos). Horas com o mesmo conjunto de offsets ativos e a mesma demanda são **agrupadas em perfis** (multiplicidade `n`).
+
+a. **Mínimo de turmas/pessoas** (`min_turmas`):
+```
+x[g,o] ∈ ℤ≥0   (unidades: turma, meia-turma ou pessoa)        u = tamanho da unidade
+∀ perfil p:  u·Σ_{(g,o)∈p} x[g,o] + d[p] − e[p] = dem[p]       d, e ≥ 0
+Σ_p n_p·d[p] ≤ (1 − alvo)·Σ_p n_p·dem[p]
+Σ_o x[g,o] ≥ 1  ∀g (modelos com mais de um grupo)
+min  (Σ dem + 1)·Σ x  +  Σ n_p·e[p]          (lexicográfico: headcount, depois excesso)
+```
+(inteiros escalados ×2 para meias-turmas). Golden: 6x2 → 4; 4x2 → 5 ou 9 meias; 12x36 → 4; 2x2 12 h → 4; 5x2 → 5; picos alternados M/T em 2 subsetores (tamanho livre): 8 + 8 separados × **12 em pool**.
+
+b. **Defasagem ótima** (`offsets_otimos`): mesmas restrições com `Σ_o x[g,o] = K_g` (K distribuído pelos grupos como no gerador) e `min W_def·Σ n·d + W_exc·Σ n·e`.
+
+e. **Fairness**: (b) + `usado[g,o] ⇔ x[g,o] ≥ 1`, `mx ≥ f[g,o]`/`mn ≤ f[g,o]` se usado para `f ∈ {domingos de folga, noites}` no horizonte de 28 dias; `+ W_fair·Σ (mx − mn)`. Com `W_def ≫ W_fair`, nunca troca cobertura por equilíbrio.
+
+c. **Melhor modelo** (`ranking_modelos`): para cada modelo contínuo cíclico, selo do regime (`validar_modelo` → `selo`) — fora do ranking se não conforme (ou "só com ACT" sem o toggle) — e (a) com tamanho do cenário (meias se o modelo só é exato com meias) e fatia `time_limit / nº modelos`; personalizados salvos são avaliados como estão (`personalizado.simular`). Ordem: conforme → déficit → headcount → excesso.
+
+d. **Alocação nos pools** (`alocacao_pool`): `z[i,d,p] ∈ {0,1}` (pessoa `i` no turno iniciado no dia `d ∈ [−1, D)` trabalha a posição `p` elegível — mesmo subsetor ou pool, cargo compatível pela matriz), `Σ_p z ≤ 1`; `Σ_{(i,d) ativos em h} z[i,d,p] + déf[h,p] ≥ dem[h,p]`; `Σ_{d∈semana} horas·z[i,d,p fora] ≤ limite` (duro); `min W_def·Σ déf + W_rem·horas remanejadas + W_fair·máx emprestado por pessoa`. O turno inteiro fica na mesma posição; horários vêm da turma, logo interjornada/DSR não mudam.
+
+**Restrições legais.** Toggle `legal_hard`: nos objetivos a/b/e, modelo `nao_conforme` (ou `so_com_act` sem `include_act`) devolve `inviavel_regime` sem resolver; em c, filtra candidatos. **Limites/complexidade:** a/b/e têm `Σ L_g ≤ 126` inteiras e ≤ `mmc(L,7)·24` perfis (tipicamente < 300 após agrupar); d tem `Σ dias trabalhados × posições elegíveis` booleanas (≈ 2 mil para 12 pessoas × 28 dias × 4 posições) e `D·24·P` déficits; todos os exemplos resolvem em < 1 s (ranking completo ≈ 0,2 s). Horizonte de d limitado a 28 dias.
+
+**Aplicação.** A solução vira `scenario_patch` (`schedule_model_code`, `team_count`, `params.team_size`, **`params.offsets`** por grupo); `POST …/optimize/apply` cria um cenário filho (`parent_scenario_id`) ou aplica no atual e re-simula. `params.offsets` é lido pelo gerador (`padrao_cenario`) e pela matriz mensal.
+
+#### 5.6.1 ILP de turnos livres (formulação original) — Fase 2 [Fase 2]
+
 
 > Fora do MVP: os modelos cíclicos fechados (M2) + heurística de folguistas (M3) resolvem a Fase 1. O ILP entra para turnos livres/intermediários e posicionamento ótimo de folguistas.
 
@@ -715,7 +757,10 @@ POST /api/v1/escalas/scenarios/{id}/simulate
 ---
 
 ### ADR-009: OR-Tools no MVP só para fluxo/LP; CP-SAT segue na Fase 2
-**Status:** Aceito (v3.2). **Contexto:** a matriz de substituição (FR-35/36) exige uma alocação ótima cargo→posto por hora; heurística gulosa erra em cadeias (A→B→C). **Opções:** (A) guloso por prioridade; (B) min-cost-flow/LP do `ortools` por hora com cache de perfis; (C) CP-SAT completo já no MVP. **Decisão:** B — exato para fatores 1, polinomial, ≤ 50 ms; reaproveita a dependência que o M5 usará. **Consequência:** `ortools` entra no MVP; K e cargos no CP-SAT (§5.6) ficam para a Fase 2.
+**Status:** Aceito (v3.2). **Contexto:** a matriz de substituição (FR-35/36) exige uma alocação ótima cargo→posto por hora; heurística gulosa erra em cadeias (A→B→C). **Opções:** (A) guloso por prioridade; (B) min-cost-flow/LP do `ortools` por hora com cache de perfis; (C) CP-SAT completo já no MVP. **Decisão:** B — exato para fatores 1, polinomial, ≤ 50 ms; reaproveita a dependência que o M5 usará. **Consequência:** `ortools` entra no MVP; K e cargos no CP-SAT (§5.6.1) ficam para a Fase 2. *v3.7:* o min-cost-flow próprio foi generalizado para pools de subsetores (§5.4.3) e o CP-SAT entrou para os otimizadores (ADR-012).
+
+### ADR-012: CP-SAT entra no MVP para os otimizadores (v3.7)
+**Status:** Aceito (v3.7). **Contexto:** pedidos de "mínimo de turmas", "melhor defasagem", "melhor modelo", alocação em pools e equilíbrio de folgas exigem busca combinatória com prova de otimalidade. **Decisão:** `ortools==9.14.6206` (fixado) com CP-SAT síncrono e *time limit* (padrão 5 s, máx. 60 s) em `engine/otimizadores.py`; formulações pequenas por **offset** (não por turma × dia), agrupando horas em perfis. A alocação hora a hora continua no min-cost-flow próprio (rápido, determinístico, sem solver). **Consequência:** resposta inclui status/gap; jobs assíncronos (ADR-006) só se instâncias crescerem (turnos livres, §5.6.1).
 
 ### ADR-010: Padrões de escala como dados, não código
 **Status:** Aceito (v3.2). Todo modelo do catálogo e todo template do construtor é `seq + turnos + offsets + flags` em `rotation_patterns`/`custom_schedule_patterns`; novos modelos = seed + golden, sem código. Extensões de gerador (ciclo em horas, multibloco, `R`, folga fixa) são flags versionadas no `engine_version`.

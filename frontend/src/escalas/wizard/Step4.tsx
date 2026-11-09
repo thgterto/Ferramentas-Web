@@ -10,7 +10,7 @@ import { defaultShifts } from './shifts'
 import { Button, ErrorBox, Field, Spinner, inputCls } from '../components/ui'
 import { PatternBuilder } from '../pattern/PatternBuilder'
 import { K_MODE_LABEL, blankPattern, teamName, type KMode, type PatternSpec } from '../pattern/model'
-import type { WizardValues } from './schema'
+import { sectorCurve, type WizardValues } from './schema'
 import type { RegimeResolution } from './useRegime'
 
 const ADJUST: Record<string, string> = {
@@ -60,8 +60,10 @@ export function Step4({ regime }: { regime: RegimeResolution }) {
   const sizes = watch('teamSizes')
   const customized = watch('customized')
   const pattern = watch('pattern') as PatternSpec | null
-  const postos = watch('demandMode') === 'fixos' ? Number(watch('postos')) || 1 : Math.max(1, ...watch('curve').map(Number))
-  const demand = watch('demandMode') === 'curva' ? watch('curve').map(Number) : undefined
+  const subs = watch('subsectors')
+  const sector = subs.length ? sectorCurve(subs) : null
+  const postos = sector ? Math.max(1, ...sector) : watch('demandMode') === 'fixos' ? Number(watch('postos')) || 1 : Math.max(1, ...watch('curve').map(Number))
+  const demand = sector ?? (watch('demandMode') === 'curva' ? watch('curve').map(Number) : undefined)
   const reg = regime.code ?? 'CLT_44H_ATUAL'
   const sel = models.data?.find((m) => m.code === code)
   const kReq = sel?.teams_24x7 ? Number(sel.teams_24x7) : null

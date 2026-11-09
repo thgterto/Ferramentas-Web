@@ -3,6 +3,7 @@ import { useFormContext } from 'react-hook-form'
 import { Field, inputCls } from '../components/ui'
 import { WEEKDAYS } from '../api/format'
 import { parseDemandCsv, type WizardValues } from './schema'
+import { StructureEditor } from './StructureEditor'
 
 export function Step2() {
   const { register, watch, setValue, formState } = useFormContext<WizardValues>()
@@ -10,6 +11,7 @@ export function Step2() {
   const mode = watch('demandMode')
   const curve = watch('curve')
   const [uploadErr, setUploadErr] = useState<string[]>([])
+  const hasSubs = watch('subsectors').length > 0
   const total = mode === 'fixos' ? (Number(watch('postos')) || 0) * 168 : curve.reduce((a, b) => a + (Number(b) || 0), 0)
 
   const onFile = async (f: File | undefined) => {
@@ -40,7 +42,8 @@ export function Step2() {
           Demanda total: <strong className="tabular-nums text-ink">{total.toLocaleString('pt-BR')}</strong> horas-posto/semana
         </p>
       </div>
-      {mode === 'fixos' ? (
+      <StructureEditor />
+      {hasSubs ? null : mode === 'fixos' ? (
         <Field label="Postos simultâneos (todas as horas)" htmlFor="postos" error={e.postos?.message}>
           <input id="postos" type="number" min={0} className={`${inputCls} w-40`} aria-invalid={!!e.postos} {...register('postos', { valueAsNumber: true })} />
         </Field>

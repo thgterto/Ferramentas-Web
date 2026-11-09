@@ -1,4 +1,4 @@
-# PRD v3.6 — Simulador Operacional de Cobertura 24/7 (Brasil/CLT)
+# PRD v3.7 — Simulador Operacional de Cobertura 24/7 (Brasil/CLT)
 
 | Metadado | Detalhe |
 | :--- | :--- |
@@ -438,6 +438,22 @@ Identidade usada nos testes: para modelo exato, `K*_modelo ≥ K_legal` ⇔ `h/s
 - **NFR-08 Dados:** sem dados pessoais no MVP (trabalha por turma); LGPD aplica-se quando houver alocação nominal (Fase 2).
 - **NFR-09 i18n:** PT-BR, datas dd/mm/aaaa, fuso America/Sao_Paulo (BRL quando o Módulo 6 existir).
 
+### 6.1.3 Subsetores, posições, pools e otimizadores (v3.7, FR-46–49)
+
+**FR-46 — Hierarquia Operação/Setor → Subsetor → Posição [MVP v3.7].** Uma operação (setor) pode ter **subsetores** (ex.: Caldeiras, Turbinas) e cada subsetor **posições** (postos de trabalho: "Caldeira 1", "Leito 3", "Doca 2"). Cada posição tem **demanda própria** (postos fixos 24/7 ou curva 168 h — no wizard, postos numa faixa horária) e, opcionalmente, **cargo exigido**. Com subsetores, a demanda do setor = soma das posições. Pessoas (fictícias `A-01`… ou **cadastradas**) têm **subsetor de lotação** e **posição padrão**; as fictícias são espalhadas pelas "vagas" (posição × pico), preferindo a vaga do próprio cargo.
+
+**FR-47 — Colunas e filtros [MVP v3.7].** Matriz mensal, "Por turno", "Pessoa" e exportações XLSX/CSV ganham **Subsetor** e **Posição** (colunas fixas); agrupar/filtrar por subsetor/posição e "só remanejados"; rodapé "No subsetor X" por dia; heatmap 7×24 e KPIs filtráveis por subsetor/posição (`coverage?subsector=|workstation=`).
+
+**FR-48 — Intercambialidade (pools) [MVP v3.7].** Por setor, **pools** = grupos de subsetores cujos funcionários são intercambiáveis — **total** ou **restrito a cargos** —, com **limite opcional de horas emprestadas por pessoa/semana** e **preferência pela lotação de origem**. O motor aloca, hora a hora, as pessoas presentes às posições demandadas (min-cost max-flow: arestas só dentro do subsetor ou do pool e compatíveis com a matriz de cargos; custo menor na origem). Visões mostram o remanejamento (célula `M ⇄ TUR/TUR2`, CSV `M → TUR/TUR2`), KPI **horas remanejadas**, painel com **déficit sem pool × com pool** e achados `COB_REMANEJAMENTO_SUBSETOR` (INFO) / `COB_DEFICIT_SUBSETOR` (ALERTA).
+
+**FR-49 — Otimizadores [MVP v3.7].** `POST /scenarios/{id}/optimize` (síncrono, *time limit* configurável, padrão 5 s) e aba **Otimizar**; devolvem solução, métricas antes × depois, **gap** e status **ótimo/viável**; "Criar cenário a partir da solução" ou "Aplicar neste cenário".
+- **a. Mínimo de turmas/pessoas** para cobertura alvo (100 % ou %), tamanho fixo (turmas ou meias) ou livre (pessoas por offset), por operação, subsetor ou pool — ex.: 6x2 → K = 4; 4x2 → 5 turmas ou 9 meias; picos alternados em 2 subsetores: 16 pessoas separados × 12 em pool.
+- **b. Defasagem ótima** (offsets) dado K: minimiza déficit e excesso.
+- **c. Melhor modelo** do catálogo (+ personalizados salvos): ranking por conformidade, déficit, headcount e excesso; "só conformes" ou incluindo os viáveis com ACT/CCT.
+- **d. Alocação nos pools** (pessoa × dia → posição): minimiza déficit, horas remanejadas e o máximo emprestado por pessoa; respeita cargos e o limite de horas (duro); horários = os da turma (interjornada preservada).
+- **e. Fairness**: (b) com objetivo secundário de equilibrar domingos de folga e noites entre as turmas.
+- Regras do regime como **restrições duras opcionais** (toggle): modelo não conforme → status `inviavel_regime`.
+
 ## 8. Premissas
 
 1. Regra de negócio: CLT urbana; rural (21h–05h/20h–04h) fica para Fase 2.
@@ -520,6 +536,8 @@ Resolvida: **Q7** (persistência) → PostgreSQL 16 (decisão do `02-TRD.md` / `
 | `COB_DEFICIT_POSTO_CRITICO` | ERRO | FR-02, FR-09 |
 | `COB_EXCESSO` | INFO | FR-09 |
 | `COB_PASSAGEM_PLANEJADA` | INFO | FR-45 (v3.6) — excesso explicado por passagem de turno / reforço de pico |
+| `COB_REMANEJAMENTO_SUBSETOR` | INFO | FR-48 (v3.7) — horas-pessoa remanejadas entre subsetores do pool; mensagem traz déficit sem pool → com pool |
+| `COB_DEFICIT_SUBSETOR` | ALERTA | FR-48 (v3.7) — déficit em um subsetor depois do remanejamento |
 | `COB_FURO_INTERVALO` | ALERTA | FR-10 |
 | `COB_DEFICIT_ESPERADO_SHRINKAGE` | ALERTA | FR-11 |
 | `COB_TURMAS_INSUFICIENTES` | ERRO | FR-07, FR-08 |

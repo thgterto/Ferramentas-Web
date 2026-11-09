@@ -1,6 +1,6 @@
 import { ApiError, api, apiData, type S } from '../api/client'
 import { applyTeams, totalTeams, type PatternSpec } from '../pattern/model'
-import type { WizardValues } from './schema'
+import { sectorCurve, workstationCurve, type WizardValues } from './schema'
 
 /** Padrão a enviar em ``params.pattern``: construtor, ou catálogo com K não fixo/tamanhos por turma. */
 export async function resolvePattern(v: WizardValues): Promise<PatternSpec | null> {
@@ -32,10 +32,38 @@ export async function createAndSimulate(op: string, v: WizardValues, progress: (
   const pos = await apiData<S['PositionOut']>(`/operations/${op}/positions`, {
     body: { name: v.positionName, ...(v.roles[0] ? { required_role_code: v.roles[0].code } : {}) },
   })
-  const values = v.demandMode === 'fixos' ? Array.from({ length: 168 }, () => v.postos) : v.curve
+  const values = v.subsectors.length ? sectorCurve(v.subsectors) : v.demandMode === 'fixos' ? Array.from({ length: 168 }, () => v.postos) : v.curve
   const curve = await apiData<S['DemandCurveOut']>(`/positions/${pos.id}/demand-curves`, {
-    body: { name: v.demandMode === 'fixos' ? `${v.postos} postos fixos` : 'Curva 168 h', mode: v.demandMode === 'fixos' ? 'postos_fixos' : 'curva_168h', values: values.map(String) },
+    body: {
+      name: v.subsectors.length ? 'Soma das posições dos subsetores' : v.demandMode === 'fixos' ? `${v.postos} postos fixos` : 'Curva 168 h',
+      mode: !v.subsectors.length && v.demandMode === 'fixos' ? 'postos_fixos' : 'curva_168h',
+      values: values.map(String),
+    },
   })
+  if (v.subsectors.length) {
+    progress('Salvando subsetores, posições e pools…')
+    for (const [i, sub] of v.subsectors.entries()) {
+      const so = await apiData<S['SubsectorOut']>(`/operations/${op}/subsectors`, { body: { code: sub.code, name: sub.name, sort_order: i } })
+      for (const [j, w] of sub.positions.entries()) {
+        const fixed = w.from === 0 && w.to === 24
+        await apiData(`/subsectors/${so.id}/workstations`, {
+          body: {
+            code: w.code,
+            name: w.name,
+            sort_order: j,
+            ...(w.role ? { required_role_code: w.role } : {}),
+            demand: fixed ? { mode: 'postos_fixos', posts: w.posts } : { mode: 'curva_168h', values: workstationCurve(w) },
+          },
+        })
+      }
+    }
+    for (const pl of v.pools) {
+      const roles = pl.roles.split(/[,\s]+/).filter(Boolean)
+      await apiData(`/operations/${op}/subsector-pools`, {
+        body: { code: pl.code, name: pl.name, subsector_codes: pl.members, mode: roles.length ? 'restrito' : 'total', allowed_role_codes: roles, max_borrowed_hours_week: pl.maxHours, prefer_home: pl.preferHome },
+      })
+    }
+  }
   for (const m of v.minimums) {
     await apiData(`/operations/${op}/role-requirements`, { body: { kind: 'minimo', role_code: m.role, min_count: m.min, severity: 'erro' } })
   }

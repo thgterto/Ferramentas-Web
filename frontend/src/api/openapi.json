@@ -463,6 +463,17 @@
             "title": "Slots",
             "type": "array"
           },
+          "subsector": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subsector"
+          },
           "view": {
             "enum": [
               "postos",
@@ -470,6 +481,17 @@
             ],
             "title": "View",
             "type": "string"
+          },
+          "workstation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Workstation"
           }
         },
         "required": [
@@ -484,6 +506,16 @@
       },
       "CoverageSlot": {
         "properties": {
+          "borrowed": {
+            "default": "0.000000",
+            "description": "v3.7: pessoas remanejadas de outro subsetor",
+            "examples": [
+              "0.200000"
+            ],
+            "pattern": "^-?\\d+(\\.\\d{1,6})?$",
+            "title": "Borrowed",
+            "type": "string"
+          },
           "break_gap": {
             "default": "0.000000",
             "examples": [
@@ -784,6 +816,140 @@
         "title": "DemandCurveOut",
         "type": "object"
       },
+      "EmployeeIn": {
+        "additionalProperties": false,
+        "properties": {
+          "default_workstation_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Workstation Code"
+          },
+          "home_subsector_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Home Subsector Code"
+          },
+          "name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "role_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role Code"
+          },
+          "team_code": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Z]{1,3}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Team Code"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "EmployeeIn",
+        "type": "object"
+      },
+      "EmployeeOut": {
+        "properties": {
+          "default_workstation_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Workstation Code"
+          },
+          "home_subsector_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Home Subsector Code"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "operation_id": {
+            "format": "uuid",
+            "title": "Operation Id",
+            "type": "string"
+          },
+          "role_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role Code"
+          },
+          "team_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Team Code"
+          }
+        },
+        "required": [
+          "id",
+          "operation_id",
+          "name",
+          "team_code",
+          "role_code",
+          "home_subsector_code",
+          "default_workstation_code"
+        ],
+        "title": "EmployeeOut",
+        "type": "object"
+      },
       "Envelope_CoverageOut_": {
         "properties": {
           "data": {
@@ -806,6 +972,18 @@
           "data"
         ],
         "title": "Envelope[DemandCurveOut]",
+        "type": "object"
+      },
+      "Envelope_EmployeeOut_": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/EmployeeOut"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "title": "Envelope[EmployeeOut]",
         "type": "object"
       },
       "Envelope_LaborAgreementOut_": {
@@ -868,6 +1046,30 @@
         "title": "Envelope[OperationOut]",
         "type": "object"
       },
+      "Envelope_OptimizeApplyOut_": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/OptimizeApplyOut"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "title": "Envelope[OptimizeApplyOut]",
+        "type": "object"
+      },
+      "Envelope_OptimizeOut_": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/OptimizeOut"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "title": "Envelope[OptimizeOut]",
+        "type": "object"
+      },
       "Envelope_PatternSpec_": {
         "properties": {
           "data": {
@@ -902,6 +1104,18 @@
           "data"
         ],
         "title": "Envelope[PatternValidation]",
+        "type": "object"
+      },
+      "Envelope_PoolOut_": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/PoolOut"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "title": "Envelope[PoolOut]",
         "type": "object"
       },
       "Envelope_PositionOut_": {
@@ -1036,6 +1250,30 @@
         "title": "Envelope[SlotsSummary]",
         "type": "object"
       },
+      "Envelope_StructureOut_": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/StructureOut"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "title": "Envelope[StructureOut]",
+        "type": "object"
+      },
+      "Envelope_SubsectorOut_": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/SubsectorOut"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "title": "Envelope[SubsectorOut]",
+        "type": "object"
+      },
       "Envelope_TeamOut_": {
         "properties": {
           "data": {
@@ -1060,6 +1298,18 @@
         "title": "Envelope[TransitionOut]",
         "type": "object"
       },
+      "Envelope_WorkstationOut_": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/WorkstationOut"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "title": "Envelope[WorkstationOut]",
+        "type": "object"
+      },
       "Envelope_list_ComplianceRuleOut__": {
         "properties": {
           "data": {
@@ -1074,6 +1324,22 @@
           "data"
         ],
         "title": "Envelope[list[ComplianceRuleOut]]",
+        "type": "object"
+      },
+      "Envelope_list_EmployeeOut__": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/EmployeeOut"
+            },
+            "title": "Data",
+            "type": "array"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "title": "Envelope[list[EmployeeOut]]",
         "type": "object"
       },
       "Envelope_list_LegalRegimeOut__": {
@@ -1106,6 +1372,22 @@
           "data"
         ],
         "title": "Envelope[list[PatternTemplateOut]]",
+        "type": "object"
+      },
+      "Envelope_list_PoolOut__": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/PoolOut"
+            },
+            "title": "Data",
+            "type": "array"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "title": "Envelope[list[PoolOut]]",
         "type": "object"
       },
       "Envelope_list_RoleRequirementOut__": {
@@ -1154,6 +1436,22 @@
           "data"
         ],
         "title": "Envelope[list[ShiftTemplateOut]]",
+        "type": "object"
+      },
+      "Envelope_list_SubsectorOut__": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/SubsectorOut"
+            },
+            "title": "Data",
+            "type": "array"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "title": "Envelope[list[SubsectorOut]]",
         "type": "object"
       },
       "Envelope_list_SubstitutionRuleOut__": {
@@ -1565,6 +1863,18 @@
             ],
             "title": "Headcount Min"
           },
+          "moved_hours": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "v3.7: horas remanejadas entre subsetores",
+            "title": "Moved Hours"
+          },
           "peak_undercoverage": {
             "anyOf": [
               {
@@ -1580,6 +1890,28 @@
               }
             ],
             "title": "Peak Undercoverage"
+          },
+          "subsector_deficit_post_hours": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subsector Deficit Post Hours"
+          },
+          "subsector_deficit_without_pool": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subsector Deficit Without Pool"
           },
           "teams_required": {
             "anyOf": [
@@ -2794,10 +3126,40 @@
             "title": "Code",
             "type": "string"
           },
+          "moved": {
+            "default": false,
+            "description": "v3.7: trabalhou fora do subsetor de lotação",
+            "title": "Moved",
+            "type": "boolean"
+          },
           "reserve": {
             "default": false,
             "title": "Reserve",
             "type": "boolean"
+          },
+          "subsector": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "v3.7: subsetor de destino se remanejado",
+            "title": "Subsector"
+          },
+          "workstation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "v3.7: posição trabalhada no dia",
+            "title": "Workstation"
           }
         },
         "required": [
@@ -2813,6 +3175,13 @@
               "type": "integer"
             },
             "title": "By Shift",
+            "type": "object"
+          },
+          "by_subsector": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "By Subsector",
             "type": "object"
           },
           "date": {
@@ -2913,6 +3282,11 @@
             "title": "Id",
             "type": "string"
           },
+          "moved_days": {
+            "default": 0,
+            "title": "Moved Days",
+            "type": "integer"
+          },
           "name": {
             "title": "Name",
             "type": "string"
@@ -2928,12 +3302,36 @@
             ],
             "title": "Role"
           },
+          "subsector": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "v3.7: subsetor de lotação",
+            "title": "Subsector"
+          },
           "team": {
             "title": "Team",
             "type": "string"
           },
           "totals": {
             "$ref": "#/components/schemas/PersonTotals"
+          },
+          "workstation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "v3.7: posição padrão",
+            "title": "Workstation"
           }
         },
         "required": [
@@ -2999,6 +3397,24 @@
         "title": "MatrixShift",
         "type": "object"
       },
+      "MatrixSubsector": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "name"
+        ],
+        "title": "MatrixSubsector",
+        "type": "object"
+      },
       "MatrixTeam": {
         "properties": {
           "cells": {
@@ -3032,6 +3448,40 @@
           "totals"
         ],
         "title": "MatrixTeam",
+        "type": "object"
+      },
+      "MatrixWorkstation": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role"
+          },
+          "subsector": {
+            "title": "Subsector",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "name",
+          "subsector"
+        ],
+        "title": "MatrixWorkstation",
         "type": "object"
       },
       "MeOut": {
@@ -3122,9 +3572,25 @@
             "title": "Generated People",
             "type": "boolean"
           },
+          "generated_people_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Generated People Note"
+          },
           "month": {
             "title": "Month",
             "type": "string"
+          },
+          "moved_hours": {
+            "default": 0,
+            "title": "Moved Hours",
+            "type": "integer"
           },
           "people": {
             "items": {
@@ -3140,11 +3606,25 @@
             "title": "Shifts",
             "type": "array"
           },
+          "subsectors": {
+            "items": {
+              "$ref": "#/components/schemas/MatrixSubsector"
+            },
+            "title": "Subsectors",
+            "type": "array"
+          },
           "teams": {
             "items": {
               "$ref": "#/components/schemas/MatrixTeam"
             },
             "title": "Teams",
+            "type": "array"
+          },
+          "workstations": {
+            "items": {
+              "$ref": "#/components/schemas/MatrixWorkstation"
+            },
+            "title": "Workstations",
             "type": "array"
           }
         },
@@ -3315,6 +3795,470 @@
           }
         },
         "title": "OperationPatch",
+        "type": "object"
+      },
+      "OptimizeApplyIn": {
+        "additionalProperties": false,
+        "properties": {
+          "mode": {
+            "default": "create",
+            "enum": [
+              "create",
+              "apply"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 2,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "patch": {
+            "title": "Patch",
+            "type": "object"
+          }
+        },
+        "required": [
+          "patch"
+        ],
+        "title": "OptimizeApplyIn",
+        "type": "object"
+      },
+      "OptimizeApplyOut": {
+        "properties": {
+          "created": {
+            "title": "Created",
+            "type": "boolean"
+          },
+          "scenario_id": {
+            "format": "uuid",
+            "title": "Scenario Id",
+            "type": "string"
+          },
+          "simulation": {
+            "$ref": "#/components/schemas/SimulateOut"
+          }
+        },
+        "required": [
+          "scenario_id",
+          "created",
+          "simulation"
+        ],
+        "title": "OptimizeApplyOut",
+        "type": "object"
+      },
+      "OptimizeIn": {
+        "additionalProperties": false,
+        "properties": {
+          "half_teams": {
+            "default": false,
+            "title": "Half Teams",
+            "type": "boolean"
+          },
+          "include_act": {
+            "default": false,
+            "description": "aceita modelos viáveis só com ACT/CCT",
+            "title": "Include Act",
+            "type": "boolean"
+          },
+          "legal_hard": {
+            "default": true,
+            "description": "regras do regime como restrições duras",
+            "title": "Legal Hard",
+            "type": "boolean"
+          },
+          "max_candidates": {
+            "default": 40,
+            "maximum": 100.0,
+            "minimum": 1.0,
+            "title": "Max Candidates",
+            "type": "integer"
+          },
+          "objective": {
+            "default": "min_headcount",
+            "enum": [
+              "min_headcount",
+              "offsets",
+              "best_model",
+              "pool_allocation",
+              "fairness"
+            ],
+            "title": "Objective",
+            "type": "string"
+          },
+          "pool": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "escopo: demanda somada de um pool",
+            "title": "Pool"
+          },
+          "subsector": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "escopo: demanda de um subsetor",
+            "title": "Subsector"
+          },
+          "target_coverage": {
+            "anyOf": [
+              {
+                "maximum": 1.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "default": "1",
+            "description": "cobertura alvo (1 = 100 %)",
+            "title": "Target Coverage"
+          },
+          "team_count": {
+            "anyOf": [
+              {
+                "maximum": 500.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "K (offsets/fairness)",
+            "title": "Team Count"
+          },
+          "team_size_mode": {
+            "default": "fixo",
+            "description": "fixo = tamanho do cenário; livre = pessoas por offset",
+            "enum": [
+              "fixo",
+              "livre"
+            ],
+            "title": "Team Size Mode",
+            "type": "string"
+          },
+          "time_limit_s": {
+            "default": 5.0,
+            "exclusiveMinimum": 0.0,
+            "maximum": 60.0,
+            "title": "Time Limit S",
+            "type": "number"
+          },
+          "weights": {
+            "$ref": "#/components/schemas/OptimizeWeights"
+          }
+        },
+        "title": "OptimizeIn",
+        "type": "object"
+      },
+      "OptimizeMetrics": {
+        "properties": {
+          "coverage_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Coverage Pct"
+          },
+          "deficit_hours": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deficit Hours"
+          },
+          "deficit_post_hours": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deficit Post Hours"
+          },
+          "deficit_post_hours_week": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deficit Post Hours Week"
+          },
+          "excess_post_hours_week": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Excess Post Hours Week"
+          },
+          "headcount": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Headcount"
+          },
+          "max_borrowed_hours_person": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Borrowed Hours Person"
+          },
+          "moved_hours": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Moved Hours"
+          },
+          "nights_spread": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nights Spread"
+          },
+          "sundays_off_spread": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sundays Off Spread"
+          },
+          "team_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Team Count"
+          }
+        },
+        "title": "OptimizeMetrics",
+        "type": "object"
+      },
+      "OptimizeOut": {
+        "properties": {
+          "after": {
+            "$ref": "#/components/schemas/OptimizeMetrics"
+          },
+          "before": {
+            "$ref": "#/components/schemas/OptimizeMetrics"
+          },
+          "best_bound": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Best Bound"
+          },
+          "candidates": {
+            "items": {
+              "type": "object"
+            },
+            "title": "Candidates",
+            "type": "array"
+          },
+          "elapsed_ms": {
+            "title": "Elapsed Ms",
+            "type": "integer"
+          },
+          "gap": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gap"
+          },
+          "notes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Notes",
+            "type": "array"
+          },
+          "objective": {
+            "enum": [
+              "min_headcount",
+              "offsets",
+              "best_model",
+              "pool_allocation",
+              "fairness"
+            ],
+            "title": "Objective",
+            "type": "string"
+          },
+          "objective_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Objective Value"
+          },
+          "optimal": {
+            "title": "Optimal",
+            "type": "boolean"
+          },
+          "scenario_patch": {
+            "anyOf": [
+              {
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "campos para criar/aplicar cenário (POST …/optimize/apply)",
+            "title": "Scenario Patch"
+          },
+          "scope": {
+            "title": "Scope",
+            "type": "string"
+          },
+          "solution": {
+            "title": "Solution",
+            "type": "object"
+          },
+          "solver": {
+            "title": "Solver",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "otimo",
+              "viavel",
+              "inviavel",
+              "sem_solucao",
+              "inviavel_regime"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "objective",
+          "status",
+          "optimal",
+          "objective_value",
+          "best_bound",
+          "gap",
+          "elapsed_ms",
+          "solver",
+          "scope",
+          "before",
+          "after",
+          "solution"
+        ],
+        "title": "OptimizeOut",
+        "type": "object"
+      },
+      "OptimizeWeights": {
+        "additionalProperties": false,
+        "properties": {
+          "deficit": {
+            "default": 100,
+            "maximum": 100000.0,
+            "minimum": 0.0,
+            "title": "Deficit",
+            "type": "integer"
+          },
+          "excess": {
+            "default": 1,
+            "maximum": 100000.0,
+            "minimum": 0.0,
+            "title": "Excess",
+            "type": "integer"
+          },
+          "fairness": {
+            "default": 5,
+            "maximum": 100000.0,
+            "minimum": 0.0,
+            "title": "Fairness",
+            "type": "integer"
+          },
+          "moves": {
+            "default": 10,
+            "maximum": 100000.0,
+            "minimum": 0.0,
+            "title": "Moves",
+            "type": "integer"
+          }
+        },
+        "title": "OptimizeWeights",
         "type": "object"
       },
       "PageLinks": {
@@ -4052,6 +4996,230 @@
           "nights"
         ],
         "title": "PersonTotals",
+        "type": "object"
+      },
+      "PoolIn": {
+        "additionalProperties": false,
+        "properties": {
+          "allowed_role_codes": {
+            "description": "modo restrito: cargos intercambiáveis",
+            "items": {
+              "type": "string"
+            },
+            "title": "Allowed Role Codes",
+            "type": "array"
+          },
+          "code": {
+            "pattern": "^[A-Za-z0-9_\\-]{1,24}$",
+            "title": "Code",
+            "type": "string"
+          },
+          "max_borrowed_hours_week": {
+            "anyOf": [
+              {
+                "maximum": 168.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Borrowed Hours Week"
+          },
+          "mode": {
+            "default": "total",
+            "enum": [
+              "total",
+              "restrito"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "prefer_home": {
+            "default": true,
+            "title": "Prefer Home",
+            "type": "boolean"
+          },
+          "subsector_codes": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 50,
+            "minItems": 2,
+            "title": "Subsector Codes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "code",
+          "name",
+          "subsector_codes"
+        ],
+        "title": "PoolIn",
+        "type": "object"
+      },
+      "PoolOut": {
+        "properties": {
+          "allowed_role_codes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Allowed Role Codes",
+            "type": "array"
+          },
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "max_borrowed_hours_week": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Borrowed Hours Week"
+          },
+          "mode": {
+            "title": "Mode",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "operation_id": {
+            "format": "uuid",
+            "title": "Operation Id",
+            "type": "string"
+          },
+          "prefer_home": {
+            "title": "Prefer Home",
+            "type": "boolean"
+          },
+          "subsector_codes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Subsector Codes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "operation_id",
+          "code",
+          "name",
+          "subsector_codes",
+          "mode",
+          "allowed_role_codes",
+          "max_borrowed_hours_week",
+          "prefer_home"
+        ],
+        "title": "PoolOut",
+        "type": "object"
+      },
+      "PoolPatch": {
+        "additionalProperties": false,
+        "properties": {
+          "allowed_role_codes": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Allowed Role Codes"
+          },
+          "max_borrowed_hours_week": {
+            "anyOf": [
+              {
+                "maximum": 168.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Borrowed Hours Week"
+          },
+          "mode": {
+            "anyOf": [
+              {
+                "enum": [
+                  "total",
+                  "restrito"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mode"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "prefer_home": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prefer Home"
+          },
+          "subsector_codes": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 50,
+                "minItems": 2,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subsector Codes"
+          }
+        },
+        "title": "PoolPatch",
         "type": "object"
       },
       "PositionIn": {
@@ -4939,6 +6107,13 @@
           "status": {
             "title": "Status",
             "type": "string"
+          },
+          "subsectors": {
+            "items": {
+              "$ref": "#/components/schemas/SubsectorKpi"
+            },
+            "title": "Subsectors",
+            "type": "array"
           },
           "team_count": {
             "title": "Team Count",
@@ -6060,6 +7235,189 @@
         "title": "SlotsSummary",
         "type": "object"
       },
+      "StructureOut": {
+        "properties": {
+          "employees": {
+            "title": "Employees",
+            "type": "integer"
+          },
+          "operation_id": {
+            "format": "uuid",
+            "title": "Operation Id",
+            "type": "string"
+          },
+          "pools": {
+            "items": {
+              "$ref": "#/components/schemas/PoolOut"
+            },
+            "title": "Pools",
+            "type": "array"
+          },
+          "subsectors": {
+            "items": {
+              "$ref": "#/components/schemas/SubsectorOut"
+            },
+            "title": "Subsectors",
+            "type": "array"
+          }
+        },
+        "required": [
+          "operation_id",
+          "subsectors",
+          "pools",
+          "employees"
+        ],
+        "title": "StructureOut",
+        "type": "object"
+      },
+      "SubsectorIn": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "pattern": "^[A-Za-z0-9_\\-]{1,24}$",
+            "title": "Code",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "sort_order": {
+            "default": 0,
+            "title": "Sort Order",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "code",
+          "name"
+        ],
+        "title": "SubsectorIn",
+        "type": "object"
+      },
+      "SubsectorKpi": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "deficit_post_hours": {
+            "title": "Deficit Post Hours",
+            "type": "integer"
+          },
+          "demand_post_hours": {
+            "title": "Demand Post Hours",
+            "type": "integer"
+          },
+          "lent_post_hours": {
+            "title": "Lent Post Hours",
+            "type": "integer"
+          },
+          "own_post_hours": {
+            "title": "Own Post Hours",
+            "type": "integer"
+          },
+          "pct_hours_covered": {
+            "default": "0.000000",
+            "examples": [
+              "0.200000"
+            ],
+            "pattern": "^-?\\d+(\\.\\d{1,6})?$",
+            "title": "Pct Hours Covered",
+            "type": "string"
+          },
+          "received_post_hours": {
+            "title": "Received Post Hours",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "code",
+          "demand_post_hours",
+          "own_post_hours",
+          "received_post_hours",
+          "lent_post_hours",
+          "deficit_post_hours",
+          "pct_hours_covered"
+        ],
+        "title": "SubsectorKpi",
+        "type": "object"
+      },
+      "SubsectorOut": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "operation_id": {
+            "format": "uuid",
+            "title": "Operation Id",
+            "type": "string"
+          },
+          "sort_order": {
+            "title": "Sort Order",
+            "type": "integer"
+          },
+          "workstations": {
+            "items": {
+              "$ref": "#/components/schemas/WorkstationOut"
+            },
+            "title": "Workstations",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "operation_id",
+          "code",
+          "name",
+          "sort_order"
+        ],
+        "title": "SubsectorOut",
+        "type": "object"
+      },
+      "SubsectorPatch": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "sort_order": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sort Order"
+          }
+        },
+        "title": "SubsectorPatch",
+        "type": "object"
+      },
       "SubstitutionRuleIn": {
         "additionalProperties": false,
         "properties": {
@@ -6746,6 +8104,199 @@
           }
         },
         "title": "WindowIn",
+        "type": "object"
+      },
+      "WorkstationDemand": {
+        "additionalProperties": false,
+        "properties": {
+          "mode": {
+            "default": "postos_fixos",
+            "enum": [
+              "postos_fixos",
+              "curva_168h"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "posts": {
+            "anyOf": [
+              {
+                "maximum": 500.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": 1,
+            "description": "postos fixos (todas as horas)",
+            "title": "Posts"
+          },
+          "values": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "168 inteiros ≥ 0 (curva_168h)",
+            "title": "Values"
+          }
+        },
+        "title": "WorkstationDemand",
+        "type": "object"
+      },
+      "WorkstationIn": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "pattern": "^[A-Za-z0-9_\\-]{1,24}$",
+            "title": "Code",
+            "type": "string"
+          },
+          "demand": {
+            "$ref": "#/components/schemas/WorkstationDemand"
+          },
+          "name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "required_role_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Required Role Code"
+          },
+          "sort_order": {
+            "default": 0,
+            "title": "Sort Order",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "code",
+          "name"
+        ],
+        "title": "WorkstationIn",
+        "type": "object"
+      },
+      "WorkstationOut": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "demand_mode": {
+            "title": "Demand Mode",
+            "type": "string"
+          },
+          "demand_values": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Demand Values",
+            "type": "array"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "peak": {
+            "title": "Peak",
+            "type": "integer"
+          },
+          "required_role_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Required Role Code"
+          },
+          "subsector_code": {
+            "title": "Subsector Code",
+            "type": "string"
+          },
+          "subsector_id": {
+            "format": "uuid",
+            "title": "Subsector Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "subsector_id",
+          "subsector_code",
+          "code",
+          "name",
+          "required_role_code",
+          "demand_mode",
+          "demand_values",
+          "peak"
+        ],
+        "title": "WorkstationOut",
+        "type": "object"
+      },
+      "WorkstationPatch": {
+        "additionalProperties": false,
+        "properties": {
+          "demand": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WorkstationDemand"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "required_role_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Required Role Code"
+          }
+        },
+        "title": "WorkstationPatch",
         "type": "object"
       }
     },
@@ -7663,6 +9214,94 @@
         "summary": "Import Slots",
         "tags": [
           "demand"
+        ]
+      }
+    },
+    "/api/v1/escalas/employees/{employee_id}": {
+      "delete": {
+        "operationId": "delete_employee_api_v1_escalas_employees__employee_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "employee_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Employee Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-organization-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Organization-Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "unauthenticated"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "not_found (inclui outro tenant)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "validation_error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Delete Employee",
+        "tags": [
+          "structure"
         ]
       }
     },
@@ -9015,6 +10654,204 @@
         ]
       }
     },
+    "/api/v1/escalas/operations/{operation_id}/employees": {
+      "get": {
+        "operationId": "list_employees_api_v1_escalas_operations__operation_id__employees_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "operation_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Operation Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-organization-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Organization-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_list_EmployeeOut__"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "unauthenticated"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "not_found (inclui outro tenant)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "validation_error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Employees",
+        "tags": [
+          "structure"
+        ]
+      },
+      "post": {
+        "operationId": "create_employee_api_v1_escalas_operations__operation_id__employees_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "operation_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Operation Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-organization-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Organization-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmployeeIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_EmployeeOut_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "unauthenticated"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "not_found (inclui outro tenant)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "validation_error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Create Employee",
+        "tags": [
+          "structure"
+        ]
+      }
+    },
     "/api/v1/escalas/operations/{operation_id}/positions": {
       "get": {
         "operationId": "list_positions_api_v1_escalas_operations__operation_id__positions_get",
@@ -9529,6 +11366,499 @@
         "summary": "Delete Requirement",
         "tags": [
           "roles"
+        ]
+      }
+    },
+    "/api/v1/escalas/operations/{operation_id}/structure": {
+      "get": {
+        "description": "Árvore Operação → Subsetores → Posições + pools (uma chamada para o wizard/visões).",
+        "operationId": "get_structure_api_v1_escalas_operations__operation_id__structure_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "operation_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Operation Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-organization-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Organization-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_StructureOut_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "unauthenticated"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "not_found (inclui outro tenant)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "validation_error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Structure",
+        "tags": [
+          "structure"
+        ]
+      }
+    },
+    "/api/v1/escalas/operations/{operation_id}/subsector-pools": {
+      "get": {
+        "operationId": "list_pools_api_v1_escalas_operations__operation_id__subsector_pools_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "operation_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Operation Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-organization-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Organization-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_list_PoolOut__"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "unauthenticated"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "not_found (inclui outro tenant)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "validation_error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Pools",
+        "tags": [
+          "structure"
+        ]
+      },
+      "post": {
+        "description": "Pool = subsetores cujos funcionários são intercambiáveis (total ou por cargo).",
+        "operationId": "create_pool_api_v1_escalas_operations__operation_id__subsector_pools_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "operation_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Operation Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-organization-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Organization-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PoolIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_PoolOut_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "unauthenticated"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "not_found (inclui outro tenant)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "validation_error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Create Pool",
+        "tags": [
+          "structure"
+        ]
+      }
+    },
+    "/api/v1/escalas/operations/{operation_id}/subsectors": {
+      "get": {
+        "operationId": "list_subsectors_api_v1_escalas_operations__operation_id__subsectors_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "operation_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Operation Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-organization-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Organization-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_list_SubsectorOut__"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "unauthenticated"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "not_found (inclui outro tenant)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "validation_error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Subsectors",
+        "tags": [
+          "structure"
+        ]
+      },
+      "post": {
+        "operationId": "create_subsector_api_v1_escalas_operations__operation_id__subsectors_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "operation_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Operation Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-organization-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Organization-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubsectorIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_SubsectorOut_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "unauthenticated"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "not_found (inclui outro tenant)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "validation_error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Create Subsector",
+        "tags": [
+          "structure"
         ]
       }
     },
@@ -11576,6 +13906,7 @@
     },
     "/api/v1/escalas/scenarios/{scenario_id}/coverage": {
       "get": {
+        "description": "v3.7: ``subsector``/``workstation`` filtram heatmap e KPIs (após remanejamento).",
         "operationId": "coverage_api_v1_escalas_scenarios__scenario_id__coverage_get",
         "parameters": [
           {
@@ -11630,6 +13961,38 @@
                 }
               ],
               "title": "Role"
+            }
+          },
+          {
+            "in": "query",
+            "name": "subsector",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Subsector"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workstation",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Workstation"
             }
           },
           {
@@ -12085,6 +14448,220 @@
         "summary": "Monthly Matrix Export",
         "tags": [
           "scenarios"
+        ]
+      }
+    },
+    "/api/v1/escalas/scenarios/{scenario_id}/optimize": {
+      "post": {
+        "description": "v3.7 — otimizadores (OR-Tools CP-SAT), síncronos com ``time_limit_s``.\n\n``min_headcount`` (K/tamanho mínimos p/ cobertura alvo, por subsetor/pool), ``offsets``\n(defasagem ótima dado K), ``best_model`` (ranking do catálogo + personalizados),\n``pool_allocation`` (pessoas → posições nos pools) e ``fairness`` (offsets com folgas/\nnoites/domingos equilibrados). Devolve solução, métricas antes/depois, gap e status.",
+        "operationId": "optimize_api_v1_escalas_scenarios__scenario_id__optimize_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "scenario_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Scenario Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-organization-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Organization-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OptimizeIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_OptimizeOut_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "unauthenticated"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "not_found (inclui outro tenant)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "validation_error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Optimize",
+        "tags": [
+          "scenarios",
+          "optimize"
+        ]
+      }
+    },
+    "/api/v1/escalas/scenarios/{scenario_id}/optimize/apply": {
+      "post": {
+        "description": "Cria um cenário a partir da solução (``mode=create``) ou aplica no atual e simula.",
+        "operationId": "optimize_apply_api_v1_escalas_scenarios__scenario_id__optimize_apply_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "scenario_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Scenario Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-organization-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Organization-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OptimizeApplyIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_OptimizeApplyOut_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "unauthenticated"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "not_found (inclui outro tenant)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "validation_error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Optimize Apply",
+        "tags": [
+          "scenarios",
+          "optimize"
         ]
       }
     },
@@ -14132,6 +16709,493 @@
         ]
       }
     },
+    "/api/v1/escalas/subsector-pools/{pool_id}": {
+      "delete": {
+        "operationId": "delete_pool_api_v1_escalas_subsector_pools__pool_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pool_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Pool Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-organization-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Organization-Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "unauthenticated"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "not_found (inclui outro tenant)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "validation_error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Delete Pool",
+        "tags": [
+          "structure"
+        ]
+      },
+      "patch": {
+        "operationId": "patch_pool_api_v1_escalas_subsector_pools__pool_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pool_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Pool Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-organization-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Organization-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PoolPatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_PoolOut_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "unauthenticated"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "not_found (inclui outro tenant)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "validation_error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Patch Pool",
+        "tags": [
+          "structure"
+        ]
+      }
+    },
+    "/api/v1/escalas/subsectors/{subsector_id}": {
+      "delete": {
+        "operationId": "delete_subsector_api_v1_escalas_subsectors__subsector_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "subsector_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Subsector Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-organization-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Organization-Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "unauthenticated"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "not_found (inclui outro tenant)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "validation_error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Delete Subsector",
+        "tags": [
+          "structure"
+        ]
+      },
+      "patch": {
+        "operationId": "patch_subsector_api_v1_escalas_subsectors__subsector_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "subsector_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Subsector Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-organization-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Organization-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubsectorPatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_SubsectorOut_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "unauthenticated"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "not_found (inclui outro tenant)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "validation_error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Patch Subsector",
+        "tags": [
+          "structure"
+        ]
+      }
+    },
+    "/api/v1/escalas/subsectors/{subsector_id}/workstations": {
+      "post": {
+        "operationId": "create_workstation_api_v1_escalas_subsectors__subsector_id__workstations_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "subsector_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Subsector Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-organization-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Organization-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkstationIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_WorkstationOut_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "unauthenticated"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "not_found (inclui outro tenant)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "validation_error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Create Workstation",
+        "tags": [
+          "structure"
+        ]
+      }
+    },
     "/api/v1/escalas/substitution-rules": {
       "get": {
         "operationId": "get_substitution_api_v1_escalas_substitution_rules_get",
@@ -14308,6 +17372,197 @@
         "summary": "Put Substitution",
         "tags": [
           "roles"
+        ]
+      }
+    },
+    "/api/v1/escalas/workstations/{workstation_id}": {
+      "delete": {
+        "operationId": "delete_workstation_api_v1_escalas_workstations__workstation_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workstation_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workstation Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-organization-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Organization-Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "unauthenticated"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "not_found (inclui outro tenant)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "validation_error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Delete Workstation",
+        "tags": [
+          "structure"
+        ]
+      },
+      "patch": {
+        "operationId": "patch_workstation_api_v1_escalas_workstations__workstation_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workstation_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workstation Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-organization-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Organization-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkstationPatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_WorkstationOut_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "unauthenticated"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "not_found (inclui outro tenant)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "validation_error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Patch Workstation",
+        "tags": [
+          "structure"
         ]
       }
     },
