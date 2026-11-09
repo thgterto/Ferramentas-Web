@@ -1,0 +1,42 @@
+name: Portable
+
+# Pacote portable do Simulador de Escalas (PyInstaller one-folder): zip por SO.
+on:
+  workflow_dispatch:
+  push:
+    tags: ["simulador-v*", "v*"]
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Build (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: simulador-escalas/portable/build.sh
+      - name: Build (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: simulador-escalas/portable/build.ps1
+      - name: Smoke test (inicia, health 200)
+        shell: bash
+        run: |
+          cd simulador-escalas/portable/dist/simulador-escalas
+          export ESCALAS_DATA_DIR="$RUNNER_TEMP/dados"
+          ./simulador-escalas --no-browser --port 18765 > "$RUNNER_TEMP/log.txt" 2>&1 &
+          for i in $(seq 1 60); do curl -sf http://127.0.0.1:18765/health && exit 0; sleep 2; done
+          cat "$RUNNER_TEMP/log.txt"; exit 1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: simulador-escalas-${{ runner.os }}
+          path: simulador-escalas/portable/dist/*.zip

@@ -1,0 +1,13 @@
+fastapi
+uvicorn
+sqlalchemy
+psycopg2-binary
+python-multipart
+openpyxl
+pydantic-settings
+alembic
+pyyaml
+pyjwt
+argon2-cffi
+ortools
+# Fonte de verdade: pyproject.toml (pip install -e .)

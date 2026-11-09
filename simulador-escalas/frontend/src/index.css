@@ -1,0 +1,37 @@
+@import "tailwindcss";
+@config "../tailwind.config.js";
+
+/* ===== Simulador de escalas — tokens (04-briefing §5, §14) ===== */
+:root {
+  --bg: 247 248 250; --surface: 255 255 255; --surface-2: 240 242 245; --border: 217 222 229;
+  --text: 17 24 39; --text-muted: 75 85 99; --text-subtle: 107 114 128;
+  --primary: 29 78 216; --primary-hover: 30 64 175; --focus-ring: #2563EB;
+  --cov-deficit: #B42318; --cov-low: #B54708; --cov-exact: #0E9384; --cov-over: #1849A9;
+  --cov-low-fill: #FEF0C7; --cov-exact-fill: #CCFBEF; --cov-over-fill: #D1E0FF;
+  --sev-erro: #B42318; --sev-alerta: #B54708; --sev-info: #175CD3; --sev-ok: #067647;
+  --sev-erro-bg: #FEF3F2; --sev-alerta-bg: #FFFAEB; --sev-info-bg: #EFF8FF; --sev-ok-bg: #ECFDF3;
+  --turma-a: #2A6FDB; --turma-b: #C96A00; --turma-c: #14946B; --turma-d: #7A5AF8; --turma-e: #8A6D00; --turma-f: #C2338A;
+}
+.dark, [data-theme="dark"] {
+  --bg: 15 18 22; --surface: 23 27 33; --surface-2: 31 36 44; --border: 46 53 63;
+  --text: 231 234 238; --text-muted: 163 171 183; --text-subtle: 133 144 160;
+  --primary: 107 155 255; --primary-hover: 141 178 255; --focus-ring: #93B4FF;
+  --cov-deficit: #F97066; --cov-low: #FDB022; --cov-exact: #2ED3B7; --cov-over: #84ADFF;
+  --cov-low-fill: #4E3A10; --cov-exact-fill: #0B3B36; --cov-over-fill: #1A2D5C;
+  --sev-erro: #F97066; --sev-alerta: #FDB022; --sev-info: #84ADFF; --sev-ok: #47CD89;
+  --sev-erro-bg: #3A1513; --sev-alerta-bg: #3A2A0C; --sev-info-bg: #14234A; --sev-ok-bg: #0D2E1E;
+  --turma-a: #5B93F0; --turma-b: #CF7A24; --turma-c: #25A87C; --turma-d: #9077F0; --turma-e: #AD8C22; --turma-f: #E05CA8;
+}
+body:has(.escalas-root) { display: block; place-items: initial; margin: 0; }
+.escalas-root {
+  min-height: 100vh; background: rgb(var(--bg)); color: rgb(var(--text)); text-align: left;
+  font-family: Inter, system-ui, "Segoe UI", Roboto, sans-serif; font-size: 14px; line-height: 20px;
+  font-feature-settings: "tnum" 1, "cv11" 1; color-scheme: light;
+}
+.escalas-root :focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+.pattern-deficit { background-image: repeating-linear-gradient(45deg, currentColor 0 2px, transparent 2px 5px); }
+.pattern-low     { background-image: repeating-linear-gradient(45deg, currentColor 0 1px, transparent 1px 7px); }
+.pattern-over    { background-image: radial-gradient(currentColor 1px, transparent 1.5px); background-size: 6px 6px; }
+.pattern-off     { background-image: repeating-linear-gradient(-45deg, rgb(var(--border)) 0 1px, transparent 1px 6px); }
+.regime-seg[aria-current="step"] { outline: 2px solid rgb(var(--primary)); font-weight: 600; }
+@media (prefers-reduced-motion: reduce) { .escalas-root * { transition: none !important; animation: none !important; } }

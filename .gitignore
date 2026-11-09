@@ -9,3 +9,12 @@ backend/.venv/
 node_modules/
 frontend/dist/
 *.egg-info/
+simulador-escalas/frontend/dist/
+simulador-escalas/backend/.venv/
+# v3.8 portable: artefatos de build nunca vão para o git
+simulador-escalas/portable/dist/
+simulador-escalas/portable/build/
+simulador-escalas/portable/.venv-build/
+*.zip
+*.db
+simulador-escalas/backend/build/

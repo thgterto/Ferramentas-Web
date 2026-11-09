@@ -1,0 +1,77 @@
+# Golden M2 — gerador cíclico (FR-05/FR-06, 01-PRD §6). revisao: pendente-SME
+casos:
+  - id: GT-GER-6X2-56D
+    descricao: "6x2 padrão: em 56 dias, exatamente 1 turma em M, T, N e F por dia (FR-06)"
+    tipo: gerador
+    entrada: {modelo: 6X2, data_ancora: "2026-01-05", dias: 56}
+    esperado: {turmas: 4, cobertura_min: "1", cobertura_max: "1", folgas_por_dia: 1,
+               estados_iniciais: {A: "MMTTNNFF", B: "TTNNFFMM", C: "NNFFMMTT", D: "FFMMTTNN"}}
+  - id: GT-GER-12X36-VIRADA-31-1
+    descricao: "12x36 cruzando 31/01→01/02: nenhuma turma trabalha dois dias seguidos"
+    tipo: gerador
+    entrada: {modelo: 12X36, data_ancora: "2026-01-01", data_inicio: "2026-01-20", dias: 30}
+    esperado: {turmas: 4, cobertura_min: "1", cobertura_max: "1", sem_trabalho_consecutivo: true}
+  - id: GT-GER-12X36-VIRADA-MAR
+    descricao: "12x36 cruzando 31/03→01/04 com âncora em outro ano"
+    tipo: gerador
+    entrada: {modelo: 12X36, data_ancora: "2025-12-31", data_inicio: "2026-03-25", dias: 14}
+    esperado: {cobertura_min: "1", cobertura_max: "1", sem_trabalho_consecutivo: true}
+  - id: GT-GER-12X36-ANTES-ANCORA
+    descricao: "Dia absoluto negativo (antes da âncora) continua cíclico"
+    tipo: gerador
+    entrada: {modelo: 12X36, data_ancora: "2026-02-01", data_inicio: "2026-01-25", dias: 14}
+    esperado: {cobertura_min: "1", cobertura_max: "1", sem_trabalho_consecutivo: true}
+  - id: GT-GER-6X1-21SEXTOS
+    descricao: "6x1 turno fixo: 7 sextos de turma por turno (21) cobrem exato em 7 dias"
+    tipo: gerador
+    entrada: {modelo: 6X1_BASE, variante: "21 sextos de turma (7 por turno)", data_ancora: "2026-01-05", dias: 21}
+    esperado: {turmas: 21, cobertura_min: "1", cobertura_max: "1", max_trabalho_consecutivo: 6,
+               turnos: [M, T, N]}
+  - id: GT-GER-6X1-6T
+    descricao: "6x1 turno fixo com 6 turmas inteiras (2 por turno): ≥ 1 por turno, com excesso"
+    tipo: gerador
+    entrada: {modelo: 6X1_BASE, variante: "6 turmas (2 por turno)", data_ancora: "2026-01-05", dias: 21}
+    esperado: {turmas: 6, cobertura_min: "1", cobertura_max: "2", max_trabalho_consecutivo: 6}
+  - id: GT-GER-5X1-18QUINTOS
+    descricao: "5x1 contínuo turno fixo: 6 quintos por turno (18) cobrem exato em 42 dias"
+    tipo: gerador
+    entrada: {modelo: 5X1, variante: "18 quintos de turma (6 por turno)", data_ancora: "2026-01-05", dias: 42}
+    esperado: {turmas: 18, cobertura_min: "1", cobertura_max: "1", max_trabalho_consecutivo: 5}
+  - id: GT-GER-5X1-DIURNO
+    descricao: "5x1 rotativo diurno 7h12: 6 quintos de turma, folga gira pela semana"
+    tipo: gerador
+    entrada: {modelo: 5X1_DIURNO, variante: "6 quintos de turma", data_ancora: "2026-01-05", dias: 42}
+    esperado: {turmas: 6, cobertura_min: "1", cobertura_max: "1", folgas_por_dia: 1,
+               turnos: [D72]}
+  - id: GT-GER-4X2-5T
+    descricao: "4x2 com 5 turmas: ≥ 1 turma por turno todo dia; excedente médio 11,1%"
+    tipo: gerador
+    entrada: {modelo: 4X2, variante: "5 turmas", data_ancora: "2026-01-05", dias: 126}
+    esperado: {turmas: 5, cobertura_min: "1", cobertura_max: "2", excesso_medio: "1/9"}
+  - id: GT-GER-4X2-9MEIAS
+    descricao: "4x2 com 9 meias-turmas L=18 offset 2: 2 meias em M, T, N e 3 em F por dia"
+    tipo: gerador
+    entrada: {modelo: 4X2, variante: "9 meias-turmas", data_ancora: "2026-01-05", dias: 126}
+    esperado: {turmas: 9, cobertura_min: "1", cobertura_max: "1", folgas_por_dia: 3,
+               estados_iniciais: {A: "MMMMFFTTTTFFNNNNFF"}}
+  - id: GT-GER-5T-70D
+    descricao: "5 turmas L=10 offset 2: exato em 70 dias; 42 dias trabalhados em 70 (média 21/35)"
+    tipo: gerador
+    entrada: {modelo: 5T, data_ancora: "2026-01-05", dias: 70}
+    esperado: {turmas: 5, cobertura_min: "1", cobertura_max: "1", folgas_por_dia: 2,
+               dias_trabalhados_70d: 42}
+  - id: GT-GER-2X2-12H
+    descricao: "2x2 12 h: 2 turmas D + 2 turmas N"
+    tipo: gerador
+    entrada: {modelo: 2X2_12H, data_ancora: "2026-01-05", dias: 28}
+    esperado: {turmas: 4, cobertura_min: "1", cobertura_max: "1", max_trabalho_consecutivo: 2}
+  - id: GT-GER-5X2-5T
+    descricao: "5x2 24/7 com 5 turmas: cobre, mas com excesso (+19%)"
+    tipo: gerador
+    entrada: {modelo: 5X2, data_ancora: "2026-01-05", dias: 21}
+    esperado: {turmas: 5, cobertura_min: "1", excesso_medio: "4/21"}
+  - id: GT-GER-FIXO-N
+    descricao: "Turno fixo noturno (base 12x36): 2 turmas, só N12"
+    tipo: gerador
+    entrada: {modelo: FIXO_N, data_ancora: "2026-01-05", dias: 14}
+    esperado: {turmas: 2, cobertura_min: "1", cobertura_max: "1", turnos: [N12]}
