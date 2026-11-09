@@ -28,9 +28,13 @@ def _table(name: str) -> sa.Table:
 
 
 def upgrade() -> None:
-    op.bulk_insert(_table("shift_templates"), seeds.shift_template_rows())
-    op.bulk_insert(_table("schedule_models"), seeds.schedule_model_rows())
-    op.bulk_insert(_table("compliance_rules"), seeds.COMPLIANCE_RULES)
+    # v3.5: 0002 grava só o catálogo essencial (fase 'mvp'); o restante entra na 0004.
+    op.bulk_insert(_table("shift_templates"),
+                   [r for r in seeds.shift_template_rows() if r["code"] in seeds.MVP_SHIFTS])
+    op.bulk_insert(_table("schedule_models"),
+                   [r for r in seeds.schedule_model_rows() if r["phase"] == "mvp"])
+    op.bulk_insert(_table("compliance_rules"),
+                   [r for r in seeds.COMPLIANCE_RULES if r["code"] not in seeds.RULES_V35 | seeds.RULES_V37])
     op.bulk_insert(_table("legal_regimes"), seeds.legal_regime_rows())
 
 

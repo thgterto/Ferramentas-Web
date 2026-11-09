@@ -15,7 +15,7 @@ Este é um **simulador operacional**. A pergunta central é: **"minha operação
 | Doc | Conteúdo | Fonte da verdade para |
 |---|---|---|
 | [`00-prd-original.md`](00-prd-original.md) | PRD v2.0 original (só referência, não editado) | — |
-| [`01-PRD.md`](01-PRD.md) | PRD v3.4 (v3.3 + regime legal / fim da 6x1: Módulo 10 FR-39–42, §6.2, §8.1): problema, personas, KPIs, escopo, **FR-01…FR-38**, modelos de escala e **catálogo ampliado (§6.1)**, NFRs, perguntas abertas, correções, **catálogo de códigos de achado (Apêndice A)** | IDs de requisito, códigos de achado, números dos modelos, escopo/fases |
+| [`01-PRD.md`](01-PRD.md) | PRD v3.7 (v3.4 regime legal + v3.5 customização + v3.6 matriz mensal, visões e sobreposição FR-43–45 + **v3.7 subsetores/posições, pools e otimizadores FR-46–49**): problema, personas, KPIs, escopo, **FR-01…FR-38**, modelos de escala e **catálogo ampliado (§6.1)**, NFRs, perguntas abertas, correções, **catálogo de códigos de achado (Apêndice A)** | IDs de requisito, códigos de achado, números dos modelos, escopo/fases |
 | [`02-TRD.md`](02-TRD.md) | Arquitetura, stack, **módulos do motor M1–M6**, algoritmos, performance, precisão, segurança, testes, ADRs | Módulos do motor e stack |
 | [`03-fluxo-do-app.md`](03-fluxo-do-app.md) | Sitemap, **telas T0–T9, rotas**, passos do wizard, fluxos e edge cases, rastreabilidade FR → tela | Telas, rotas, abas, passos do wizard |
 | [`04-briefing-de-design.md`](04-briefing-de-design.md) | Objetivos de design, microcopy, paleta (cobertura, severidade, turmas), componentes, wireframes, tokens Tailwind | Tokens visuais |
@@ -27,12 +27,46 @@ Este é um **simulador operacional**. A pergunta central é: **"minha operação
 - **Catálogo essencial do MVP (v3.3):** `6X1_BASE`, `5X2`, `12X36`, `6X2`, `4X2`, `2X2_12H`, `5T`, `4X3`, `FIXO_D`, `FIXO_N`; demais códigos da §6.1 = Fase 2.
 - **Modelos base:** 6x1 baseline (K = 3,5 → 4 turmas + folguistas, 48 h), 12x36 (4 turmas, 42 h, ciclo 14 d, **dia absoluto**), 6x2 (4 turmas, **42 h**, 56 d), 4x2 (**5 turmas** ou 9 meias-turmas, 37,33 h, 42 d), 5 turmas (**33,6 h**, 70 d). Fórmula `K = turnos/dia × L / dias_trabalhados`. Hora noturna: fator exato **8/7**.
 - **Catálogo v3.2 (FR-28; v3.3: Fase 2 exceto o essencial):** + 5x2, 5x1, 4x3, 6x3, 3x1, 3x2, 2x2 12 h, Pitman, Panamá, DuPont, Continental 8 h, 12x60, 24x48, 24x72, 18x36 (P1), 5T francesa, 6 turmas (8 h e 4×6 h), fim de semana 12 h, parcial 20/25/30 h, fixo/rotativo, reforço, escalonado, split (P1). Exatos em 24/7 e viabilidade padrão: `01` §6.1.
-- **Motor:** M1 Demanda+shrinkage · M2 Gerador cíclico (+ M2b catálogo/construtor) · **M3 Cobertura e dimensionamento** (+ K como restrição e cobertura por cargo) · M4 Viabilidade CLT · M5 ILP (Fase 2) · M6 Financeiro (P2). Código em `backend/app/services/engine/`.
+- **Motor:** M1 Demanda+shrinkage · M2 Gerador cíclico (+ M2b catálogo/construtor) · **M3 Cobertura e dimensionamento** (+ K como restrição e cobertura por cargo) · **M3c Subsetores/pools (v3.7)** · M4 Viabilidade CLT · **M5 Otimizadores CP-SAT (v3.7: a–e no MVP; ILP de turnos livres segue Fase 2)** · M6 Financeiro (P2). Código em `backend/app/services/engine/`.
 - **Códigos de achado:** `COB_*` (cobertura, M3) e `CLT_*` (viabilidade, M4; v3.4: `CLT_CARGA_SEMANAL_EXCEDIDA`, `CLT_FOLGAS_SEMANAIS_INSUFICIENTES`, `CLT_ESCALA_6X1_VEDADA`, `CLT_VIAVEL_SOMENTE_COM_ACT`, `CLT_REGIME_PENDENTE_REGULAMENTACAO`) + `INFO_DIVERGENCIA_59A_SUMULA60`, `INFO_REGIME_PREMISSA`; severidades `erro` / `alerta` / `info`.
-- **Telas:** T0 Login · T1 Organização · T2 Operações · T2.1 Detalhe · **T2.2 Restrições de turmas** · T3 Wizard (5 passos) · T4 Resultado (abas `cobertura`, `escala`, `viabilidade`, `custos`=P2) · T5 Ajuste de escala · T6 Comparador · T7 Homologação & export · **T8 Cadastros (T8.1 cargos, T8.2 matriz de substituição, T8.3 modelos)** · **T9 Construtor de escala**.
-- **Stack:** React 19 + TS + Vite 7 + Tailwind 4; FastAPI + Pydantic v2 + SQLAlchemy 2 + Alembic; PostgreSQL 16 com RLS; NumPy; Celery/Redis; OR-Tools: `min_cost_flow`/GLOP no MVP (alocação por cargo, ADR-009), CP-SAT na Fase 2.
+- **Telas:** T0 Login · T1 Organização · T2 Operações · T2.1 Detalhe · **T2.2 Restrições de turmas** · T3 Wizard (5 passos) · T4 Resultado (abas `cobertura`, `quadro` — v3.6: Gantt / Calendário / **Matriz mensal** / Por turno / Pessoa —, `escala`, `viabilidade`, `custos`=P2) · T5 Ajuste de escala · T6 Comparador · T7 Homologação & export · **T8 Cadastros (T8.1 cargos, T8.2 matriz de substituição, T8.3 modelos)** · **T9 Construtor de escala**.
+- **Stack:** React 19 + TS + Vite 7 + Tailwind 4; FastAPI + Pydantic v2 + SQLAlchemy 2 + Alembic; PostgreSQL 16 com RLS; NumPy; Celery/Redis; OR-Tools **9.14.6206 fixado** (v3.7): CP-SAT nos otimizadores (ADR-012); a alocação hora a hora por cargo e por pool segue no min-cost-flow próprio (ADR-009).
 
 ## Registro de revisão
+
+### Revisão v3.7 — subsetores, posições, intercambialidade (pools) e otimizadores
+
+**Pedido:** "Adicionar uma coluna de um subsetor e de uma posição. Tem setores que têm dois ou mais subsetores e os funcionários são intercambiáveis. Melhore isso e adicione os otimizadores."
+
+| Doc | Mudanças |
+|---|---|
+| `01` | **FR-46** hierarquia Operação/Setor → Subsetor → Posição (demanda e cargo por posição; lotação e posição padrão por pessoa); **FR-47** colunas Subsetor/Posição nas visões e exportações, filtros/agrupamentos e rodapé por subsetor, heatmap/KPIs por subsetor/posição; **FR-48** pools de intercambialidade (total/por cargo, limite de horas emprestadas, preferência pela origem) com remanejamento hora a hora, KPI de horas remanejadas, comparação com × sem pool e `COB_REMANEJAMENTO_SUBSETOR` / `COB_DEFICIT_SUBSETOR`; **FR-49** otimizadores (a mínimo de turmas/pessoas · b defasagem ótima · c melhor modelo · d alocação nos pools · e fairness) com regras do regime como restrições duras opcionais. |
+| `02` | §5.4.3 **M3c** (min-cost-flow generalizado pessoa-grupo → posição) e §5.6 **M5 Otimizadores** (formulações CP-SAT, complexidade, limites); ADR-009 revisto e **ADR-012** (CP-SAT entra no MVP para os otimizadores). |
+| `03` | Wizard passo 2 com "Subsetores e posições" + pools; T4 filtros Subsetor/Posição no heatmap, painel "Subsetores, posições e pools", **aba `otimizar`** (objetivo, escopo, restrições, antes × depois, criar/aplicar cenário). |
+| `04` | §8.19 colunas fixas Subsetor/Posição e célula remanejada (⇄ contorno tracejado); §8.20 painel Otimizar. |
+| `05` | Migração `0005`: `subsectors`, `workstations`, `subsector_pools`, `employees` (RLS); CRUD `/operations/{id}/subsectors|subsector-pools|employees|structure`, `/subsectors/{id}/workstations`; `GET …/coverage?subsector=|workstation=`; `POST /scenarios/{id}/optimize` e `…/optimize/apply`; `params.offsets`. |
+| `06` | Itens v3.7 entregues (motor `engine/subsetores.py`, `engine/otimizadores.py`, serviços `structure_service.py`/`optimize_service.py`, goldens, Vitest `Optimize.test.tsx`, E2E com 2 subsetores + pool + otimização). |
+
+### Revisão v3.6 — matriz mensal, outras visões e escalas com sobreposição
+
+**Pedido:** "Permita outras visões além da atual. Quero a Matriz mensal pra saber quem está em cada turno e quem está folgando por dia ao longo do mês. Inclua versões de escala com sobreposição."
+
+| Doc | Mudanças |
+|---|---|
+| `01` | **FR-43 Matriz mensal** (pessoa × dia, sigla + cor, `F`, `←N` noite que continua, fins de semana/feriados BR, rodapé por turno × necessário com déficit, totais por pessoa, filtros turno/cargo/turma/busca, XLSX uma aba por mês + CSV + impressão paisagem); **FR-44 visões "Por turno" e "Pessoa"** (calendário individual exportável CSV/XLSX/ICS); **FR-45 sobreposição planejada** (`passagem_min` / `reforco` no turno: cobertura conta os dois, status `passagem` + `COB_PASSAGEM_PLANEJADA` em vez de `COB_EXCESSO`; horas/média/interjornada pelos horários reais); §6.1 +7 modelos `grupo: sobreposicao` (44 no catálogo). Bug corrigido: a noite da véspera do horizonte aparece no Gantt (`← N 22–06`). |
+| `03` | T4 aba `quadro`: seletor de visão **Gantt / Calendário / Matriz mensal / Por turno / Pessoa** + seletor de mês; rota `GET /scenarios/{id}/monthly-matrix?month=YYYY-MM` e `…/monthly-matrix/export`. |
+| `04` | §8.16 Matriz mensal, §8.17 Por turno, §8.18 Pessoa; célula "passagem planejada" (⇄, hachura) no heatmap e na pré-visualização do construtor; coluna "Passagem (min)" na régua de turnos. |
+| `06` | Itens v3.6 entregues (motor `engine/matriz_mensal.py`, `services/escalas/matrix_service.py`, goldens `golden/sobreposicao.yaml`, Vitest `Views.test.tsx`, E2E abre e exporta a matriz). |
+
+### Revisão v3.5 — máxima customização (catálogo completo, K livre, construtor, quadro de turnos)
+
+**Pedido:** "Preciso de máxima capacidade de customização… não limite a 4 turmas nem descarte 4x3, 2x2, 4x4… no quadro não consigo enxergar os turnos."
+
+| Doc | Mudanças |
+|---|---|
+| `01` | §4.1: entram no MVP o **catálogo completo da §6.1** (37 modelos, incl. 2x2 8 h, 4x4, 5x2 comercial), **K livre** (fixo/mínimo/faixa/sugerir, 1–60, tamanhos por turma e meias-turmas — FR-32/33), **construtor completo** (FR-29–31: sequência livre, turnos livres/sobrepostos/fracionados, offsets manuais/auto, rotação, folgas fixas, âncora, camadas, templates) e o **Quadro de turnos** (Gantt por dia + calendário com sigla e horário). Não contínuos simulam com **janela de operação** (fim do 422). Alertas legais nunca bloqueiam: viram achados. |
+| `05` | `custom_schedule_patterns` (spec JSON + versão, RLS) — migração `0004`; `scenarios.params.pattern`; `team_count` 1..500; endpoints `/schedule-models/{code}/pattern`, `/schedule-patterns:validate`, CRUD + `/duplicate`. |
+| `06` | Itens de FR-28 restante, FR-29–33 e T9 movidos da Fase 2 para o MVP (v3.5); `buscar_offsets` heurístico com limite de tempo. |
 
 ### Revisão v3.4 — regras da mudança da escala 6x1 (regime legal versionado)
 

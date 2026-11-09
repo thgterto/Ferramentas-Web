@@ -1,4 +1,4 @@
-# PRD v3.4 — Simulador Operacional de Cobertura 24/7 (Brasil/CLT)
+# PRD v3.7 — Simulador Operacional de Cobertura 24/7 (Brasil/CLT)
 
 | Metadado | Detalhe |
 | :--- | :--- |
@@ -66,6 +66,7 @@ Operações ininterruptas (indústria contínua, CDs, hospitais, NOC, segurança
 ## 4. Escopo
 
 ### 4.1 MVP (Fase 1) — núcleo de cobertura enxuto, ponta a ponta (v3.3: 4 sprints, ~160 pts)
+> **v3.5 (máxima customização):** entram no MVP o catálogo **completo** da §6.1 (37 modelos como seeds YAML, inclusive 4x3, 2x2 8 h/12 h, 4x4, 3x1, 3x2, 5x1, 6x3, DuPont, Panamá, Pitman, 12x60, 24x48, 24x72, 18x36, 5T/5T francesa, 6T, fim de semana, parcial, fixos, escalonado, split, reforço); **K livre** (fixo/mínimo/faixa/sugerir, 1–60, tamanho por turma, meias-turmas); **construtor completo** (FR-29–FR-31) com camadas (FR-30) e templates da organização; **janela de operação** para modelos não contínuos (simulam normalmente); **Quadro de turnos** (Gantt por dia e calendário com sigla/horário). Selos legais são informativos: nenhuma regra impede simular.
 O MVP entrega **motor de cobertura + API + interface mínima** (wizard, heatmap 7×24, calendário de turmas, painel de achados) e export. Tudo o que está aqui é **P0**; o plano está no `06` §2–§3.
 - **Demanda (FR-01–03):** postos fixos por faixa horária e curva 168 h (grade 7×24 e upload CSV/XLSX); shrinkage diurno e noturno.
 - **Catálogo essencial (FR-28 essencial, 10 modelos):** `6X1_BASE` (baseline), `5X2`, `12X36`, `6X2`, `4X2` (5 turmas ou 9 meias-turmas), `2X2_12H`, `5T` (5 turmas, 33,6 h), `4X3` e turno fixo `FIXO_D`/`FIXO_N`. Critério: modelos mais usados em 24/7 e não contínuo no Brasil + baseline + os dois de 12 h. Geração cíclica determinística por dia absoluto (FR-05, FR-06).
@@ -367,6 +368,28 @@ Convenções: `s` = turnos/dia a cobrir, `L` = ciclo da turma, `w` = dias trabal
 
 **MVP × fase (v3.3):** só o **catálogo essencial** entra no MVP — `6X1_BASE`, `5X2`, `12X36`, `6X2`, `4X2`, `2X2_12H`, `5T`, `4X3`, `FIXO_D`, `FIXO_N` (tag **MVP**); os demais códigos desta tabela são **Fase 2** e entram depois como dados de catálogo (o motor M2 é genérico; cada modelo é uma linha de `schedule_models` + `rotation_patterns` + teste golden). `18X36` (ciclo em horas) e `SPLIT` (dois blocos/dia) exigem extensões do gerador e são **P1**.
 
+### 6.1.1 Versões com sobreposição (v3.6, FR-45)
+
+Turnos com **sobreposição planejada**: `passagem_min` (últimos minutos sobrepostos ao turno seguinte, passagem de turno) ou `reforco` (turno de pico sobre o núcleo). Cobertura hora a hora **conta os dois** na janela sobreposta; o excesso explicado pela sobreposição vira **"excesso planejado de passagem"** (status `passagem`, KPI `handover_post_hours`, achado INFO `COB_PASSAGEM_PLANEJADA`) — não `COB_EXCESSO` (ociosidade). Horas trabalhadas, média semanal e interjornada usam a **duração e os horários reais**. Selo legal calculado (FR-42) e conferido por `pytest -k regime`; goldens em `golden/sobreposicao.yaml`.
+
+| Código | Turnos (horários reais) | Turmas | h/sem | Passagem/dia | Selo 44 h / 42 h / 40 h |
+|---|---|---|---|---|---|
+| `6X2_PASSAGEM` | MP 06:00–14:20 · TP 14:00–22:20 · NP 22:00–06:20 (20 min) | 4 | 43,75 | 3 h | só com ACT / ✗ / ✗ |
+| `4X2_PASSAGEM` | M30/T30/N30 8h30 (30 min) | 5 (ou 9 meias) | 39,67 | 3 h | só com ACT ×3 |
+| `5T_PASSAGEM` | MP/TP/NP (20 min) | 5 | 35 | 3 h | só com ACT ×3 |
+| `12X36_PASSAGEM` | D12P 06:45–19:00 · N12P 18:45–07:00 (15 + 15 = 30 min/dia) | 4 | 42,875 | 2 h | só com ACT / ✗ / ✗ |
+| `2X2_12H_PASSAGEM` | D12P / N12P (interjornada real 11h45) | 4 | 42,875 | 2 h | só com ACT / ✗ / ✗ |
+| `NUCLEO_PICO` | núcleo 6x2 M/T/N + `PICO` 10:00–18:48 seg–sex (reforço; camadas, motor genérico) | 4 + 1 | 42 / 44 | 9 h (pico) | só com ACT / ✗ / ✗ |
+| `ESCALONADO_2H` | E06 / E08 / E10 / E12 (entradas a cada 2 h, não contínuo) | 4 | 40 | — (sobreposição real = excesso) | ✔ ×3 |
+
+No construtor (FR-29), cada turno tem **"Passagem (min)"** (0–240): o valor estende o turno (06:00–14:00 + 20 → 06:00–14:20) e é tratado como sobreposição planejada.
+
+### 6.1.2 Visões do resultado (v3.6, FR-43–FR-44)
+
+- **FR-43 Matriz mensal** — `GET /scenarios/{id}/monthly-matrix?month=YYYY-MM`: linhas = pessoas (agrupáveis por turma/cargo; alternar turma/pessoa), colunas = dias do mês com dia da semana, fins de semana e **feriados nacionais** (fixos + Carnaval, Sexta-feira Santa, Corpus Christi) destacados. Célula = sigla do turno + cor (com texto, nunca só cor), `F` folga, `←N` turno da véspera que continua pela 00:00. Rodapé por dia: pessoas que iniciam cada turno × necessário (▼ déficit), total em folga, horas com déficit e horas de passagem. Totais por pessoa: dias trabalhados, folgas, horas no mês, domingos de folga, noites (≥ 2 h em 22–05 h). Filtros: turno, cargo, turma, busca. Linha e coluna fixas, rolagem horizontal, grade navegável por setas. Exportação `…/monthly-matrix/export?format=xlsx&months=N` (uma aba por mês, cores por turno) e `csv`; impressão CSS paisagem. Sem colaboradores cadastrados (MVP aloca por turma), gera **pessoas fictícias** por turma (`A-01`, `A-02`…) com o cargo da composição. Regenera o mês com a mesma âncora/K/offsets da simulação.
+- **FR-44 Visões "Por turno" e "Pessoa"** — "Por turno": para cada dia, quem está em cada turno (lista agrupada por turma, com necessário × escalados), quem continua a noite anterior e quem folga. "Pessoa": calendário mensal individual (base do calendário pessoal), totais do mês e exportação CSV/XLSX/**ICS** (`person=A-01`).
+- **Correção (v3.6):** no Gantt por dia, o turno noturno da véspera (ex.: N 22–06 de domingo) aparece no início do dia seguinte como `← N 22–06` — inclusive no 1º dia do horizonte — e em todas as visões (calendários e matriz).
+
 ### 6.2 Conformidade por regime legal (v3.4, FR-40–FR-42)
 
 Premissas: regimes `CLT_44H_ATUAL` (44 h, ≥ 1 folga/7 d, 6x1 permitida), `TRANSICAO_42H` (42 h, ≥ 1 folga/7 d, 6x1 vedada — premissa), `PEC_40H` (40 h, **≥ 2 folgas/7 d — premissa**, 6x1 vedada); jornada até 8 h (compensação por ACT/CCT; 12x36 regime especial). **Média semanal** = `w × h × 7 / L`; **folgas/7 d** = `(L − w) × 7 / L` (média no ciclo). Legenda: ✔ conforme · **ACT** só viável com ACT/CCT (`CLT_VIAVEL_SOMENTE_COM_ACT`) · **especial** regime diferenciado pendente de lei ordinária (`CLT_REGIME_PENDENTE_REGULAMENTACAO`) · ✖ não conforme. Contas conferidas para todos os códigos da §6.1 (coluna "Conformidade").
@@ -414,6 +437,22 @@ Identidade usada nos testes: para modelo exato, `K*_modelo ≥ K_legal` ⇔ `h/s
 - **NFR-07 Responsivo:** MVP: uso pleno ≥ 1280 px. Fase 2: leitura (heatmap/comparador) ≥ 768 px.
 - **NFR-08 Dados:** sem dados pessoais no MVP (trabalha por turma); LGPD aplica-se quando houver alocação nominal (Fase 2).
 - **NFR-09 i18n:** PT-BR, datas dd/mm/aaaa, fuso America/Sao_Paulo (BRL quando o Módulo 6 existir).
+
+### 6.1.3 Subsetores, posições, pools e otimizadores (v3.7, FR-46–49)
+
+**FR-46 — Hierarquia Operação/Setor → Subsetor → Posição [MVP v3.7].** Uma operação (setor) pode ter **subsetores** (ex.: Caldeiras, Turbinas) e cada subsetor **posições** (postos de trabalho: "Caldeira 1", "Leito 3", "Doca 2"). Cada posição tem **demanda própria** (postos fixos 24/7 ou curva 168 h — no wizard, postos numa faixa horária) e, opcionalmente, **cargo exigido**. Com subsetores, a demanda do setor = soma das posições. Pessoas (fictícias `A-01`… ou **cadastradas**) têm **subsetor de lotação** e **posição padrão**; as fictícias são espalhadas pelas "vagas" (posição × pico), preferindo a vaga do próprio cargo.
+
+**FR-47 — Colunas e filtros [MVP v3.7].** Matriz mensal, "Por turno", "Pessoa" e exportações XLSX/CSV ganham **Subsetor** e **Posição** (colunas fixas); agrupar/filtrar por subsetor/posição e "só remanejados"; rodapé "No subsetor X" por dia; heatmap 7×24 e KPIs filtráveis por subsetor/posição (`coverage?subsector=|workstation=`).
+
+**FR-48 — Intercambialidade (pools) [MVP v3.7].** Por setor, **pools** = grupos de subsetores cujos funcionários são intercambiáveis — **total** ou **restrito a cargos** —, com **limite opcional de horas emprestadas por pessoa/semana** e **preferência pela lotação de origem**. O motor aloca, hora a hora, as pessoas presentes às posições demandadas (min-cost max-flow: arestas só dentro do subsetor ou do pool e compatíveis com a matriz de cargos; custo menor na origem). Visões mostram o remanejamento (célula `M ⇄ TUR/TUR2`, CSV `M → TUR/TUR2`), KPI **horas remanejadas**, painel com **déficit sem pool × com pool** e achados `COB_REMANEJAMENTO_SUBSETOR` (INFO) / `COB_DEFICIT_SUBSETOR` (ALERTA).
+
+**FR-49 — Otimizadores [MVP v3.7].** `POST /scenarios/{id}/optimize` (síncrono, *time limit* configurável, padrão 5 s) e aba **Otimizar**; devolvem solução, métricas antes × depois, **gap** e status **ótimo/viável**; "Criar cenário a partir da solução" ou "Aplicar neste cenário".
+- **a. Mínimo de turmas/pessoas** para cobertura alvo (100 % ou %), tamanho fixo (turmas ou meias) ou livre (pessoas por offset), por operação, subsetor ou pool — ex.: 6x2 → K = 4; 4x2 → 5 turmas ou 9 meias; picos alternados em 2 subsetores: 16 pessoas separados × 12 em pool.
+- **b. Defasagem ótima** (offsets) dado K: minimiza déficit e excesso.
+- **c. Melhor modelo** do catálogo (+ personalizados salvos): ranking por conformidade, déficit, headcount e excesso; "só conformes" ou incluindo os viáveis com ACT/CCT.
+- **d. Alocação nos pools** (pessoa × dia → posição): minimiza déficit, horas remanejadas e o máximo emprestado por pessoa; respeita cargos e o limite de horas (duro); horários = os da turma (interjornada preservada).
+- **e. Fairness**: (b) com objetivo secundário de equilibrar domingos de folga e noites entre as turmas.
+- Regras do regime como **restrições duras opcionais** (toggle): modelo não conforme → status `inviavel_regime`.
 
 ## 8. Premissas
 
@@ -496,6 +535,9 @@ Resolvida: **Q7** (persistência) → PostgreSQL 16 (decisão do `02-TRD.md` / `
 | `COB_DEFICIT` | ALERTA | FR-09, FR-12 |
 | `COB_DEFICIT_POSTO_CRITICO` | ERRO | FR-02, FR-09 |
 | `COB_EXCESSO` | INFO | FR-09 |
+| `COB_PASSAGEM_PLANEJADA` | INFO | FR-45 (v3.6) — excesso explicado por passagem de turno / reforço de pico |
+| `COB_REMANEJAMENTO_SUBSETOR` | INFO | FR-48 (v3.7) — horas-pessoa remanejadas entre subsetores do pool; mensagem traz déficit sem pool → com pool |
+| `COB_DEFICIT_SUBSETOR` | ALERTA | FR-48 (v3.7) — déficit em um subsetor depois do remanejamento |
 | `COB_FURO_INTERVALO` | ALERTA | FR-10 |
 | `COB_DEFICIT_ESPERADO_SHRINKAGE` | ALERTA | FR-11 |
 | `COB_TURMAS_INSUFICIENTES` | ERRO | FR-07, FR-08 |

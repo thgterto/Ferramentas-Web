@@ -5,13 +5,13 @@ from __future__ import annotations
 import uuid
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Header, Response
+from fastapi import APIRouter, Header, Query, Response
 
 from app.api.deps import DB, Current, Writer
 from app.api.v1.escalas._common import ERRORS, LimitQ, PageQ, PerPageQ, created, csv_list
 from app.schemas import scenario as ss
 from app.schemas.common import CursorPage, Envelope, Page, page_of
-from app.services.escalas import export_service
+from app.services.escalas import export_service, matrix_service
 from app.services.escalas import scenario_service as svc
 
 router = APIRouter(responses=ERRORS, tags=["scenarios"])
@@ -67,8 +67,10 @@ def simulate(scenario_id: uuid.UUID, p: Writer, db: DB,
 @router.get("/scenarios/{scenario_id}/coverage", response_model=Envelope[ss.CoverageOut])
 def coverage(scenario_id: uuid.UUID, p: Current, db: DB,
              view: Literal["postos", "reserva"] = "postos",
-             agg: Literal["pior", "media"] = "pior", role: str | None = None) -> object:
-    return {"data": svc.coverage(db, p, scenario_id, view, agg, role)}
+             agg: Literal["pior", "media"] = "pior", role: str | None = None,
+             subsector: str | None = None, workstation: str | None = None) -> object:
+    """v3.7: ``subsector``/``workstation`` filtram heatmap e KPIs (após remanejamento)."""
+    return {"data": svc.coverage(db, p, scenario_id, view, agg, role, subsector, workstation)}
 
 
 @router.post("/scenarios/{scenario_id}/sizing", response_model=Envelope[ss.SizingOut])
@@ -122,3 +124,57 @@ def export(scenario_id: uuid.UUID, p: Current, db: DB,
     data, media, name = export_service.export(db, p, scenario_id, body or ss.ExportIn())
     return Response(content=data, media_type=media,
                     headers={"Content-Disposition": f'attachment; filename="{name}"'})
+
+
+MonthQ = Annotated[str, Query(pattern=r"^\d{4}-(0[1-9]|1[0-2])$", examples=["2027-01"])]
+
+
+@router.get("/scenarios/{scenario_id}/monthly-matrix",
+            response_model=Envelope[ss.MonthlyMatrixOut])
+def monthly_matrix(scenario_id: uuid.UUID, p: Current, db: DB, month: MonthQ) -> object:
+    """v3.6: matriz mensal pessoa × dia (turno/folga), rodapé por turno e totais por pessoa.
+
+    Regenera o mês com a mesma âncora/K/offsets da simulação; pessoas fictícias por turma
+    (``A-01``…) quando não há colaboradores cadastrados.
+    """
+    return {"data": matrix_service.monthly_matrix(db, p, scenario_id, month)}
+
+
+@router.get("/scenarios/{scenario_id}/monthly-matrix/export",
+            responses={200: {"content": {"text/csv": {}, "text/calendar": {},
+                                         "application/vnd.openxmlformats-"
+                                         "officedocument.spreadsheetml.sheet": {}}}})
+def monthly_matrix_export(scenario_id: uuid.UUID, p: Current, db: DB, month: MonthQ,
+                          format: Literal["xlsx", "csv", "ics"] = "xlsx",
+                          months: Annotated[int, Query(ge=1, le=12)] = 1,
+                          person: str | None = None) -> Response:
+    """XLSX (uma aba por mês, cores por turno), CSV ou ICS (calendário individual)."""
+    data, media, name = matrix_service.export(db, p, scenario_id, month, months, format,
+                                              person)
+    return Response(content=data, media_type=media,
+                    headers={"Content-Disposition": f'attachment; filename="{name}"'})
+
+
+@router.post("/scenarios/{scenario_id}/optimize", response_model=Envelope[ss.OptimizeOut],
+             tags=["optimize"])
+def optimize(scenario_id: uuid.UUID, body: ss.OptimizeIn, p: Current, db: DB) -> object:
+    """v3.7 — otimizadores (OR-Tools CP-SAT), síncronos com ``time_limit_s``.
+
+    ``min_headcount`` (K/tamanho mínimos p/ cobertura alvo, por subsetor/pool), ``offsets``
+    (defasagem ótima dado K), ``best_model`` (ranking do catálogo + personalizados),
+    ``pool_allocation`` (pessoas → posições nos pools) e ``fairness`` (offsets com folgas/
+    noites/domingos equilibrados). Devolve solução, métricas antes/depois, gap e status.
+    """
+    from app.services.escalas import optimize_service
+
+    return {"data": optimize_service.optimize(db, p, scenario_id, body)}
+
+
+@router.post("/scenarios/{scenario_id}/optimize/apply",
+             response_model=Envelope[ss.OptimizeApplyOut], tags=["optimize"])
+def optimize_apply(scenario_id: uuid.UUID, body: ss.OptimizeApplyIn, p: Writer,
+                   db: DB) -> object:
+    """Cria um cenário a partir da solução (``mode=create``) ou aplica no atual e simula."""
+    from app.services.escalas import optimize_service
+
+    return {"data": optimize_service.apply(db, p, scenario_id, body)}

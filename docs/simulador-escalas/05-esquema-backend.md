@@ -1089,6 +1089,41 @@ INSERT INTO compliance_rules VALUES
 
 ---
 
+### 3.x Subsetores, posições, pools e pessoas (v3.7) [MVP] — migração `0005_v37_subsetores_otimizadores`
+
+```sql
+CREATE TABLE subsectors (
+  id BIGSERIAL PRIMARY KEY, public_id UUID UNIQUE NOT NULL,
+  organization_id BIGINT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  operation_id BIGINT NOT NULL REFERENCES operations(id) ON DELETE CASCADE,
+  code VARCHAR(24) NOT NULL, name TEXT NOT NULL, sort_order SMALLINT NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (operation_id, code));
+CREATE TABLE workstations (            -- posição / posto de trabalho
+  id BIGSERIAL PRIMARY KEY, public_id UUID UNIQUE NOT NULL, organization_id BIGINT NOT NULL …,
+  subsector_id BIGINT NOT NULL REFERENCES subsectors(id) ON DELETE CASCADE,
+  code VARCHAR(24) NOT NULL, name TEXT NOT NULL, required_role_id BIGINT REFERENCES roles(id),
+  demand_mode VARCHAR(16) NOT NULL DEFAULT 'postos_fixos' CHECK (demand_mode IN ('postos_fixos','curva_168h')),
+  demand_values JSONB NOT NULL,        -- {"values": [168 inteiros]}
+  sort_order SMALLINT NOT NULL DEFAULT 0, …, UNIQUE (subsector_id, code));
+CREATE TABLE subsector_pools (
+  id BIGSERIAL PRIMARY KEY, public_id UUID UNIQUE NOT NULL, organization_id BIGINT NOT NULL …,
+  operation_id BIGINT NOT NULL REFERENCES operations(id) ON DELETE CASCADE,
+  code VARCHAR(24) NOT NULL, name TEXT NOT NULL,
+  members JSONB NOT NULL,              -- {"subsectors": [...], "roles": [...]}
+  mode VARCHAR(10) NOT NULL DEFAULT 'total' CHECK (mode IN ('total','restrito')),
+  max_borrowed_hours_week INT CHECK (max_borrowed_hours_week IS NULL OR max_borrowed_hours_week >= 0),
+  prefer_home BOOLEAN NOT NULL DEFAULT TRUE, …, UNIQUE (operation_id, code));
+CREATE TABLE employees (
+  id BIGSERIAL PRIMARY KEY, public_id UUID UNIQUE NOT NULL, organization_id BIGINT NOT NULL …,
+  operation_id BIGINT NOT NULL REFERENCES operations(id) ON DELETE CASCADE,
+  name TEXT NOT NULL, team_code VARCHAR(3), role_id BIGINT REFERENCES roles(id),
+  home_subsector_id BIGINT REFERENCES subsectors(id) ON DELETE SET NULL,
+  default_workstation_id BIGINT REFERENCES workstations(id) ON DELETE SET NULL, …);
+-- RLS tenant_isolation (ENABLE + FORCE) nas quatro; compliance_rules += COB_REMANEJAMENTO_SUBSETOR, COB_DEFICIT_SUBSETOR
+```
+Regra de serviço: um subsetor pertence a **no máximo um pool** (422 `overlap`); modo `restrito` exige `allowed_role_codes`.
+
 ## 4. Multi-tenancy com RLS [MVP]
 
 Estratégia: **pool compartilhado** com `organization_id` + RLS. A aplicação conecta como `app_user` (sem `BYPASSRLS`), e a cada transação executa `SET LOCAL app.org_id = '<id>'` e `SET LOCAL app.user_id = '<id>'` (dependência FastAPI `get_tenant_session`). Workers de jobs fazem o mesmo com o `organization_id` do job.
@@ -1556,6 +1591,24 @@ Pequeno (≤ 300 colaboradores e ≤ 12 semanas): `200` com resumo. Grande: `202
 > Números ilustrativos (não golden), como os demais exemplos desta seção.
 
 ---
+
+### 5.x Subsetores, pools e otimizadores (v3.7) [MVP]
+
+| Método | Rota | Corpo / query | Resposta |
+|---|---|---|---|
+| GET | `/operations/{id}/structure` | — | `StructureOut` (subsetores → posições, pools, nº pessoas) |
+| GET/POST | `/operations/{id}/subsectors` | `SubsectorIn {code, name, sort_order}` | `SubsectorOut` (201 + `Location`) |
+| PATCH/DELETE | `/subsectors/{id}` | `SubsectorPatch` | 200 / 204 (remove o código dos pools) |
+| POST | `/subsectors/{id}/workstations` | `WorkstationIn {code, name, required_role_code?, demand {mode: postos_fixos\|curva_168h, posts?, values?}}` | `WorkstationOut` |
+| PATCH/DELETE | `/workstations/{id}` | `WorkstationPatch` | 200 / 204 |
+| GET/POST | `/operations/{id}/subsector-pools` | `PoolIn {code, name, subsector_codes ≥ 2, mode, allowed_role_codes, max_borrowed_hours_week?, prefer_home}` | `PoolOut` |
+| PATCH/DELETE | `/subsector-pools/{id}` | `PoolPatch` | 200 / 204 |
+| GET/POST | `/operations/{id}/employees`, DELETE `/employees/{id}` | `EmployeeIn {name, team_code?, role_code?, home_subsector_code?, default_workstation_code?}` | `EmployeeOut` |
+| GET | `/scenarios/{id}/coverage?subsector=SB` ou `?workstation=B2` | — | `CoverageOut` com `subsector`/`workstation`, slots com `borrowed` |
+| POST | `/scenarios/{id}/optimize` | `OptimizeIn {objective: min_headcount\|offsets\|best_model\|pool_allocation\|fairness, target_coverage, subsector?, pool?, team_size_mode, half_teams, team_count?, time_limit_s ≤ 60, legal_hard, include_act, weights, max_candidates}` | `OptimizeOut {status: otimo\|viavel\|inviavel\|sem_solucao\|inviavel_regime, optimal, objective_value, best_bound, gap, elapsed_ms, solver, scope, before, after, solution, candidates, scenario_patch, notes}` |
+| POST | `/scenarios/{id}/optimize/apply` | `{mode: create\|apply, name?, patch}` | `OptimizeApplyOut {scenario_id, created, simulation}` |
+
+`ScenarioOut.kpis` ganha `moved_hours`, `subsector_deficit_post_hours`, `subsector_deficit_without_pool`; `ScenarioOut.subsectors[]` (próprio/recebido/cedido/déficit); `MonthlyMatrixOut` ganha `subsectors`, `workstations`, `moved_hours`, `MatrixPerson.subsector|workstation|moved_days`, `MatrixCell.workstation|subsector|moved`, `MatrixDaily.by_subsector`. `params.offsets` (lista por grupo) fixa a defasagem do modelo cíclico.
 
 ## 6. Estrutura de pastas FastAPI proposta
 

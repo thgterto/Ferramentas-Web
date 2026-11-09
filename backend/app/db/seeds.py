@@ -10,7 +10,7 @@ from typing import Any
 
 from app.services.engine.catalogo import Catalogo, catalogo_mvp
 from app.services.engine.regime_legal import AncoraD0, Regimes, regime_compliance, regimes_mvp
-from app.services.engine.types import FOLGA, para_decimal
+from app.services.engine.types import FOLGA, RESERVA, para_decimal
 
 RULES_VERSION = "compliance-2026.11+regimes-1"
 _V = "compliance-2026.11"
@@ -24,11 +24,23 @@ COMPLIANCE_RULES: list[dict[str, Any]] = [
         ("COB_DEFICIT", "alerta", "Cobertura abaixo da demanda", "FR-09/FR-12", _V, False),
         ("COB_DEFICIT_POSTO_CRITICO", "erro", "Déficit em posto crítico", "FR-02", _V, True),
         ("COB_EXCESSO", "info", "Cobertura acima da demanda", "FR-09", _V, False),
+        ("COB_PASSAGEM_PLANEJADA", "info",
+         "Excesso planejado de passagem de turno / reforço de pico", "FR-09", _V, False),
         ("COB_DEFICIT_ESPERADO_SHRINKAGE", "alerta", "Déficit esperado após absenteísmo",
          "FR-11", _V, False),
+        ("COB_REMANEJAMENTO_SUBSETOR", "info",
+         "Pessoas remanejadas entre subsetores intercambiáveis (pool)", "FR-34/v3.7", _V, False),
+        ("COB_DEFICIT_SUBSETOR", "alerta", "Déficit em subsetor após remanejamento",
+         "FR-09/v3.7", _V, False),
         ("COB_TURMAS_INSUFICIENTES", "erro", "Nº de turmas abaixo do K necessário", "FR-08",
          _V, True),
         ("COB_K_INSUFICIENTE", "alerta", "K fixo da operação não cobre a demanda", "FR-32",
+         _V, False),
+        ("COB_K_SUGERIDO", "info", "K escolhido pelo motor (mínimo/faixa/sugerir)", "FR-32",
+         _V, False),
+        ("COB_PADRAO_NAO_EXATO", "info", "Padrão não fecha exato com turmas iguais", "FR-29",
+         _V, False),
+        ("COB_FORA_JANELA", "info", "Turma escalada fora da janela de operação", "FR-29",
          _V, False),
         ("COB_CARGO_SEM_QUALIFICADO", "erro", "Mínimo por cargo não atendido", "FR-36", _V,
          True),
@@ -78,7 +90,8 @@ def shift_template_rows(cat: Catalogo | None = None) -> list[dict[str, Any]]:
             "organization_id": None, "code": t.codigo,
             "name": f"{t.codigo} {ini // 60:02d}h+{t.duracao_min // 60}h",
             "start_time": time(ini // 60, ini % 60), "duration_minutes": t.duracao_min,
-            "break_minutes": 60, "break_policy": "computado_rendicao",
+            "break_minutes": 60 if t.duracao_min > 360 else 15,
+            "break_policy": "computado_rendicao",
             "night_clock_minutes": 0,
         })
     return rows
@@ -91,16 +104,17 @@ def schedule_model_rows(cat: Catalogo | None = None,
     rows = []
     for m in cat.modelos.values():
         seq = m.sequencias[0]
-        w = sum(1 for e in seq if e != FOLGA)
+        w = sum(1 for e in seq if e not in (FOLGA, RESERVA))
         dur = m.duracoes_min[0]
         selos = (m.regime_compliance or {}).get(str(dur))
         rc = ({k: {"status": str(v)} for k, v in selos.items()} if selos
               else {k: {"status": str(v)}
                     for k, v in regime_compliance(m, cat, regs).items()})
-        turnos_trab = {e for s in m.sequencias for e in s if e != FOLGA}
+        turnos_trab = {e for s in m.sequencias for e in s if e not in (FOLGA, RESERVA)}
         typical = [v.turmas for v in m.variantes if v.turmas] or (
             [m.turmas_inteiras] if m.turmas_inteiras else [m.k_nao_continuo or 1])
         so_act = any(v.get("status") == "so_com_act" for v in rc.values())
+        inviavel = all(v.get("status") == "nao_conforme" for v in rc.values())
         rows.append({
             "code": m.codigo, "name": m.nome, "work_days": w, "off_days": len(seq) - w,
             "cycle_length_days": len(seq), "typical_teams": typical,
@@ -108,18 +122,37 @@ def schedule_model_rows(cat: Catalogo | None = None,
             "daily_hours": _dec(Fraction(dur, 60)), "avg_weekly_hours": _dec(m.horas_semanais()),
             "is_continuous_24x7": m.continuo_24x7,
             "is_rotating": len(m.sequencias) == 1 and len(turnos_trab) > 1,
-            "requires_agreement": so_act, "legal_basis": None, "default_params": {},
+            "requires_agreement": so_act, "legal_basis": None,
+            "default_params": {"sequences": [list(x) for x in m.sequencias],
+                               "weekly": m.semanal, "k_non_continuous": m.k_nao_continuo},
             "is_active": True,
-            "catalog_group": "continuo" if m.continuo_24x7 else "nao_continuo",
+            "catalog_group": m.grupo,
             "shifts_per_day": max(1, len(turnos_trab)),
             "teams_24x7": _dec(m.k_estrela), "exact_24x7": bool(m.exato),
             "exact_alternative": (f"{int(2 * m.k_estrela)}_meias"
                                   if m.k_estrela and m.exato_meias and not m.exato else None),
             "teams_non_continuous": _dec(m.k_nao_continuo),
-            "legal_status": "exige_cct" if so_act else "viavel", "cycle_unit": "days",
-            "phase": "mvp", "regime_compliance": rc,
+            "legal_status": ("inviavel_clt" if inviavel and m.fase != "mvp"
+                             else "exige_cct" if so_act else "viavel"),
+            "cycle_unit": "days", "phase": m.fase, "regime_compliance": rc,
         })
+    rows.append(PERSONALIZADO_ROW)
     return rows
+
+
+PERSONALIZADO = "PERSONALIZADO"
+PERSONALIZADO_ROW: dict[str, Any] = {
+    # Âncora do FK ``scenarios.schedule_model_id`` para cenários com padrão do construtor
+    # (``params.pattern``); não aparece no catálogo (grupo 'personalizado').
+    "code": PERSONALIZADO, "name": "Padrão personalizado (construtor)", "work_days": 1,
+    "off_days": 0, "cycle_length_days": 1, "typical_teams": [1], "calendar_cycle_days": 7,
+    "daily_hours": Decimal("8.000000"), "avg_weekly_hours": Decimal("0.000000"),
+    "is_continuous_24x7": False, "is_rotating": False, "requires_agreement": False,
+    "legal_basis": None, "default_params": {}, "is_active": True,
+    "catalog_group": "personalizado", "shifts_per_day": 1, "teams_24x7": None,
+    "exact_24x7": False, "exact_alternative": None, "teams_non_continuous": None,
+    "legal_status": "viavel", "cycle_unit": "days", "phase": "fase2", "regime_compliance": {},
+}
 
 
 def _offset(a: object) -> str | None:
@@ -164,12 +197,18 @@ def seed_globals(session: Any) -> None:
 
     from app.db.models import ComplianceRule, LegalRegime, ScheduleModel, ShiftTemplate
 
-    if session.scalar(select(ScheduleModel.id).limit(1)) is None:
-        session.add_all(ScheduleModel(**r) for r in schedule_model_rows())
-    if session.scalar(select(ShiftTemplate.id).limit(1)) is None:
-        session.add_all(ShiftTemplate(**r) for r in shift_template_rows())
-    if session.scalar(select(ComplianceRule.code).limit(1)) is None:
-        session.add_all(ComplianceRule(**r) for r in COMPLIANCE_RULES)
+    have = set(session.scalars(select(ScheduleModel.code)).all())
+    session.add_all(ScheduleModel(**r) for r in schedule_model_rows() if r["code"] not in have)
+    have_t = set(session.scalars(select(ShiftTemplate.code)
+                                 .where(ShiftTemplate.organization_id.is_(None))).all())
+    session.add_all(ShiftTemplate(**r) for r in shift_template_rows() if r["code"] not in have_t)
+    have_r = set(session.scalars(select(ComplianceRule.code)).all())
+    session.add_all(ComplianceRule(**r) for r in COMPLIANCE_RULES if r["code"] not in have_r)
     if session.scalar(select(LegalRegime.id).limit(1)) is None:
         session.add_all(LegalRegime(**r) for r in legal_regime_rows())
     session.commit()
+
+
+MVP_SHIFTS = frozenset({"M", "T", "N", "D12", "N12"})
+RULES_V35 = frozenset({"COB_K_SUGERIDO", "COB_PADRAO_NAO_EXATO", "COB_FORA_JANELA"})
+RULES_V37 = frozenset({"COB_REMANEJAMENTO_SUBSETOR", "COB_DEFICIT_SUBSETOR"})

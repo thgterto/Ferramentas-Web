@@ -12,6 +12,9 @@ export type TransitionOut = S['TransitionOut']
 export type TransitionPhase = S['TransitionPhase']
 export type OperationOut = S['OperationOut']
 export type RoleOut = S['RoleOut']
+export type OptimizeOut = S['OptimizeOut']
+export type OptimizeIn = S['OptimizeIn']
+export type StructureOut = S['StructureOut']
 
 export const API_BASE: string = import.meta.env.VITE_API_BASE ?? '/api/v1/escalas'
 const TOKEN_KEY = 'escalas.token'

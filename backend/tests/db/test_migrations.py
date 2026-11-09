@@ -47,12 +47,13 @@ def _ciclo(url: str) -> None:
     eng = make_engine(url)
     tabelas = set(inspect(eng).get_table_names())
     assert {"scenarios", "legal_regimes", "scenario_transition_results", "team_constraints",
-            "substitution_rules", "coverage_role_results"} <= tabelas
-    assert "employees" not in tabelas and "financial_results" not in tabelas  # Fase 2 / P2
+            "substitution_rules", "coverage_role_results", "custom_schedule_patterns"} <= tabelas
+    assert {"subsectors", "workstations", "subsector_pools", "employees"} <= tabelas  # v3.7
+    assert "financial_results" not in tabelas  # P2
     from sqlalchemy.orm import Session
 
     with Session(eng) as s:
-        assert len(s.scalars(select(ScheduleModel)).all()) == 10
+        assert len(s.scalars(select(ScheduleModel)).all()) == 45  # v3.6: 44 + PERSONALIZADO
         assert [r.code for r in s.scalars(select(LegalRegime).order_by(LegalRegime.id))] == [
             "CLT_44H_ATUAL", "TRANSICAO_42H", "PEC_40H"]
     # paridade: autogenerate não detecta diferenças entre ORM e migrações

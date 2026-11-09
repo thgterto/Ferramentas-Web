@@ -189,6 +189,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/escalas/employees/{employee_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Employee */
+        delete: operations["delete_employee_api_v1_escalas_employees__employee_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/escalas/labor-agreements": {
         parameters: {
             query?: never;
@@ -334,6 +351,24 @@ export interface paths {
         patch: operations["patch_operation_api_v1_escalas_operations__operation_id__patch"];
         trace?: never;
     };
+    "/api/v1/escalas/operations/{operation_id}/employees": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Employees */
+        get: operations["list_employees_api_v1_escalas_operations__operation_id__employees_get"];
+        put?: never;
+        /** Create Employee */
+        post: operations["create_employee_api_v1_escalas_operations__operation_id__employees_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/escalas/operations/{operation_id}/positions": {
         parameters: {
             query?: never;
@@ -382,6 +417,65 @@ export interface paths {
         post?: never;
         /** Delete Requirement */
         delete: operations["delete_requirement_api_v1_escalas_operations__operation_id__role_requirements__requirement_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/escalas/operations/{operation_id}/structure": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Structure
+         * @description Árvore Operação → Subsetores → Posições + pools (uma chamada para o wizard/visões).
+         */
+        get: operations["get_structure_api_v1_escalas_operations__operation_id__structure_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/escalas/operations/{operation_id}/subsector-pools": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Pools */
+        get: operations["list_pools_api_v1_escalas_operations__operation_id__subsector_pools_get"];
+        put?: never;
+        /**
+         * Create Pool
+         * @description Pool = subsetores cujos funcionários são intercambiáveis (total ou por cargo).
+         */
+        post: operations["create_pool_api_v1_escalas_operations__operation_id__subsector_pools_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/escalas/operations/{operation_id}/subsectors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Subsectors */
+        get: operations["list_subsectors_api_v1_escalas_operations__operation_id__subsectors_get"];
+        put?: never;
+        /** Create Subsector */
+        post: operations["create_subsector_api_v1_escalas_operations__operation_id__subsectors_post"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -560,7 +654,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Coverage */
+        /**
+         * Coverage
+         * @description v3.7: ``subsector``/``workstation`` filtram heatmap e KPIs (após remanejamento).
+         */
         get: operations["coverage_api_v1_escalas_scenarios__scenario_id__coverage_get"];
         put?: never;
         post?: never;
@@ -584,6 +681,94 @@ export interface paths {
          * @description FR-23: CSV/XLSX síncrono no MVP (200 + arquivo); job 202 + URL assinada na Fase 2.
          */
         post: operations["export_api_v1_escalas_scenarios__scenario_id__exports_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/escalas/scenarios/{scenario_id}/monthly-matrix": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Monthly Matrix
+         * @description v3.6: matriz mensal pessoa × dia (turno/folga), rodapé por turno e totais por pessoa.
+         *
+         *     Regenera o mês com a mesma âncora/K/offsets da simulação; pessoas fictícias por turma
+         *     (``A-01``…) quando não há colaboradores cadastrados.
+         */
+        get: operations["monthly_matrix_api_v1_escalas_scenarios__scenario_id__monthly_matrix_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/escalas/scenarios/{scenario_id}/monthly-matrix/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Monthly Matrix Export
+         * @description XLSX (uma aba por mês, cores por turno), CSV ou ICS (calendário individual).
+         */
+        get: operations["monthly_matrix_export_api_v1_escalas_scenarios__scenario_id__monthly_matrix_export_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/escalas/scenarios/{scenario_id}/optimize": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Optimize
+         * @description v3.7 — otimizadores (OR-Tools CP-SAT), síncronos com ``time_limit_s``.
+         *
+         *     ``min_headcount`` (K/tamanho mínimos p/ cobertura alvo, por subsetor/pool), ``offsets``
+         *     (defasagem ótima dado K), ``best_model`` (ranking do catálogo + personalizados),
+         *     ``pool_allocation`` (pessoas → posições nos pools) e ``fairness`` (offsets com folgas/
+         *     noites/domingos equilibrados). Devolve solução, métricas antes/depois, gap e status.
+         */
+        post: operations["optimize_api_v1_escalas_scenarios__scenario_id__optimize_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/escalas/scenarios/{scenario_id}/optimize/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Optimize Apply
+         * @description Cria um cenário a partir da solução (``mode=create``) ou aplica no atual e simula.
+         */
+        post: operations["optimize_apply_api_v1_escalas_scenarios__scenario_id__optimize_apply_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -718,6 +903,105 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/escalas/schedule-models/{code}/pattern": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Model Pattern
+         * @description Padrão editável derivado do modelo ("Personalizar" / "Duplicar do catálogo").
+         */
+        get: operations["model_pattern_api_v1_escalas_schedule_models__code__pattern_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/escalas/schedule-patterns": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Patterns */
+        get: operations["list_patterns_api_v1_escalas_schedule_patterns_get"];
+        put?: never;
+        /** Create Pattern */
+        post: operations["create_pattern_api_v1_escalas_schedule_patterns_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/escalas/schedule-patterns/{pattern_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Pattern */
+        get: operations["get_pattern_api_v1_escalas_schedule_patterns__pattern_id__get"];
+        /**
+         * Put Pattern
+         * @description Alteração cria nova versão (``current_version + 1``).
+         */
+        put: operations["put_pattern_api_v1_escalas_schedule_patterns__pattern_id__put"];
+        post?: never;
+        /** Delete Pattern */
+        delete: operations["delete_pattern_api_v1_escalas_schedule_patterns__pattern_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/escalas/schedule-patterns/{pattern_id}/duplicate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Duplicate Pattern */
+        post: operations["duplicate_pattern_api_v1_escalas_schedule_patterns__pattern_id__duplicate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/escalas/schedule-patterns:validate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Validate
+         * @description Validação em tempo real: K*\/exato, h/sem, interjornada, achados e cobertura 7×24.
+         *
+         *     Achados legais nunca bloqueiam: o padrão sempre pode ser simulado.
+         */
+        post: operations["validate_api_v1_escalas_schedule_patterns_validate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/escalas/shift-templates": {
         parameters: {
             query?: never;
@@ -771,6 +1055,59 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/escalas/subsector-pools/{pool_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Pool */
+        delete: operations["delete_pool_api_v1_escalas_subsector_pools__pool_id__delete"];
+        options?: never;
+        head?: never;
+        /** Patch Pool */
+        patch: operations["patch_pool_api_v1_escalas_subsector_pools__pool_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/escalas/subsectors/{subsector_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Subsector */
+        delete: operations["delete_subsector_api_v1_escalas_subsectors__subsector_id__delete"];
+        options?: never;
+        head?: never;
+        /** Patch Subsector */
+        patch: operations["patch_subsector_api_v1_escalas_subsectors__subsector_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/escalas/subsectors/{subsector_id}/workstations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Workstation */
+        post: operations["create_workstation_api_v1_escalas_subsectors__subsector_id__workstations_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/escalas/substitution-rules": {
         parameters: {
             query?: never;
@@ -790,6 +1127,24 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/v1/escalas/workstations/{workstation_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Workstation */
+        delete: operations["delete_workstation_api_v1_escalas_workstations__workstation_id__delete"];
+        options?: never;
+        head?: never;
+        /** Patch Workstation */
+        patch: operations["patch_workstation_api_v1_escalas_workstations__workstation_id__patch"];
         trace?: never;
     };
     "/health": {
@@ -965,17 +1320,34 @@ export interface components {
         };
         /** CoverageKpis */
         CoverageKpis: {
-            /** Break Gap Post Hours */
+            /**
+             * Break Gap Post Hours
+             * @default 0.000000
+             */
             break_gap_post_hours: string;
             /** Deficit Hours */
             deficit_hours: number;
-            /** Deficit Post Hours */
+            /**
+             * Deficit Post Hours
+             * @default 0.000000
+             */
             deficit_post_hours: string;
-            /** Excess Post Hours */
+            /**
+             * Excess Post Hours
+             * @default 0.000000
+             */
             excess_post_hours: string;
+            /**
+             * Handover Post Hours
+             * @default 0.000000
+             */
+            handover_post_hours: string;
             /** Headcount Min */
             headcount_min: number | null;
-            /** Pct Hours Covered */
+            /**
+             * Pct Hours Covered
+             * @default 0.000000
+             */
             pct_hours_covered: string;
             peak_undercoverage: components["schemas"]["PeakOut"] | null;
             /** Teams Required */
@@ -995,29 +1367,65 @@ export interface components {
             role?: string | null;
             /** Slots */
             slots: components["schemas"]["CoverageSlot"][];
+            /** Subsector */
+            subsector?: string | null;
             /**
              * View
              * @enum {string}
              */
             view: "postos" | "reserva";
+            /** Workstation */
+            workstation?: string | null;
         };
         /** CoverageSlot */
         CoverageSlot: {
-            /** Break Gap */
+            /**
+             * Borrowed
+             * @description v3.7: pessoas remanejadas de outro subsetor
+             * @default 0.000000
+             */
+            borrowed: string;
+            /**
+             * Break Gap
+             * @default 0.000000
+             */
             break_gap: string;
             /** Deficit Occurrences */
             deficit_occurrences: number;
-            /** Expected Worst */
+            /**
+             * Expected Worst
+             * @default 0.000000
+             */
             expected_worst: string;
-            /** Gap */
+            /**
+             * Gap
+             * @default 0.000000
+             */
             gap: string;
-            /** Required Gross */
+            /**
+             * Handover
+             * @default 0.000000
+             */
+            handover: string;
+            /**
+             * Required Gross
+             * @default 0.000000
+             */
             required_gross: string;
-            /** Required Net */
+            /**
+             * Required Net
+             * @default 0.000000
+             */
             required_net: string;
-            /** Scheduled Mean */
+            /**
+             * Scheduled Mean
+             * @default 0.000000
+             */
             scheduled_mean: string;
-            /** Scheduled Worst */
+            /**
+             * Scheduled Worst
+             * @default 0.000000
+             */
             scheduled_worst: string;
             /** Slot Index */
             slot_index: number;
@@ -1027,7 +1435,7 @@ export interface components {
              * Status
              * @enum {string}
              */
-            status: "deficit" | "exata" | "excesso";
+            status: "deficit" | "exata" | "excesso" | "passagem";
             /** Weekday */
             weekday: number;
         };
@@ -1101,6 +1509,42 @@ export interface components {
             /** Version */
             version: number;
         };
+        /** EmployeeIn */
+        EmployeeIn: {
+            /** Default Workstation Code */
+            default_workstation_code?: string | null;
+            /** Home Subsector Code */
+            home_subsector_code?: string | null;
+            /** Name */
+            name: string;
+            /** Role Code */
+            role_code?: string | null;
+            /** Team Code */
+            team_code?: string | null;
+        };
+        /** EmployeeOut */
+        EmployeeOut: {
+            /** Default Workstation Code */
+            default_workstation_code: string | null;
+            /** Home Subsector Code */
+            home_subsector_code: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /**
+             * Operation Id
+             * Format: uuid
+             */
+            operation_id: string;
+            /** Role Code */
+            role_code: string | null;
+            /** Team Code */
+            team_code: string | null;
+        };
         /** Envelope[CoverageOut] */
         Envelope_CoverageOut_: {
             data: components["schemas"]["CoverageOut"];
@@ -1108,6 +1552,10 @@ export interface components {
         /** Envelope[DemandCurveOut] */
         Envelope_DemandCurveOut_: {
             data: components["schemas"]["DemandCurveOut"];
+        };
+        /** Envelope[EmployeeOut] */
+        Envelope_EmployeeOut_: {
+            data: components["schemas"]["EmployeeOut"];
         };
         /** Envelope[LaborAgreementOut] */
         Envelope_LaborAgreementOut_: {
@@ -1121,9 +1569,37 @@ export interface components {
         Envelope_MeOut_: {
             data: components["schemas"]["MeOut"];
         };
+        /** Envelope[MonthlyMatrixOut] */
+        Envelope_MonthlyMatrixOut_: {
+            data: components["schemas"]["MonthlyMatrixOut"];
+        };
         /** Envelope[OperationOut] */
         Envelope_OperationOut_: {
             data: components["schemas"]["OperationOut"];
+        };
+        /** Envelope[OptimizeApplyOut] */
+        Envelope_OptimizeApplyOut_: {
+            data: components["schemas"]["OptimizeApplyOut"];
+        };
+        /** Envelope[OptimizeOut] */
+        Envelope_OptimizeOut_: {
+            data: components["schemas"]["OptimizeOut"];
+        };
+        /** Envelope[PatternSpec] */
+        Envelope_PatternSpec_: {
+            data: components["schemas"]["PatternSpec-Output"];
+        };
+        /** Envelope[PatternTemplateOut] */
+        Envelope_PatternTemplateOut_: {
+            data: components["schemas"]["PatternTemplateOut"];
+        };
+        /** Envelope[PatternValidation] */
+        Envelope_PatternValidation_: {
+            data: components["schemas"]["PatternValidation"];
+        };
+        /** Envelope[PoolOut] */
+        Envelope_PoolOut_: {
+            data: components["schemas"]["PoolOut"];
         };
         /** Envelope[PositionOut] */
         Envelope_PositionOut_: {
@@ -1169,6 +1645,14 @@ export interface components {
         Envelope_SlotsSummary_: {
             data: components["schemas"]["SlotsSummary"];
         };
+        /** Envelope[StructureOut] */
+        Envelope_StructureOut_: {
+            data: components["schemas"]["StructureOut"];
+        };
+        /** Envelope[SubsectorOut] */
+        Envelope_SubsectorOut_: {
+            data: components["schemas"]["SubsectorOut"];
+        };
         /** Envelope[TeamOut] */
         Envelope_TeamOut_: {
             data: components["schemas"]["TeamOut"];
@@ -1177,15 +1661,34 @@ export interface components {
         Envelope_TransitionOut_: {
             data: components["schemas"]["TransitionOut"];
         };
+        /** Envelope[WorkstationOut] */
+        Envelope_WorkstationOut_: {
+            data: components["schemas"]["WorkstationOut"];
+        };
         /** Envelope[list[ComplianceRuleOut]] */
         Envelope_list_ComplianceRuleOut__: {
             /** Data */
             data: components["schemas"]["ComplianceRuleOut"][];
         };
+        /** Envelope[list[EmployeeOut]] */
+        Envelope_list_EmployeeOut__: {
+            /** Data */
+            data: components["schemas"]["EmployeeOut"][];
+        };
         /** Envelope[list[LegalRegimeOut]] */
         Envelope_list_LegalRegimeOut__: {
             /** Data */
             data: components["schemas"]["LegalRegimeOut"][];
+        };
+        /** Envelope[list[PatternTemplateOut]] */
+        Envelope_list_PatternTemplateOut__: {
+            /** Data */
+            data: components["schemas"]["PatternTemplateOut"][];
+        };
+        /** Envelope[list[PoolOut]] */
+        Envelope_list_PoolOut__: {
+            /** Data */
+            data: components["schemas"]["PoolOut"][];
         };
         /** Envelope[list[RoleRequirementOut]] */
         Envelope_list_RoleRequirementOut__: {
@@ -1201,6 +1704,11 @@ export interface components {
         Envelope_list_ShiftTemplateOut__: {
             /** Data */
             data: components["schemas"]["ShiftTemplateOut"][];
+        };
+        /** Envelope[list[SubsectorOut]] */
+        Envelope_list_SubsectorOut__: {
+            /** Data */
+            data: components["schemas"]["SubsectorOut"][];
         };
         /** Envelope[list[SubstitutionRuleOut]] */
         Envelope_list_SubstitutionRuleOut__: {
@@ -1283,6 +1791,22 @@ export interface components {
             /** Team */
             team?: string | null;
         };
+        /** FindingLite */
+        FindingLite: {
+            /** Details */
+            details?: Record<string, never>;
+            /** Layer */
+            layer?: string | null;
+            /** Message */
+            message: string;
+            /** Rule Code */
+            rule_code: string;
+            /**
+             * Severity
+             * @enum {string}
+             */
+            severity: "info" | "alerta" | "erro";
+        };
         /** FindingOut */
         FindingOut: {
             /** Details */
@@ -1329,8 +1853,17 @@ export interface components {
             deficit_post_hours: string | null;
             /** Headcount Min */
             headcount_min: number | null;
+            /**
+             * Moved Hours
+             * @description v3.7: horas remanejadas entre subsetores
+             */
+            moved_hours?: number | null;
             /** Peak Undercoverage */
             peak_undercoverage: string | null;
+            /** Subsector Deficit Post Hours */
+            subsector_deficit_post_hours?: number | null;
+            /** Subsector Deficit Without Pool */
+            subsector_deficit_without_pool?: number | null;
             /** Teams Required */
             teams_required: string | null;
             /** Total Monthly Cost */
@@ -1496,6 +2029,148 @@ export interface components {
             /** Valid To */
             valid_to?: string | null;
         };
+        /** LayerIn */
+        "LayerIn-Input": {
+            /** Active Weekdays */
+            active_weekdays?: number[];
+            /** Code */
+            code: string;
+            /** Fixed Off Weekdays */
+            fixed_off_weekdays?: number[];
+            /** K */
+            k?: number | null;
+            /** K Max */
+            k_max?: number | null;
+            /** K Min */
+            k_min?: number | null;
+            /** Name */
+            name?: string | null;
+            /**
+             * Offsets
+             * @description Offsets manuais por turma (None = auto)
+             */
+            offsets?: number[] | null;
+            /** Role Code */
+            role_code?: string | null;
+            /**
+             * Rotation
+             * @default frente
+             * @enum {string}
+             */
+            rotation: "frente" | "tras";
+            /** Sequence */
+            sequence: string[];
+            /**
+             * Team Mode
+             * @default fixo
+             * @enum {string}
+             */
+            team_mode: "fixo" | "minimo" | "faixa" | "sugerir";
+            /**
+             * Team Sizes
+             * @description Pessoas por turma (0,5 = meia-turma de 1 posto)
+             */
+            team_sizes?: (number | string)[] | null;
+            /**
+             * Weekly Anchor
+             * @description Dia 0 do ciclo = segunda-feira
+             * @default false
+             */
+            weekly_anchor: boolean;
+        };
+        /** LayerIn */
+        "LayerIn-Output": {
+            /** Active Weekdays */
+            active_weekdays?: number[];
+            /** Code */
+            code: string;
+            /** Fixed Off Weekdays */
+            fixed_off_weekdays?: number[];
+            /** K */
+            k?: number | null;
+            /** K Max */
+            k_max?: number | null;
+            /** K Min */
+            k_min?: number | null;
+            /** Name */
+            name?: string | null;
+            /**
+             * Offsets
+             * @description Offsets manuais por turma (None = auto)
+             */
+            offsets?: number[] | null;
+            /** Role Code */
+            role_code?: string | null;
+            /**
+             * Rotation
+             * @default frente
+             * @enum {string}
+             */
+            rotation: "frente" | "tras";
+            /** Sequence */
+            sequence: string[];
+            /**
+             * Team Mode
+             * @default fixo
+             * @enum {string}
+             */
+            team_mode: "fixo" | "minimo" | "faixa" | "sugerir";
+            /**
+             * Team Sizes
+             * @description Pessoas por turma (0,5 = meia-turma de 1 posto)
+             */
+            team_sizes?: string[] | null;
+            /**
+             * Weekly Anchor
+             * @description Dia 0 do ciclo = segunda-feira
+             * @default false
+             */
+            weekly_anchor: boolean;
+        };
+        /** LayerInfo */
+        LayerInfo: {
+            /** Code */
+            code: string;
+            /** K */
+            k: number;
+            /** Mode */
+            mode: string;
+            /** Name */
+            name?: string | null;
+            /** Offsets */
+            offsets: number[];
+            /** Sequence */
+            sequence: string[];
+        };
+        /** LayerReport */
+        LayerReport: {
+            /** Avg Weekly Hours */
+            avg_weekly_hours: string;
+            /** Code */
+            code: string;
+            /** Cycle Length */
+            cycle_length: number;
+            /** Exact */
+            exact: boolean;
+            /** Exact With Half Teams */
+            exact_with_half_teams: boolean;
+            /** K Required */
+            k_required: string;
+            /** K Suggested */
+            k_suggested: number;
+            /** K Used */
+            k_used: number;
+            /** Max Consecutive Work Days */
+            max_consecutive_work_days: number;
+            /** Min Rest Between Shifts Hours */
+            min_rest_between_shifts_hours: string | null;
+            /** Offsets */
+            offsets: number[];
+            /** Rest Days Per 7 */
+            rest_days_per_7: string;
+            /** Team Sizes */
+            team_sizes: string[];
+        };
         /** LegalRegimeOut */
         LegalRegimeOut: {
             /** Allows 6X1 */
@@ -1553,6 +2228,180 @@ export interface components {
             /** Password */
             password: string;
         };
+        /** MatrixCell */
+        MatrixCell: {
+            /**
+             * Carry
+             * @description turno da véspera que continua pela 00:00
+             */
+            carry?: string | null;
+            /**
+             * Code
+             * @description sigla do turno ou F (folga)
+             */
+            code: string;
+            /**
+             * Moved
+             * @description v3.7: trabalhou fora do subsetor de lotação
+             * @default false
+             */
+            moved: boolean;
+            /**
+             * Reserve
+             * @default false
+             */
+            reserve: boolean;
+            /**
+             * Subsector
+             * @description v3.7: subsetor de destino se remanejado
+             */
+            subsector?: string | null;
+            /**
+             * Workstation
+             * @description v3.7: posição trabalhada no dia
+             */
+            workstation?: string | null;
+        };
+        /** MatrixDaily */
+        MatrixDaily: {
+            /** By Shift */
+            by_shift: {
+                [key: string]: number;
+            };
+            /** By Subsector */
+            by_subsector?: {
+                [key: string]: number;
+            };
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Deficit Hours */
+            deficit_hours: number;
+            /** Deficit Shifts */
+            deficit_shifts: string[];
+            /** Handover Hours */
+            handover_hours: number;
+            /** Off */
+            off: number;
+            /** Required By Shift */
+            required_by_shift: {
+                [key: string]: number;
+            };
+            /** Required Peak */
+            required_peak: number;
+        };
+        /** MatrixDay */
+        MatrixDay: {
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Holiday */
+            holiday?: string | null;
+            /** Is Weekend */
+            is_weekend: boolean;
+            /**
+             * Weekday
+             * @description 1 = segunda … 7 = domingo
+             */
+            weekday: number;
+        };
+        /** MatrixPerson */
+        MatrixPerson: {
+            /** Cells */
+            cells: components["schemas"]["MatrixCell"][];
+            /** Id */
+            id: string;
+            /**
+             * Moved Days
+             * @default 0
+             */
+            moved_days: number;
+            /** Name */
+            name: string;
+            /** Role */
+            role?: string | null;
+            /**
+             * Subsector
+             * @description v3.7: subsetor de lotação
+             */
+            subsector?: string | null;
+            /** Team */
+            team: string;
+            totals: components["schemas"]["PersonTotals"];
+            /**
+             * Workstation
+             * @description v3.7: posição padrão
+             */
+            workstation?: string | null;
+        };
+        /** MatrixShift */
+        MatrixShift: {
+            /** Code */
+            code: string;
+            /**
+             * Crosses Midnight
+             * @default false
+             */
+            crosses_midnight: boolean;
+            /** Duration Min */
+            duration_min: number;
+            /** End */
+            end: string;
+            /**
+             * Handover Min
+             * @default 0
+             */
+            handover_min: number;
+            /** Label */
+            label: string;
+            /**
+             * Night
+             * @default false
+             */
+            night: boolean;
+            /**
+             * Peak
+             * @default false
+             */
+            peak: boolean;
+            /** Start */
+            start: string;
+        };
+        /** MatrixSubsector */
+        MatrixSubsector: {
+            /** Code */
+            code: string;
+            /** Name */
+            name: string;
+        };
+        /** MatrixTeam */
+        MatrixTeam: {
+            /** Cells */
+            cells: components["schemas"]["MatrixCell"][];
+            /** Code */
+            code: string;
+            /**
+             * Size
+             * @default 0.000000
+             */
+            size: string;
+            totals: components["schemas"]["PersonTotals"];
+        };
+        /** MatrixWorkstation */
+        MatrixWorkstation: {
+            /** Code */
+            code: string;
+            /** Name */
+            name: string;
+            /** Role */
+            role?: string | null;
+            /** Subsector */
+            subsector: string;
+        };
         /** MeOut */
         MeOut: {
             /**
@@ -1585,6 +2434,37 @@ export interface components {
             organization_name: string;
             /** Role */
             role: string;
+        };
+        /** MonthlyMatrixOut */
+        MonthlyMatrixOut: {
+            /** Daily */
+            daily: components["schemas"]["MatrixDaily"][];
+            /** Days */
+            days: components["schemas"]["MatrixDay"][];
+            /**
+             * Generated People
+             * @description pessoas fictícias por turma (A-01…) — o MVP aloca por turma
+             */
+            generated_people: boolean;
+            /** Generated People Note */
+            generated_people_note?: string | null;
+            /** Month */
+            month: string;
+            /**
+             * Moved Hours
+             * @default 0
+             */
+            moved_hours: number;
+            /** People */
+            people: components["schemas"]["MatrixPerson"][];
+            /** Shifts */
+            shifts: components["schemas"]["MatrixShift"][];
+            /** Subsectors */
+            subsectors?: components["schemas"]["MatrixSubsector"][];
+            /** Teams */
+            teams: components["schemas"]["MatrixTeam"][];
+            /** Workstations */
+            workstations?: components["schemas"]["MatrixWorkstation"][];
         };
         /** OperationIn */
         OperationIn: {
@@ -1640,6 +2520,183 @@ export interface components {
             name?: string | null;
             /** Sector */
             sector?: ("saude" | "logistica" | "industria" | "varejo" | "ti_noc" | "contact_center" | "saneamento" | "outro") | null;
+        };
+        /** OptimizeApplyIn */
+        OptimizeApplyIn: {
+            /**
+             * Mode
+             * @default create
+             * @enum {string}
+             */
+            mode: "create" | "apply";
+            /** Name */
+            name?: string | null;
+            /** Patch */
+            patch: Record<string, never>;
+        };
+        /** OptimizeApplyOut */
+        OptimizeApplyOut: {
+            /** Created */
+            created: boolean;
+            /**
+             * Scenario Id
+             * Format: uuid
+             */
+            scenario_id: string;
+            simulation: components["schemas"]["SimulateOut"];
+        };
+        /** OptimizeIn */
+        OptimizeIn: {
+            /**
+             * Half Teams
+             * @default false
+             */
+            half_teams: boolean;
+            /**
+             * Include Act
+             * @description aceita modelos viáveis só com ACT/CCT
+             * @default false
+             */
+            include_act: boolean;
+            /**
+             * Legal Hard
+             * @description regras do regime como restrições duras
+             * @default true
+             */
+            legal_hard: boolean;
+            /**
+             * Max Candidates
+             * @default 40
+             */
+            max_candidates: number;
+            /**
+             * Objective
+             * @default min_headcount
+             * @enum {string}
+             */
+            objective: "min_headcount" | "offsets" | "best_model" | "pool_allocation" | "fairness";
+            /**
+             * Pool
+             * @description escopo: demanda somada de um pool
+             */
+            pool?: string | null;
+            /**
+             * Subsector
+             * @description escopo: demanda de um subsetor
+             */
+            subsector?: string | null;
+            /**
+             * Target Coverage
+             * @description cobertura alvo (1 = 100 %)
+             * @default 1
+             */
+            target_coverage: number | string;
+            /**
+             * Team Count
+             * @description K (offsets/fairness)
+             */
+            team_count?: number | null;
+            /**
+             * Team Size Mode
+             * @description fixo = tamanho do cenário; livre = pessoas por offset
+             * @default fixo
+             * @enum {string}
+             */
+            team_size_mode: "fixo" | "livre";
+            /**
+             * Time Limit S
+             * @default 5
+             */
+            time_limit_s: number;
+            weights?: components["schemas"]["OptimizeWeights"];
+        };
+        /** OptimizeMetrics */
+        OptimizeMetrics: {
+            /** Coverage Pct */
+            coverage_pct?: number | null;
+            /** Deficit Hours */
+            deficit_hours?: number | null;
+            /** Deficit Post Hours */
+            deficit_post_hours?: number | null;
+            /** Deficit Post Hours Week */
+            deficit_post_hours_week?: number | null;
+            /** Excess Post Hours Week */
+            excess_post_hours_week?: number | null;
+            /** Headcount */
+            headcount?: number | null;
+            /** Max Borrowed Hours Person */
+            max_borrowed_hours_person?: number | null;
+            /** Moved Hours */
+            moved_hours?: number | null;
+            /** Nights Spread */
+            nights_spread?: number | null;
+            /** Sundays Off Spread */
+            sundays_off_spread?: number | null;
+            /** Team Count */
+            team_count?: number | null;
+        };
+        /** OptimizeOut */
+        OptimizeOut: {
+            after: components["schemas"]["OptimizeMetrics"];
+            before: components["schemas"]["OptimizeMetrics"];
+            /** Best Bound */
+            best_bound: number | null;
+            /** Candidates */
+            candidates?: Record<string, never>[];
+            /** Elapsed Ms */
+            elapsed_ms: number;
+            /** Gap */
+            gap: number | null;
+            /** Notes */
+            notes?: string[];
+            /**
+             * Objective
+             * @enum {string}
+             */
+            objective: "min_headcount" | "offsets" | "best_model" | "pool_allocation" | "fairness";
+            /** Objective Value */
+            objective_value: number | null;
+            /** Optimal */
+            optimal: boolean;
+            /**
+             * Scenario Patch
+             * @description campos para criar/aplicar cenário (POST …/optimize/apply)
+             */
+            scenario_patch?: Record<string, never> | null;
+            /** Scope */
+            scope: string;
+            /** Solution */
+            solution: Record<string, never>;
+            /** Solver */
+            solver: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "otimo" | "viavel" | "inviavel" | "sem_solucao" | "inviavel_regime";
+        };
+        /** OptimizeWeights */
+        OptimizeWeights: {
+            /**
+             * Deficit
+             * @default 100
+             */
+            deficit: number;
+            /**
+             * Excess
+             * @default 1
+             */
+            excess: number;
+            /**
+             * Fairness
+             * @default 5
+             */
+            fairness: number;
+            /**
+             * Moves
+             * @default 10
+             */
+            moves: number;
         };
         /** PageLinks */
         PageLinks: {
@@ -1708,12 +2765,242 @@ export interface components {
             links: components["schemas"]["PageLinks"];
             meta: components["schemas"]["PageMeta"];
         };
+        /** PatternDuplicateIn */
+        PatternDuplicateIn: {
+            /** Name */
+            name?: string | null;
+        };
+        /**
+         * PatternSpec
+         * @description Padrão de escala completo — o mesmo JSON vai em ``scenario.params.pattern``.
+         */
+        "PatternSpec-Input": {
+            /** Anchor Date */
+            anchor_date?: string | null;
+            /** Derived From */
+            derived_from?: string | null;
+            /** Layers */
+            layers: components["schemas"]["LayerIn-Input"][];
+            /**
+             * Name
+             * @default Padrão personalizado
+             */
+            name: string;
+            operating_window?: components["schemas"]["WindowIn"] | null;
+            /** Shifts */
+            shifts: components["schemas"]["ShiftIn"][];
+        };
+        /**
+         * PatternSpec
+         * @description Padrão de escala completo — o mesmo JSON vai em ``scenario.params.pattern``.
+         */
+        "PatternSpec-Output": {
+            /** Anchor Date */
+            anchor_date?: string | null;
+            /** Derived From */
+            derived_from?: string | null;
+            /** Layers */
+            layers: components["schemas"]["LayerIn-Output"][];
+            /**
+             * Name
+             * @default Padrão personalizado
+             */
+            name: string;
+            operating_window?: components["schemas"]["WindowIn"] | null;
+            /** Shifts */
+            shifts: components["schemas"]["ShiftIn"][];
+        };
+        /** PatternTemplateIn */
+        PatternTemplateIn: {
+            /**
+             * Is Shared
+             * @default true
+             */
+            is_shared: boolean;
+            /** Name */
+            name: string;
+            pattern: components["schemas"]["PatternSpec-Input"];
+        };
+        /** PatternTemplateOut */
+        PatternTemplateOut: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Current Version */
+            current_version: number;
+            /** Derived From Code */
+            derived_from_code: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Is Shared */
+            is_shared: boolean;
+            /** Name */
+            name: string;
+            pattern: components["schemas"]["PatternSpec-Output"];
+            /** Updated At */
+            updated_at: string | null;
+            /** Validation */
+            validation: Record<string, never>;
+        };
+        /** PatternTemplatePut */
+        PatternTemplatePut: {
+            /** Name */
+            name?: string | null;
+            pattern?: components["schemas"]["PatternSpec-Input"] | null;
+        };
+        /** PatternValidateIn */
+        PatternValidateIn: {
+            /**
+             * Demand
+             * @description Curva 168 h (seg 00h…dom 23h)
+             */
+            demand?: number[] | null;
+            /** Legal Regime Code */
+            legal_regime_code?: string | null;
+            pattern: components["schemas"]["PatternSpec-Input"];
+            /**
+             * Postos
+             * @description Demanda plana 24/7 da pré-visualização
+             * @default 3
+             */
+            postos: number;
+            /** Team Size */
+            team_size?: number | null;
+            /**
+             * Weeks
+             * @default 4
+             */
+            weeks: number;
+        };
+        /** PatternValidation */
+        PatternValidation: {
+            /** Coverage Pct */
+            coverage_pct: string;
+            /** Deficit Post Hours Week */
+            deficit_post_hours_week: string;
+            /** Elapsed Ms */
+            elapsed_ms: number;
+            /** Excess Pct */
+            excess_pct: string;
+            /** Findings */
+            findings: components["schemas"]["FindingLite"][];
+            /**
+             * Handover Post Hours Week
+             * @default 0.000000
+             */
+            handover_post_hours_week: string;
+            /** Headcount */
+            headcount: string;
+            /** K Required Total */
+            k_required_total: string;
+            /** Layers */
+            layers: components["schemas"]["LayerReport"][];
+            /** Legal Regime */
+            legal_regime: string;
+            /** Slots */
+            slots: components["schemas"]["PreviewSlot"][];
+            /** Teams Total */
+            teams_total: number;
+        };
         /** PeakOut */
         PeakOut: {
             /** At */
             at: string;
-            /** Value */
+            /**
+             * Value
+             * @default 0.000000
+             */
             value: string;
+        };
+        /** PersonTotals */
+        PersonTotals: {
+            /**
+             * Hours
+             * @default 0.000000
+             */
+            hours: string;
+            /** Nights */
+            nights: number;
+            /** Off Days */
+            off_days: number;
+            /** Sundays Off */
+            sundays_off: number;
+            /** Worked Days */
+            worked_days: number;
+        };
+        /** PoolIn */
+        PoolIn: {
+            /**
+             * Allowed Role Codes
+             * @description modo restrito: cargos intercambiáveis
+             */
+            allowed_role_codes?: string[];
+            /** Code */
+            code: string;
+            /** Max Borrowed Hours Week */
+            max_borrowed_hours_week?: number | null;
+            /**
+             * Mode
+             * @default total
+             * @enum {string}
+             */
+            mode: "total" | "restrito";
+            /** Name */
+            name: string;
+            /**
+             * Prefer Home
+             * @default true
+             */
+            prefer_home: boolean;
+            /** Subsector Codes */
+            subsector_codes: string[];
+        };
+        /** PoolOut */
+        PoolOut: {
+            /** Allowed Role Codes */
+            allowed_role_codes: string[];
+            /** Code */
+            code: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Max Borrowed Hours Week */
+            max_borrowed_hours_week: number | null;
+            /** Mode */
+            mode: string;
+            /** Name */
+            name: string;
+            /**
+             * Operation Id
+             * Format: uuid
+             */
+            operation_id: string;
+            /** Prefer Home */
+            prefer_home: boolean;
+            /** Subsector Codes */
+            subsector_codes: string[];
+        };
+        /** PoolPatch */
+        PoolPatch: {
+            /** Allowed Role Codes */
+            allowed_role_codes?: string[] | null;
+            /** Max Borrowed Hours Week */
+            max_borrowed_hours_week?: number | null;
+            /** Mode */
+            mode?: ("total" | "restrito") | null;
+            /** Name */
+            name?: string | null;
+            /** Prefer Home */
+            prefer_home?: boolean | null;
+            /** Subsector Codes */
+            subsector_codes?: string[] | null;
         };
         /** PositionIn */
         PositionIn: {
@@ -1766,17 +3053,54 @@ export interface components {
             /** Required Role Code */
             required_role_code?: string | null;
         };
+        /** PreviewSlot */
+        PreviewSlot: {
+            /**
+             * Gap Worst
+             * @default 0.000000
+             */
+            gap_worst: string;
+            /**
+             * Handover
+             * @default 0.000000
+             */
+            handover: string;
+            /**
+             * Required
+             * @default 0.000000
+             */
+            required: string;
+            /**
+             * Scheduled Worst
+             * @default 0.000000
+             */
+            scheduled_worst: string;
+            /** Slot Index */
+            slot_index: number;
+        };
         /** RoleCoverageKpi */
         RoleCoverageKpi: {
-            /** Deficit Post Hours */
+            /**
+             * Deficit Post Hours
+             * @default 0.000000
+             */
             deficit_post_hours: string;
-            /** Own Post Hours */
+            /**
+             * Own Post Hours
+             * @default 0.000000
+             */
             own_post_hours: string;
-            /** Pct Hours Covered */
+            /**
+             * Pct Hours Covered
+             * @default 0.000000
+             */
             pct_hours_covered: string;
             /** Role */
             role: string;
-            /** Substituted Post Hours */
+            /**
+             * Substituted Post Hours
+             * @default 0.000000
+             */
             substituted_post_hours: string;
             /** Unqualified Hours */
             unqualified_hours: number;
@@ -1931,7 +3255,7 @@ export interface components {
             overtime_planned: boolean;
             /**
              * Params
-             * @description ex.: {"team_size": 3} (pessoas por turma; padrão = pico da curva)
+             * @description ex.: {"team_size": 3} (pessoas por turma; padrão = pico da curva); v3.5: {"pattern": PatternSpec} = padrão do construtor (camadas, K livre, tamanhos por turma, janela de operação)
              */
             params?: Record<string, never>;
             /** Schedule Model Code */
@@ -2007,6 +3331,8 @@ export interface components {
              * Format: uuid
              */
             labor_agreement_id: string;
+            /** Layers */
+            layers?: components["schemas"]["LayerInfo"][];
             /** Legal Reference Date */
             legal_reference_date: string | null;
             /** Legal Regime Applied */
@@ -2034,12 +3360,16 @@ export interface components {
             /** Rules Version */
             rules_version: string | null;
             schedule_model: components["schemas"]["ScheduleModelRef"];
+            /** Shifts */
+            shifts?: components["schemas"]["ShiftInfo"][];
             /** Shrinkage Profile Id */
             shrinkage_profile_id: string | null;
             /** Simulate Transition */
             simulate_transition: boolean;
             /** Status */
             status: string;
+            /** Subsectors */
+            subsectors?: components["schemas"]["SubsectorKpi"][];
             /** Team Count */
             team_count: number;
             /** Teams */
@@ -2090,6 +3420,8 @@ export interface components {
             cycle_length_days: number;
             /** Daily Hours */
             daily_hours: string;
+            /** Default Params */
+            default_params?: Record<string, never>;
             /** Exact 24X7 */
             exact_24x7: boolean;
             /** Exact Alternative */
@@ -2114,6 +3446,8 @@ export interface components {
             shifts_per_day: number;
             /** Teams 24X7 */
             teams_24x7: string | null;
+            /** Teams Non Continuous */
+            teams_non_continuous?: string | null;
             /** Typical Teams */
             typical_teams: number[];
             /** Work Days */
@@ -2121,10 +3455,78 @@ export interface components {
         };
         /** ScheduleModelRef */
         ScheduleModelRef: {
-            /** Avg Weekly Hours */
+            /**
+             * Avg Weekly Hours
+             * @default 0.000000
+             */
             avg_weekly_hours: string;
             /** Code */
             code: string;
+        };
+        /** ShiftIn */
+        ShiftIn: {
+            /**
+             * Blocks
+             * @description Jornada fracionada: [["07:00", 240], ["17:00", 240]]
+             */
+            blocks?: [
+                string,
+                number
+            ][] | null;
+            /**
+             * Break Min
+             * @default 60
+             */
+            break_min: number;
+            /**
+             * Code
+             * @description Sigla do turno (≠ F e R)
+             */
+            code: string;
+            /** Color */
+            color?: string | null;
+            /**
+             * Duration Min
+             * @description Tempo à disposição (min)
+             */
+            duration_min: number;
+            /**
+             * Handover Min
+             * @description v3.6 — minutos finais sobrepostos ao turno seguinte (passagem de turno): contam na cobertura como excesso planejado, não ociosidade
+             * @default 0
+             */
+            handover_min: number;
+            /** Name */
+            name?: string | null;
+            /**
+             * Peak
+             * @description v3.6 — turno de reforço de pico sobre o núcleo
+             * @default false
+             */
+            peak: boolean;
+            /** Start */
+            start: string;
+        };
+        /** ShiftInfo */
+        ShiftInfo: {
+            /** Blocks */
+            blocks?: unknown[][];
+            /** Code */
+            code: string;
+            /** Duration Min */
+            duration_min: number;
+            /**
+             * Handover Min
+             * @default 0
+             */
+            handover_min: number;
+            /**
+             * Peak
+             * @default false
+             */
+            peak: boolean;
+            /** Start */
+            start: string;
         };
         /** ShiftTemplateOut */
         ShiftTemplateOut: {
@@ -2254,11 +3656,20 @@ export interface components {
             headcount_min_half_teams: number | null;
             /** Headcount With Reserve */
             headcount_with_reserve: number;
-            /** K Effective */
+            /**
+             * K Effective
+             * @default 0.000000
+             */
             k_effective: string;
-            /** K Legal */
+            /**
+             * K Legal
+             * @default 0.000000
+             */
             k_legal: string;
-            /** K Required */
+            /**
+             * K Required
+             * @default 0.000000
+             */
             k_required: string;
             /** Legal Regime */
             legal_regime: string;
@@ -2325,6 +3736,80 @@ export interface components {
             /** Slot Count */
             slot_count: number;
         };
+        /** StructureOut */
+        StructureOut: {
+            /** Employees */
+            employees: number;
+            /**
+             * Operation Id
+             * Format: uuid
+             */
+            operation_id: string;
+            /** Pools */
+            pools: components["schemas"]["PoolOut"][];
+            /** Subsectors */
+            subsectors: components["schemas"]["SubsectorOut"][];
+        };
+        /** SubsectorIn */
+        SubsectorIn: {
+            /** Code */
+            code: string;
+            /** Name */
+            name: string;
+            /**
+             * Sort Order
+             * @default 0
+             */
+            sort_order: number;
+        };
+        /** SubsectorKpi */
+        SubsectorKpi: {
+            /** Code */
+            code: string;
+            /** Deficit Post Hours */
+            deficit_post_hours: number;
+            /** Demand Post Hours */
+            demand_post_hours: number;
+            /** Lent Post Hours */
+            lent_post_hours: number;
+            /** Own Post Hours */
+            own_post_hours: number;
+            /**
+             * Pct Hours Covered
+             * @default 0.000000
+             */
+            pct_hours_covered: string;
+            /** Received Post Hours */
+            received_post_hours: number;
+        };
+        /** SubsectorOut */
+        SubsectorOut: {
+            /** Code */
+            code: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /**
+             * Operation Id
+             * Format: uuid
+             */
+            operation_id: string;
+            /** Sort Order */
+            sort_order: number;
+            /** Workstations */
+            workstations?: components["schemas"]["WorkstationOut"][];
+        };
+        /** SubsectorPatch */
+        SubsectorPatch: {
+            /** Name */
+            name?: string | null;
+            /** Sort Order */
+            sort_order?: number | null;
+        };
         /** SubstitutionRuleIn */
         SubstitutionRuleIn: {
             /**
@@ -2351,7 +3836,10 @@ export interface components {
         SubstitutionRuleOut: {
             /** Counts For Minimum */
             counts_for_minimum: boolean;
-            /** Coverage Factor */
+            /**
+             * Coverage Factor
+             * @default 0.000000
+             */
             coverage_factor: string;
             /** From Role */
             from_role: string;
@@ -2421,9 +3909,15 @@ export interface components {
         };
         /** TeamCountOut */
         TeamCountOut: {
-            /** Achievable Pct */
+            /**
+             * Achievable Pct
+             * @default 0.000000
+             */
             achievable_pct: string;
-            /** K Required */
+            /**
+             * K Required
+             * @default 0.000000
+             */
             k_required: string;
             /** K Used */
             k_used: number;
@@ -2431,7 +3925,7 @@ export interface components {
              * Mode
              * @enum {string}
              */
-            mode: "fixo" | "cenario";
+            mode: "fixo" | "cenario" | "padrao";
         };
         /** TeamOut */
         TeamOut: {
@@ -2449,7 +3943,10 @@ export interface components {
             label: string | null;
             /** Size Assigned */
             size_assigned: number;
-            /** Size Required */
+            /**
+             * Size Required
+             * @default 0.000000
+             */
             size_required: string;
         };
         /** TokenOut */
@@ -2481,7 +3978,10 @@ export interface components {
         };
         /** TransitionOption */
         TransitionOption: {
-            /** Avg Weekly Hours */
+            /**
+             * Avg Weekly Hours
+             * @default 0.000000
+             */
             avg_weekly_hours: string;
             /** Code */
             code: string;
@@ -2491,7 +3991,10 @@ export interface components {
             half_teams: boolean;
             /** Headcount */
             headcount: number;
-            /** Teams Required */
+            /**
+             * Teams Required
+             * @default 0.000000
+             */
             teams_required: string;
             /** Variant */
             variant: string;
@@ -2507,9 +4010,15 @@ export interface components {
         TransitionPhase: {
             /** Alternatives */
             alternatives: components["schemas"]["TransitionOption"][];
-            /** K Legal */
+            /**
+             * K Legal
+             * @default 0.000000
+             */
             k_legal: string;
-            /** K Legal Half Teams */
+            /**
+             * K Legal Half Teams
+             * @default 0.000000
+             */
             k_legal_half_teams: string;
             /** Min Headcount Legal */
             min_headcount_legal: number;
@@ -2520,7 +4029,10 @@ export interface components {
         };
         /** TransitionScenarioModel */
         TransitionScenarioModel: {
-            /** Avg Weekly Hours */
+            /**
+             * Avg Weekly Hours
+             * @default 0.000000
+             */
             avg_weekly_hours: string;
             /** Code */
             code: string;
@@ -2530,7 +4042,10 @@ export interface components {
             findings: components["schemas"]["FindingBrief"][];
             /** Headcount */
             headcount: number;
-            /** Teams */
+            /**
+             * Teams
+             * @default 0.000000
+             */
             teams: string;
         };
         /** ValidationError */
@@ -2541,6 +4056,91 @@ export interface components {
             msg: string;
             /** Error Type */
             type: string;
+        };
+        /** WindowIn */
+        WindowIn: {
+            /**
+             * End
+             * @default 18:00
+             */
+            end: string;
+            /**
+             * Start
+             * @default 08:00
+             */
+            start: string;
+            /** Weekdays */
+            weekdays?: number[];
+        };
+        /** WorkstationDemand */
+        WorkstationDemand: {
+            /**
+             * Mode
+             * @default postos_fixos
+             * @enum {string}
+             */
+            mode: "postos_fixos" | "curva_168h";
+            /**
+             * Posts
+             * @description postos fixos (todas as horas)
+             * @default 1
+             */
+            posts: number | null;
+            /**
+             * Values
+             * @description 168 inteiros ≥ 0 (curva_168h)
+             */
+            values?: number[] | null;
+        };
+        /** WorkstationIn */
+        WorkstationIn: {
+            /** Code */
+            code: string;
+            demand?: components["schemas"]["WorkstationDemand"];
+            /** Name */
+            name: string;
+            /** Required Role Code */
+            required_role_code?: string | null;
+            /**
+             * Sort Order
+             * @default 0
+             */
+            sort_order: number;
+        };
+        /** WorkstationOut */
+        WorkstationOut: {
+            /** Code */
+            code: string;
+            /** Demand Mode */
+            demand_mode: string;
+            /** Demand Values */
+            demand_values: number[];
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Peak */
+            peak: number;
+            /** Required Role Code */
+            required_role_code: string | null;
+            /** Subsector Code */
+            subsector_code: string;
+            /**
+             * Subsector Id
+             * Format: uuid
+             */
+            subsector_id: string;
+        };
+        /** WorkstationPatch */
+        WorkstationPatch: {
+            demand?: components["schemas"]["WorkstationDemand"] | null;
+            /** Name */
+            name?: string | null;
+            /** Required Role Code */
+            required_role_code?: string | null;
         };
     };
     responses: never;
@@ -3137,6 +4737,64 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["Envelope_SlotsSummary_"];
                 };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description not_found (inclui outro tenant) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description validation_error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    delete_employee_api_v1_escalas_employees__employee_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-organization-id"?: string | null;
+            };
+            path: {
+                employee_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description unauthenticated */
             401: {
@@ -4024,6 +5682,130 @@ export interface operations {
             };
         };
     };
+    list_employees_api_v1_escalas_operations__operation_id__employees_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-organization-id"?: string | null;
+            };
+            path: {
+                operation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_list_EmployeeOut__"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description not_found (inclui outro tenant) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description validation_error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    create_employee_api_v1_escalas_operations__operation_id__employees_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-organization-id"?: string | null;
+            };
+            path: {
+                operation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmployeeIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_EmployeeOut_"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description not_found (inclui outro tenant) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description validation_error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     list_positions_api_v1_escalas_operations__operation_id__positions_get: {
         parameters: {
             query?: {
@@ -4295,6 +6077,314 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description not_found (inclui outro tenant) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description validation_error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_structure_api_v1_escalas_operations__operation_id__structure_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-organization-id"?: string | null;
+            };
+            path: {
+                operation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_StructureOut_"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description not_found (inclui outro tenant) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description validation_error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_pools_api_v1_escalas_operations__operation_id__subsector_pools_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-organization-id"?: string | null;
+            };
+            path: {
+                operation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_list_PoolOut__"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description not_found (inclui outro tenant) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description validation_error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    create_pool_api_v1_escalas_operations__operation_id__subsector_pools_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-organization-id"?: string | null;
+            };
+            path: {
+                operation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PoolIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_PoolOut_"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description not_found (inclui outro tenant) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description validation_error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_subsectors_api_v1_escalas_operations__operation_id__subsectors_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-organization-id"?: string | null;
+            };
+            path: {
+                operation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_list_SubsectorOut__"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description not_found (inclui outro tenant) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description validation_error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    create_subsector_api_v1_escalas_operations__operation_id__subsectors_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-organization-id"?: string | null;
+            };
+            path: {
+                operation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SubsectorIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_SubsectorOut_"];
+                };
             };
             /** @description unauthenticated */
             401: {
@@ -5537,6 +7627,8 @@ export interface operations {
                 view?: "postos" | "reserva";
                 agg?: "pior" | "media";
                 role?: string | null;
+                subsector?: string | null;
+                workstation?: string | null;
             };
             header?: {
                 "x-organization-id"?: string | null;
@@ -5621,6 +7713,264 @@ export interface operations {
                     "application/json": unknown;
                     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": unknown;
                     "text/csv": unknown;
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description not_found (inclui outro tenant) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description validation_error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    monthly_matrix_api_v1_escalas_scenarios__scenario_id__monthly_matrix_get: {
+        parameters: {
+            query: {
+                month: string;
+            };
+            header?: {
+                "x-organization-id"?: string | null;
+            };
+            path: {
+                scenario_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_MonthlyMatrixOut_"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description not_found (inclui outro tenant) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description validation_error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    monthly_matrix_export_api_v1_escalas_scenarios__scenario_id__monthly_matrix_export_get: {
+        parameters: {
+            query: {
+                month: string;
+                format?: "xlsx" | "csv" | "ics";
+                months?: number;
+                person?: string | null;
+            };
+            header?: {
+                "x-organization-id"?: string | null;
+            };
+            path: {
+                scenario_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": unknown;
+                    "text/calendar": unknown;
+                    "text/csv": unknown;
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description not_found (inclui outro tenant) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description validation_error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    optimize_api_v1_escalas_scenarios__scenario_id__optimize_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-organization-id"?: string | null;
+            };
+            path: {
+                scenario_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OptimizeIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_OptimizeOut_"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description not_found (inclui outro tenant) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description validation_error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    optimize_apply_api_v1_escalas_scenarios__scenario_id__optimize_apply_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-organization-id"?: string | null;
+            };
+            path: {
+                scenario_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OptimizeApplyIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_OptimizeApplyOut_"];
                 };
             };
             /** @description unauthenticated */
@@ -6100,6 +8450,497 @@ export interface operations {
             };
         };
     };
+    model_pattern_api_v1_escalas_schedule_models__code__pattern_get: {
+        parameters: {
+            query?: {
+                team_count?: number | null;
+                team_size?: number | null;
+            };
+            header?: {
+                "x-organization-id"?: string | null;
+            };
+            path: {
+                code: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_PatternSpec_"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description not_found (inclui outro tenant) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description validation_error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_patterns_api_v1_escalas_schedule_patterns_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-organization-id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_list_PatternTemplateOut__"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description not_found (inclui outro tenant) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description validation_error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    create_pattern_api_v1_escalas_schedule_patterns_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-organization-id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PatternTemplateIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_PatternTemplateOut_"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description not_found (inclui outro tenant) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description validation_error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_pattern_api_v1_escalas_schedule_patterns__pattern_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-organization-id"?: string | null;
+            };
+            path: {
+                pattern_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_PatternTemplateOut_"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description not_found (inclui outro tenant) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description validation_error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    put_pattern_api_v1_escalas_schedule_patterns__pattern_id__put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-organization-id"?: string | null;
+            };
+            path: {
+                pattern_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PatternTemplatePut"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_PatternTemplateOut_"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description not_found (inclui outro tenant) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description validation_error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    delete_pattern_api_v1_escalas_schedule_patterns__pattern_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-organization-id"?: string | null;
+            };
+            path: {
+                pattern_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description not_found (inclui outro tenant) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description validation_error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    duplicate_pattern_api_v1_escalas_schedule_patterns__pattern_id__duplicate_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-organization-id"?: string | null;
+            };
+            path: {
+                pattern_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PatternDuplicateIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_PatternTemplateOut_"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description not_found (inclui outro tenant) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description validation_error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    validate_api_v1_escalas_schedule_patterns_validate_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-organization-id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PatternValidateIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_PatternValidation_"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description not_found (inclui outro tenant) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description validation_error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     shift_templates_api_v1_escalas_shift_templates_get: {
         parameters: {
             query?: never;
@@ -6399,6 +9240,314 @@ export interface operations {
             };
         };
     };
+    delete_pool_api_v1_escalas_subsector_pools__pool_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-organization-id"?: string | null;
+            };
+            path: {
+                pool_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description not_found (inclui outro tenant) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description validation_error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    patch_pool_api_v1_escalas_subsector_pools__pool_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-organization-id"?: string | null;
+            };
+            path: {
+                pool_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PoolPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_PoolOut_"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description not_found (inclui outro tenant) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description validation_error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    delete_subsector_api_v1_escalas_subsectors__subsector_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-organization-id"?: string | null;
+            };
+            path: {
+                subsector_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description not_found (inclui outro tenant) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description validation_error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    patch_subsector_api_v1_escalas_subsectors__subsector_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-organization-id"?: string | null;
+            };
+            path: {
+                subsector_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SubsectorPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_SubsectorOut_"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description not_found (inclui outro tenant) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description validation_error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    create_workstation_api_v1_escalas_subsectors__subsector_id__workstations_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-organization-id"?: string | null;
+            };
+            path: {
+                subsector_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkstationIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_WorkstationOut_"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description not_found (inclui outro tenant) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description validation_error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     get_substitution_api_v1_escalas_substitution_rules_get: {
         parameters: {
             query?: never;
@@ -6479,6 +9628,128 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Envelope_list_SubstitutionRuleOut__"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description not_found (inclui outro tenant) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description validation_error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    delete_workstation_api_v1_escalas_workstations__workstation_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-organization-id"?: string | null;
+            };
+            path: {
+                workstation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description not_found (inclui outro tenant) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description validation_error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    patch_workstation_api_v1_escalas_workstations__workstation_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-organization-id"?: string | null;
+            };
+            path: {
+                workstation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkstationPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_WorkstationOut_"];
                 };
             };
             /** @description unauthenticated */

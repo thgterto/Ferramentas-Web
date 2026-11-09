@@ -24,6 +24,7 @@ COB_DEFICIT = "COB_DEFICIT"
 COB_DEFICIT_POSTO_CRITICO = "COB_DEFICIT_POSTO_CRITICO"
 COB_EXCESSO = "COB_EXCESSO"
 COB_DEFICIT_ESPERADO_SHRINKAGE = "COB_DEFICIT_ESPERADO_SHRINKAGE"
+COB_PASSAGEM_PLANEJADA = "COB_PASSAGEM_PLANEJADA"
 
 
 class Status(StrEnum):
@@ -32,12 +33,38 @@ class Status(StrEnum):
     DEFICIT = "deficit"
     EXATO = "exato"
     EXCESSO = "excesso"
+    PASSAGEM = "passagem"
 
 
-def status_de(gap: Fraction) -> Status:
+def status_de(gap: Fraction, planejado: Fraction = Fraction(0)) -> Status:
+    """Déficit / exato / excesso; excesso coberto só por sobreposição planejada = passagem."""
     if gap < 0:
         return Status.DEFICIT
-    return Status.EXCESSO if gap > 0 else Status.EXATO
+    if gap > 0:
+        return Status.PASSAGEM if gap <= planejado else Status.EXCESSO
+    return Status.EXATO
+
+
+def sobreposicao_por_hora(
+    linhas: Sequence[Sequence[str]], pesos: Sequence[Fraction], turnos: Mapping[str, Turno],
+    total_horas: int,
+) -> tuple[Fraction, ...]:
+    """v3.6 — pessoas em sobreposição **planejada** por hora (passagem de turno / reforço).
+
+    ``linhas[k]`` = estados da turma ``k`` começando no **dia anterior** ao horizonte (índice 0),
+    para que a passagem da noite anterior conte na 00:00–06:xx do primeiro dia.
+    """
+    sob = [Fraction(0)] * total_horas
+    for linha, peso in zip(linhas, pesos, strict=True):
+        for j, e in enumerate(linha):
+            t = turnos.get(e)
+            if t is None or not (t.passagem_min or t.reforco):
+                continue
+            base = (j - 1) * 1440
+            for a, b in t.janelas_sobreposicao:
+                for h in range(max(0, (base + a) // 60), min(total_horas, ceil((base + b) / 60))):
+                    sob[h] += peso
+    return tuple(sob)
 
 
 def ocupacao_horaria(
@@ -85,6 +112,8 @@ class KPIs:
     pct_excesso: Fraction
     horas_com_deficit: int
     pico: Pico | None
+    passagem_hp: Fraction = Fraction(0)
+    """Excesso explicado por sobreposição planejada (passagem/reforço) — não é ociosidade."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -96,6 +125,15 @@ class ResultadoCobertura:
     heat_pior: tuple[tuple[Fraction, ...], ...]     # 7×24 (segunda = 0): menor gap
     heat_media: tuple[tuple[Fraction, ...], ...]    # 7×24: gap médio
     achados: tuple[Achado, ...]
+    sobreposicao: tuple[Fraction, ...] = ()         # v3.6: pessoas em passagem/reforço/hora
+
+    @property
+    def planejado(self) -> tuple[Fraction, ...]:
+        return self.sobreposicao or tuple(Fraction(0) for _ in self.cobertura)
+
+    @property
+    def status_hora(self) -> tuple[Status, ...]:
+        return tuple(status_de(g, p) for g, p in zip(self.gap, self.planejado, strict=True))
 
     @property
     def gap(self) -> tuple[Fraction, ...]:
@@ -115,11 +153,14 @@ def _dow(data_inicio: date, h: int) -> int:
 
 
 def calcular_kpis(data_inicio: date, req: Sequence[int | Fraction],
-                  cob: Sequence[Fraction]) -> KPIs:
+                  cob: Sequence[Fraction], sob: Sequence[Fraction] = ()) -> KPIs:
     total = sum((Fraction(r) for r in req), Fraction(0))
     cobertas = sum((min(c, Fraction(r)) for c, r in zip(cob, req, strict=True)), Fraction(0))
     deficits = [max(Fraction(0), Fraction(r) - c) for c, r in zip(cob, req, strict=True)]
-    excesso = sum((max(Fraction(0), c - r) for c, r in zip(cob, req, strict=True)), Fraction(0))
+    brutos = [max(Fraction(0), c - r) for c, r in zip(cob, req, strict=True)]
+    plan = list(sob) if sob else [Fraction(0)] * len(brutos)
+    passagem = sum((min(b, p) for b, p in zip(brutos, plan, strict=True)), Fraction(0))
+    excesso = sum(brutos, Fraction(0)) - passagem
     deficit = sum(deficits, Fraction(0))
     pico = None
     if deficit > 0:
@@ -136,6 +177,7 @@ def calcular_kpis(data_inicio: date, req: Sequence[int | Fraction],
         pct_excesso=excesso / total if total else Fraction(0),
         horas_com_deficit=sum(1 for d in deficits if d > 0),
         pico=pico,
+        passagem_hp=passagem,
     )
 
 
@@ -171,8 +213,24 @@ def calcular_cobertura(
     ocup = ocupacao_horaria(padrao, turnos, data_ancora, dias, inicio)
     cob = tuple(sum((postos * fracoes[k] for k, _ in o), Fraction(0)) for o in ocup)
     req = tuple(curva.valores[_dow(inicio, h) * 24 + h % 24] for h in range(dias * 24))
+    sob: tuple[Fraction, ...] = ()
+    if any(t.passagem_min or t.reforco for t in turnos.values()):
+        esc = gerar_escala(padrao, data_ancora, dias + 1, inicio - timedelta(days=1))
+        sob = sobreposicao_por_hora(esc.estados, [postos * f for f in fracoes], turnos,
+                                    dias * 24)
+    return montar_resultado(inicio, req, cob, curva, sob)
+
+
+def montar_resultado(inicio: date, req: tuple[int, ...], cob: tuple[Fraction, ...],
+                     curva: CurvaDemanda, sob: tuple[Fraction, ...] = ()
+                     ) -> ResultadoCobertura:
+    """KPIs, agregação 7×24 e achados COB_* a partir de demanda e cobertura por hora.
+
+    ``sob`` (v3.6) = sobreposição planejada por hora: o excesso que ela explica vira
+    ``passagem_hp`` + achado INFO ``COB_PASSAGEM_PLANEJADA`` (não ``COB_EXCESSO``).
+    """
     gap = [c - r for c, r in zip(cob, req, strict=True)]
-    kpis = calcular_kpis(inicio, req, cob)
+    kpis = calcular_kpis(inicio, req, cob, sob)
     pior, media = agregar_7x24(inicio, gap)
     achados: list[Achado] = []
     if kpis.deficit_hp > 0:
@@ -191,7 +249,13 @@ def calcular_cobertura(
         achados.append(Achado(COB_EXCESSO, Severidade.INFO,
                               f"excesso de {float(kpis.pct_excesso):.1%} das horas-posto",
                               {"excesso_hp": str(kpis.excesso_hp)}))
-    return ResultadoCobertura(inicio, req, cob, kpis, pior, media, tuple(achados))
+    if kpis.passagem_hp > 0:
+        achados.append(Achado(COB_PASSAGEM_PLANEJADA, Severidade.INFO,
+                              f"excesso planejado de passagem/reforço: "
+                              f"{float(kpis.passagem_hp):g} horas-posto (sobreposição entre "
+                              "turnos — não é ociosidade)",
+                              {"passagem_hp": str(kpis.passagem_hp)}))
+    return ResultadoCobertura(inicio, req, cob, kpis, pior, media, tuple(achados), sob)
 
 
 @dataclass(frozen=True, slots=True)

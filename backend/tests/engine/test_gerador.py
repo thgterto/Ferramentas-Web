@@ -41,8 +41,25 @@ def test_buscar_offsets_valida_entrada() -> None:
     with pytest.raises(ValueError):
         buscar_offsets(("M", "F"), 0)
     assert buscar_offsets(("M", "F"), 1) == (0,)
-    with pytest.raises(ValueError, match="grande demais"):
-        buscar_offsets(tuple("M" * 40 + "F" * 2), 9)
+
+
+
+def test_buscar_offsets_heuristica_rapida_em_l_k_grandes() -> None:
+    """v3.5: L/K grandes usam guloso + busca local com limite de tempo (sem 'grande demais')."""
+    import time
+
+    seq = tuple("M" * 40 + "F" * 2)
+    t0 = time.perf_counter()
+    offs = buscar_offsets(seq, 9)
+    assert time.perf_counter() - t0 < 2.0
+    assert len(offs) == 9 and len(set(offs)) == 9
+    # 84 posições, 12 turmas (busca exaustiva seria C(83, 11) ≈ 10^13)
+    seq84 = tuple(("M" * 4 + "T" * 4 + "N" * 4 + "F" * 9) * 4)
+    t0 = time.perf_counter()
+    offs84 = buscar_offsets(seq84, 12)
+    assert time.perf_counter() - t0 < 2.0 and len(offs84) == 12
+    # mais turmas que posições: offsets repetidos
+    assert len(buscar_offsets(("M", "F"), 3)) == 3
 
 
 def test_nome_turma() -> None:

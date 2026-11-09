@@ -3,6 +3,7 @@ import { clsx } from 'clsx'
 import type { CoverageSlot } from '../api/client'
 import { WEEKDAYS, fmt, num } from '../api/format'
 import { KIND_META, cellLabel, classify, diffText, hh, type CellKind } from './coverage'
+import type { Presence } from '../api/schedule'
 
 
 
@@ -30,17 +31,26 @@ export function Legend() {
   )
 }
 
+export type SlotPresence = { week: number; teams: Presence[]; allWeeks: Presence[][] }
+
 type Props = {
   slots: CoverageSlot[]
   weeks: number
+  /** legado: turmas (sem turno) */
   teamsAt?: (slotIndex: number) => string[]
+  /** turmas EFETIVAMENTE trabalhando na hora, com o turno (semana do pior caso) */
+  presenceAt?: (slotIndex: number) => SlotPresence
   onActivate?: (s: CoverageSlot) => void
   caption?: string
 }
 
 /** Heatmap 7×24 de cobertura (04 §8.1): cor + ícone + textura, grid navegável por setas. */
-export function Heatmap7x24({ slots, weeks, teamsAt, onActivate, caption = 'Cobertura por hora da semana' }: Props) {
+const presLabel = (p: Presence) => `${p.team} (${p.shift} ${p.range})`
+
+export function Heatmap7x24({ slots, weeks, teamsAt, presenceAt, onActivate, caption = 'Cobertura por hora da semana' }: Props) {
   const [active, setActive] = useState(0)
+  const [pinned, setPinned] = useState<number | null>(null)
+  const teamsFor = (i: number): string[] | undefined => (presenceAt ? presenceAt(i).teams.map(presLabel) : teamsAt?.(i))
   const [hover, setHover] = useState<number | null>(null)
   const [asTable, setAsTable] = useState(false)
   const gridRef = useRef<HTMLDivElement>(null)
@@ -70,9 +80,10 @@ export function Heatmap7x24({ slots, weeks, teamsAt, onActivate, caption = 'Cobe
       case 'Enter':
       case ' ': {
         const s = bySlot.get(active)
-        if (s && onActivate) {
+        if (s && (onActivate || presenceAt)) {
           e.preventDefault()
-          onActivate(s)
+          if (presenceAt) setPinned(active)
+          onActivate?.(s)
         }
         return
       }
@@ -159,13 +170,14 @@ export function Heatmap7x24({ slots, weeks, teamsAt, onActivate, caption = 'Cobe
                       data-i={i}
                       data-kind={k}
                       tabIndex={i === active ? 0 : -1}
-                      aria-label={cellLabel(s, weeks, teamsAt?.(i))}
+                      aria-label={cellLabel(s, weeks, teamsFor(i))}
                       aria-describedby={i === shown ? tipId : undefined}
                       onFocus={() => setActive(i)}
                       onMouseEnter={() => setHover(i)}
                       onMouseLeave={() => setHover(null)}
                       onClick={() => {
                         focusCell(i)
+                        if (presenceAt) setPinned(i)
                         onActivate?.(s)
                       }}
                       className={clsx('relative flex h-7 min-w-7 cursor-default items-center justify-center overflow-hidden rounded-cell text-micro tabular-nums', m.cell)}
@@ -187,9 +199,35 @@ export function Heatmap7x24({ slots, weeks, teamsAt, onActivate, caption = 'Cobe
               </strong>{' '}
               · Necessário {fmt(tipSlot.required_net)} · Escalados {fmt(num(tipSlot.required_net) + num(tipSlot.gap))} ·{' '}
               {num(tipSlot.gap) < 0 ? `Déficit ${diffText(num(tipSlot.gap))}` : num(tipSlot.gap) > 0 ? `Excesso ${diffText(num(tipSlot.gap))}` : 'Exato'}
-              {teamsAt && teamsAt(shown).length > 0 && ` · Turmas ${teamsAt(shown).join(', ')}`}
+              {presenceAt ? (
+                (() => {
+                  const pr = presenceAt(shown)
+                  return pr.teams.length ? ` · Trabalhando${weeks > 1 ? ` (semana ${pr.week}, pior caso)` : ''}: ${pr.teams.map(presLabel).join(', ')}` : ' · Nenhuma turma trabalhando'
+                })()
+              ) : (
+                teamsAt && teamsAt(shown).length > 0 && ` · Turmas ${teamsAt(shown).join(', ')}`
+              )}
               {num(tipSlot.gap) < 0 && tipSlot.deficit_occurrences > 0 && ` · ocorre em ${tipSlot.deficit_occurrences} de ${weeks} semanas`}
             </div>
+          )}
+          {presenceAt && pinned != null && bySlot.get(pinned) && (
+            <section aria-label="Turmas por semana na hora selecionada" className="mt-2 rounded-card border border-border bg-surface-2 px-3 py-2 text-caption" data-testid="detalhe-hora">
+              <div className="mb-1 flex items-center justify-between gap-2">
+                <strong>
+                  {WEEKDAYS[Math.floor(pinned / 24)]} {hh(pinned % 24)}:00 — quem trabalha em cada semana
+                </strong>
+                <button type="button" className="text-primary underline" onClick={() => setPinned(null)}>
+                  Fechar
+                </button>
+              </div>
+              <ul className="grid grid-cols-1 gap-x-4 sm:grid-cols-2">
+                {presenceAt(pinned).allWeeks.map((l, w) => (
+                  <li key={w} className="tabular-nums">
+                    Semana {w + 1}: {l.length ? l.map(presLabel).join(', ') : 'ninguém'}
+                  </li>
+                ))}
+              </ul>
+            </section>
           )}
         </div>
       )}

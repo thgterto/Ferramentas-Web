@@ -19,12 +19,51 @@ export const step1 = z.object({
   simulateTransition: z.boolean(),
 })
 
+const code = z.string().trim().regex(/^[A-Za-z0-9_-]{1,24}$/, 'Código: letras, dígitos, _ ou -')
+
+/** v3.7 — posição (posto de trabalho) com demanda própria: postos fixos ou só numa faixa. */
+export const workstationRow = z.object({
+  code,
+  name: z.string().trim().min(1, 'Nome obrigatório'),
+  role: z.string(),
+  posts: int(0, 500, 'Postos'),
+  from: int(0, 23, 'Início'),
+  to: int(1, 24, 'Fim'),
+})
+export const subsectorRow = z.object({ code, name: z.string().trim().min(1, 'Nome obrigatório'), positions: z.array(workstationRow).min(1, 'Ao menos uma posição').max(30) })
+export const poolRow = z.object({
+  code,
+  name: z.string().trim().min(1, 'Nome obrigatório'),
+  members: z.array(z.string()).min(2, 'Escolha ao menos 2 subsetores'),
+  roles: z.string(),
+  maxHours: z.number().int().min(0).max(168).nullable(),
+  preferHome: z.boolean(),
+})
+
 export const step2 = z.object({
   positionName: z.string().trim().min(2, 'Nome do posto: mínimo 2 caracteres'),
   demandMode: z.enum(['fixos', 'curva']),
   postos: int(0, 500, 'Postos'),
   curve: z.array(z.number({ invalid_type_error: 'inteiro ≥ 0' }).int('inteiro ≥ 0').min(0, 'inteiro ≥ 0')).length(168),
+  subsectors: z.array(subsectorRow).max(20),
+  pools: z.array(poolRow).max(10),
 })
+
+/** Curva 168 h de uma posição: ``posts`` dentro de [from, to) todos os dias (0–24 = 24 h). */
+export function workstationCurve(w: { posts: number; from: number; to: number }): number[] {
+  return Array.from({ length: 168 }, (_, i) => {
+    const h = i % 24
+    const inside = w.from < w.to ? h >= w.from && h < w.to : h >= w.from || h < w.to
+    return inside ? Number(w.posts) || 0 : 0
+  })
+}
+
+/** Demanda do setor = soma das posições de todos os subsetores. */
+export function sectorCurve(subs: { positions: { posts: number; from: number; to: number }[] }[]): number[] {
+  const out = Array.from({ length: 168 }, () => 0)
+  for (const s of subs) for (const w of s.positions) workstationCurve(w).forEach((v, i) => (out[i] += v))
+  return out
+}
 
 export const roleRow = z.object({
   code: z.string().trim().regex(/^[A-Z0-9_]{1,24}$/, 'Código: MAIÚSCULAS, dígitos e _'),
@@ -43,9 +82,16 @@ export const step3 = z.object({
 })
 
 export const step4 = z.object({
-  modelCode: z.string().min(1, 'Escolha um modelo de escala'),
-  teamCount: int(1, 12, 'Nº de turmas'),
-  shiftCodes: z.array(z.string()).min(1, 'Escolha ao menos um turno'),
+  modelCode: z.string().min(1, 'Escolha um modelo de escala ou personalize'),
+  teamCount: int(1, 60, 'Nº de turmas'),
+  kMode: z.enum(['fixo', 'minimo', 'faixa', 'sugerir']),
+  kMin: int(1, 60, 'K mínimo'),
+  kMax: int(1, 60, 'K máximo'),
+  teamSizes: z.array(z.number().positive('Pessoas por turma > 0')).max(60),
+  shiftCodes: z.array(z.string()),
+  customized: z.boolean(),
+  // padrão do construtor (PatternSpec) — validado pelo backend (/schedule-patterns:validate)
+  pattern: z.any().nullable(),
 })
 
 export const wizardSchema = step1
@@ -56,8 +102,21 @@ export const wizardSchema = step1
     if (v.legalMode === 'regime' && !v.legalRegimeCode) ctx.addIssue({ code: 'custom', path: ['legalRegimeCode'], message: 'Escolha o regime' })
     if (v.legalMode === 'data' && !/^\d{4}-\d{2}-\d{2}$/.test(v.legalReferenceDate))
       ctx.addIssue({ code: 'custom', path: ['legalReferenceDate'], message: 'Informe a data de referência' })
-    if (v.demandMode === 'fixos' && v.postos < 1) ctx.addIssue({ code: 'custom', path: ['postos'], message: 'Informe ao menos 1 posto' })
-    if (v.demandMode === 'curva' && !v.curve.some((x) => x > 0)) ctx.addIssue({ code: 'custom', path: ['curve'], message: 'A grade precisa de ao menos uma hora com demanda > 0' })
+    if (v.kMode === 'faixa' && v.kMin > v.kMax) ctx.addIssue({ code: 'custom', path: ['kMax'], message: 'K máximo deve ser ≥ K mínimo' })
+    if (v.customized && !v.pattern) ctx.addIssue({ code: 'custom', path: ['modelCode'], message: 'Abra o construtor para definir o padrão' })
+    const subCodes = v.subsectors.map((x) => x.code)
+    subCodes.forEach((c, i) => {
+      if (subCodes.indexOf(c) !== i) ctx.addIssue({ code: 'custom', path: ['subsectors', i, 'code'], message: 'Código repetido' })
+    })
+    v.pools.forEach((pl, i) => {
+      pl.members.forEach((m) => {
+        if (!subCodes.includes(m)) ctx.addIssue({ code: 'custom', path: ['pools', i, 'members'], message: `Subsetor inexistente: ${m}` })
+        if (v.pools.some((o, j) => j < i && o.members.includes(m))) ctx.addIssue({ code: 'custom', path: ['pools', i, 'members'], message: `${m} já está em outro pool` })
+      })
+    })
+    if (v.subsectors.length && !sectorCurve(v.subsectors).some((x) => x > 0)) ctx.addIssue({ code: 'custom', path: ['subsectors'], message: 'As posições precisam de demanda > 0' })
+    if (!v.subsectors.length && v.demandMode === 'fixos' && v.postos < 1) ctx.addIssue({ code: 'custom', path: ['postos'], message: 'Informe ao menos 1 posto' })
+    if (!v.subsectors.length && v.demandMode === 'curva' && !v.curve.some((x) => x > 0)) ctx.addIssue({ code: 'custom', path: ['curve'], message: 'A grade precisa de ao menos uma hora com demanda > 0' })
     const codes = v.roles.map((r) => r.code)
     codes.forEach((c, i) => {
       if (codes.indexOf(c) !== i) ctx.addIssue({ code: 'custom', path: ['roles', i, 'code'], message: 'Código repetido' })
@@ -87,7 +146,7 @@ function nextMonday(from = new Date()): string {
 
 export function defaultValues(): WizardValues {
   return {
-    scenarioName: '6x2 4 turmas',
+    scenarioName: 'Novo cenário',
     agreementKind: 'CLT_PADRAO',
     allows8h: false,
     horizonStart: nextMonday(),
@@ -101,6 +160,8 @@ export function defaultValues(): WizardValues {
     demandMode: 'fixos',
     postos: 3,
     curve: Array.from({ length: 168 }, () => 3),
+    subsectors: [],
+    pools: [],
     shrinkDay: 0,
     shrinkNight: 0,
     reserve: 'nenhuma',
@@ -108,9 +169,15 @@ export function defaultValues(): WizardValues {
     roles: [],
     subs: [],
     minimums: [],
-    modelCode: '6X2',
-    teamCount: 4,
-    shiftCodes: ['M', 'T', 'N'],
+    modelCode: '',
+    teamCount: 1,
+    kMode: 'fixo',
+    kMin: 1,
+    kMax: 12,
+    teamSizes: [],
+    shiftCodes: [],
+    customized: false,
+    pattern: null,
   }
 }
 

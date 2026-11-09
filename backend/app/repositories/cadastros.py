@@ -9,14 +9,18 @@ from sqlalchemy import delete, select
 from app.db.models import (
     DemandCurve,
     DemandSlot,
+    Employee,
     LaborAgreement,
     Operation,
     Position,
     Role,
     RoleCoverageRequirement,
     ShrinkageProfile,
+    Subsector,
+    SubsectorPool,
     SubstitutionRule,
     TeamConstraint,
+    Workstation,
 )
 from app.repositories.base import TenantRepository
 
@@ -99,3 +103,27 @@ class TeamConstraintRepo(TenantRepository[TeamConstraint]):
         self.s.add_all(TeamConstraint(organization_id=self.org_id, operation_id=operation_id,
                                       **r) for r in rows)
         self.s.flush()
+
+
+class SubsectorRepo(TenantRepository[Subsector]):
+    model = Subsector
+    label = "subsetor"
+    soft_delete = False
+
+
+class WorkstationRepo(TenantRepository[Workstation]):
+    model = Workstation
+    label = "posição"
+    soft_delete = False
+
+
+class PoolRepo(TenantRepository[SubsectorPool]):
+    model = SubsectorPool
+    label = "pool"
+    soft_delete = False
+
+
+class EmployeeRepo(TenantRepository[Employee]):
+    model = Employee
+    label = "pessoa"
+    soft_delete = False

@@ -329,6 +329,7 @@
       "CoverageKpis": {
         "properties": {
           "break_gap_post_hours": {
+            "default": "0.000000",
             "examples": [
               "0.200000"
             ],
@@ -341,6 +342,7 @@
             "type": "integer"
           },
           "deficit_post_hours": {
+            "default": "0.000000",
             "examples": [
               "0.200000"
             ],
@@ -349,11 +351,21 @@
             "type": "string"
           },
           "excess_post_hours": {
+            "default": "0.000000",
             "examples": [
               "0.200000"
             ],
             "pattern": "^-?\\d+(\\.\\d{1,6})?$",
             "title": "Excess Post Hours",
+            "type": "string"
+          },
+          "handover_post_hours": {
+            "default": "0.000000",
+            "examples": [
+              "0.200000"
+            ],
+            "pattern": "^-?\\d+(\\.\\d{1,6})?$",
+            "title": "Handover Post Hours",
             "type": "string"
           },
           "headcount_min": {
@@ -368,6 +380,7 @@
             "title": "Headcount Min"
           },
           "pct_hours_covered": {
+            "default": "0.000000",
             "examples": [
               "0.200000"
             ],
@@ -388,6 +401,7 @@
           "teams_required": {
             "anyOf": [
               {
+                "default": "0.000000",
                 "examples": [
                   "0.200000"
                 ],
@@ -449,6 +463,17 @@
             "title": "Slots",
             "type": "array"
           },
+          "subsector": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subsector"
+          },
           "view": {
             "enum": [
               "postos",
@@ -456,6 +481,17 @@
             ],
             "title": "View",
             "type": "string"
+          },
+          "workstation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Workstation"
           }
         },
         "required": [
@@ -470,7 +506,18 @@
       },
       "CoverageSlot": {
         "properties": {
+          "borrowed": {
+            "default": "0.000000",
+            "description": "v3.7: pessoas remanejadas de outro subsetor",
+            "examples": [
+              "0.200000"
+            ],
+            "pattern": "^-?\\d+(\\.\\d{1,6})?$",
+            "title": "Borrowed",
+            "type": "string"
+          },
           "break_gap": {
+            "default": "0.000000",
             "examples": [
               "0.200000"
             ],
@@ -483,6 +530,7 @@
             "type": "integer"
           },
           "expected_worst": {
+            "default": "0.000000",
             "examples": [
               "0.200000"
             ],
@@ -491,6 +539,7 @@
             "type": "string"
           },
           "gap": {
+            "default": "0.000000",
             "examples": [
               "0.200000"
             ],
@@ -498,7 +547,17 @@
             "title": "Gap",
             "type": "string"
           },
+          "handover": {
+            "default": "0.000000",
+            "examples": [
+              "0.200000"
+            ],
+            "pattern": "^-?\\d+(\\.\\d{1,6})?$",
+            "title": "Handover",
+            "type": "string"
+          },
           "required_gross": {
+            "default": "0.000000",
             "examples": [
               "0.200000"
             ],
@@ -507,6 +566,7 @@
             "type": "string"
           },
           "required_net": {
+            "default": "0.000000",
             "examples": [
               "0.200000"
             ],
@@ -515,6 +575,7 @@
             "type": "string"
           },
           "scheduled_mean": {
+            "default": "0.000000",
             "examples": [
               "0.200000"
             ],
@@ -523,6 +584,7 @@
             "type": "string"
           },
           "scheduled_worst": {
+            "default": "0.000000",
             "examples": [
               "0.200000"
             ],
@@ -542,7 +604,8 @@
             "enum": [
               "deficit",
               "exata",
-              "excesso"
+              "excesso",
+              "passagem"
             ],
             "title": "Status",
             "type": "string"
@@ -753,6 +816,140 @@
         "title": "DemandCurveOut",
         "type": "object"
       },
+      "EmployeeIn": {
+        "additionalProperties": false,
+        "properties": {
+          "default_workstation_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Workstation Code"
+          },
+          "home_subsector_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Home Subsector Code"
+          },
+          "name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "role_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role Code"
+          },
+          "team_code": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Z]{1,3}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Team Code"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "EmployeeIn",
+        "type": "object"
+      },
+      "EmployeeOut": {
+        "properties": {
+          "default_workstation_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Workstation Code"
+          },
+          "home_subsector_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Home Subsector Code"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "operation_id": {
+            "format": "uuid",
+            "title": "Operation Id",
+            "type": "string"
+          },
+          "role_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role Code"
+          },
+          "team_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Team Code"
+          }
+        },
+        "required": [
+          "id",
+          "operation_id",
+          "name",
+          "team_code",
+          "role_code",
+          "home_subsector_code",
+          "default_workstation_code"
+        ],
+        "title": "EmployeeOut",
+        "type": "object"
+      },
       "Envelope_CoverageOut_": {
         "properties": {
           "data": {
@@ -775,6 +972,18 @@
           "data"
         ],
         "title": "Envelope[DemandCurveOut]",
+        "type": "object"
+      },
+      "Envelope_EmployeeOut_": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/EmployeeOut"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "title": "Envelope[EmployeeOut]",
         "type": "object"
       },
       "Envelope_LaborAgreementOut_": {
@@ -813,6 +1022,18 @@
         "title": "Envelope[MeOut]",
         "type": "object"
       },
+      "Envelope_MonthlyMatrixOut_": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/MonthlyMatrixOut"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "title": "Envelope[MonthlyMatrixOut]",
+        "type": "object"
+      },
       "Envelope_OperationOut_": {
         "properties": {
           "data": {
@@ -823,6 +1044,78 @@
           "data"
         ],
         "title": "Envelope[OperationOut]",
+        "type": "object"
+      },
+      "Envelope_OptimizeApplyOut_": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/OptimizeApplyOut"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "title": "Envelope[OptimizeApplyOut]",
+        "type": "object"
+      },
+      "Envelope_OptimizeOut_": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/OptimizeOut"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "title": "Envelope[OptimizeOut]",
+        "type": "object"
+      },
+      "Envelope_PatternSpec_": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/PatternSpec-Output"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "title": "Envelope[PatternSpec]",
+        "type": "object"
+      },
+      "Envelope_PatternTemplateOut_": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/PatternTemplateOut"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "title": "Envelope[PatternTemplateOut]",
+        "type": "object"
+      },
+      "Envelope_PatternValidation_": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/PatternValidation"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "title": "Envelope[PatternValidation]",
+        "type": "object"
+      },
+      "Envelope_PoolOut_": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/PoolOut"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "title": "Envelope[PoolOut]",
         "type": "object"
       },
       "Envelope_PositionOut_": {
@@ -957,6 +1250,30 @@
         "title": "Envelope[SlotsSummary]",
         "type": "object"
       },
+      "Envelope_StructureOut_": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/StructureOut"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "title": "Envelope[StructureOut]",
+        "type": "object"
+      },
+      "Envelope_SubsectorOut_": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/SubsectorOut"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "title": "Envelope[SubsectorOut]",
+        "type": "object"
+      },
       "Envelope_TeamOut_": {
         "properties": {
           "data": {
@@ -981,6 +1298,18 @@
         "title": "Envelope[TransitionOut]",
         "type": "object"
       },
+      "Envelope_WorkstationOut_": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/WorkstationOut"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "title": "Envelope[WorkstationOut]",
+        "type": "object"
+      },
       "Envelope_list_ComplianceRuleOut__": {
         "properties": {
           "data": {
@@ -997,6 +1326,22 @@
         "title": "Envelope[list[ComplianceRuleOut]]",
         "type": "object"
       },
+      "Envelope_list_EmployeeOut__": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/EmployeeOut"
+            },
+            "title": "Data",
+            "type": "array"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "title": "Envelope[list[EmployeeOut]]",
+        "type": "object"
+      },
       "Envelope_list_LegalRegimeOut__": {
         "properties": {
           "data": {
@@ -1011,6 +1356,38 @@
           "data"
         ],
         "title": "Envelope[list[LegalRegimeOut]]",
+        "type": "object"
+      },
+      "Envelope_list_PatternTemplateOut__": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/PatternTemplateOut"
+            },
+            "title": "Data",
+            "type": "array"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "title": "Envelope[list[PatternTemplateOut]]",
+        "type": "object"
+      },
+      "Envelope_list_PoolOut__": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/PoolOut"
+            },
+            "title": "Data",
+            "type": "array"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "title": "Envelope[list[PoolOut]]",
         "type": "object"
       },
       "Envelope_list_RoleRequirementOut__": {
@@ -1059,6 +1436,22 @@
           "data"
         ],
         "title": "Envelope[list[ShiftTemplateOut]]",
+        "type": "object"
+      },
+      "Envelope_list_SubsectorOut__": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/SubsectorOut"
+            },
+            "title": "Data",
+            "type": "array"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "title": "Envelope[list[SubsectorOut]]",
         "type": "object"
       },
       "Envelope_list_SubstitutionRuleOut__": {
@@ -1276,6 +1669,49 @@
         "title": "FindingBrief",
         "type": "object"
       },
+      "FindingLite": {
+        "properties": {
+          "details": {
+            "title": "Details",
+            "type": "object"
+          },
+          "layer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Layer"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "rule_code": {
+            "title": "Rule Code",
+            "type": "string"
+          },
+          "severity": {
+            "enum": [
+              "info",
+              "alerta",
+              "erro"
+            ],
+            "title": "Severity",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rule_code",
+          "severity",
+          "message"
+        ],
+        "title": "FindingLite",
+        "type": "object"
+      },
       "FindingOut": {
         "properties": {
           "details": {
@@ -1376,6 +1812,7 @@
           "coverage_pct": {
             "anyOf": [
               {
+                "default": "0.000000",
                 "examples": [
                   "0.200000"
                 ],
@@ -1402,6 +1839,7 @@
           "deficit_post_hours": {
             "anyOf": [
               {
+                "default": "0.000000",
                 "examples": [
                   "0.200000"
                 ],
@@ -1425,9 +1863,22 @@
             ],
             "title": "Headcount Min"
           },
+          "moved_hours": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "v3.7: horas remanejadas entre subsetores",
+            "title": "Moved Hours"
+          },
           "peak_undercoverage": {
             "anyOf": [
               {
+                "default": "0.000000",
                 "examples": [
                   "0.200000"
                 ],
@@ -1440,9 +1891,32 @@
             ],
             "title": "Peak Undercoverage"
           },
+          "subsector_deficit_post_hours": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subsector Deficit Post Hours"
+          },
+          "subsector_deficit_without_pool": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subsector Deficit Without Pool"
+          },
           "teams_required": {
             "anyOf": [
               {
+                "default": "0.000000",
                 "examples": [
                   "0.200000"
                 ],
@@ -1895,6 +2369,527 @@
         "title": "LaborAgreementPatch",
         "type": "object"
       },
+      "LayerIn-Input": {
+        "additionalProperties": false,
+        "properties": {
+          "active_weekdays": {
+            "items": {
+              "maximum": 6.0,
+              "minimum": 0.0,
+              "type": "integer"
+            },
+            "title": "Active Weekdays",
+            "type": "array"
+          },
+          "code": {
+            "examples": [
+              "NUCLEO"
+            ],
+            "pattern": "^[A-Z0-9_]{1,16}$",
+            "title": "Code",
+            "type": "string"
+          },
+          "fixed_off_weekdays": {
+            "items": {
+              "maximum": 6.0,
+              "minimum": 0.0,
+              "type": "integer"
+            },
+            "title": "Fixed Off Weekdays",
+            "type": "array"
+          },
+          "k": {
+            "anyOf": [
+              {
+                "maximum": 60.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "K"
+          },
+          "k_max": {
+            "anyOf": [
+              {
+                "maximum": 60.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "K Max"
+          },
+          "k_min": {
+            "anyOf": [
+              {
+                "maximum": 60.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "K Min"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "offsets": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "maxItems": 60,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Offsets manuais por turma (None = auto)",
+            "title": "Offsets"
+          },
+          "role_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role Code"
+          },
+          "rotation": {
+            "default": "frente",
+            "enum": [
+              "frente",
+              "tras"
+            ],
+            "title": "Rotation",
+            "type": "string"
+          },
+          "sequence": {
+            "examples": [
+              [
+                "M",
+                "M",
+                "T",
+                "T",
+                "N",
+                "N",
+                "F",
+                "F"
+              ]
+            ],
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 366,
+            "minItems": 1,
+            "title": "Sequence",
+            "type": "array"
+          },
+          "team_mode": {
+            "default": "fixo",
+            "enum": [
+              "fixo",
+              "minimo",
+              "faixa",
+              "sugerir"
+            ],
+            "title": "Team Mode",
+            "type": "string"
+          },
+          "team_sizes": {
+            "anyOf": [
+              {
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "string"
+                    }
+                  ]
+                },
+                "maxItems": 60,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Pessoas por turma (0,5 = meia-turma de 1 posto)",
+            "title": "Team Sizes"
+          },
+          "weekly_anchor": {
+            "default": false,
+            "description": "Dia 0 do ciclo = segunda-feira",
+            "title": "Weekly Anchor",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "code",
+          "sequence"
+        ],
+        "title": "LayerIn",
+        "type": "object"
+      },
+      "LayerIn-Output": {
+        "additionalProperties": false,
+        "properties": {
+          "active_weekdays": {
+            "items": {
+              "maximum": 6.0,
+              "minimum": 0.0,
+              "type": "integer"
+            },
+            "title": "Active Weekdays",
+            "type": "array"
+          },
+          "code": {
+            "examples": [
+              "NUCLEO"
+            ],
+            "pattern": "^[A-Z0-9_]{1,16}$",
+            "title": "Code",
+            "type": "string"
+          },
+          "fixed_off_weekdays": {
+            "items": {
+              "maximum": 6.0,
+              "minimum": 0.0,
+              "type": "integer"
+            },
+            "title": "Fixed Off Weekdays",
+            "type": "array"
+          },
+          "k": {
+            "anyOf": [
+              {
+                "maximum": 60.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "K"
+          },
+          "k_max": {
+            "anyOf": [
+              {
+                "maximum": 60.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "K Max"
+          },
+          "k_min": {
+            "anyOf": [
+              {
+                "maximum": 60.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "K Min"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "offsets": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "maxItems": 60,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Offsets manuais por turma (None = auto)",
+            "title": "Offsets"
+          },
+          "role_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role Code"
+          },
+          "rotation": {
+            "default": "frente",
+            "enum": [
+              "frente",
+              "tras"
+            ],
+            "title": "Rotation",
+            "type": "string"
+          },
+          "sequence": {
+            "examples": [
+              [
+                "M",
+                "M",
+                "T",
+                "T",
+                "N",
+                "N",
+                "F",
+                "F"
+              ]
+            ],
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 366,
+            "minItems": 1,
+            "title": "Sequence",
+            "type": "array"
+          },
+          "team_mode": {
+            "default": "fixo",
+            "enum": [
+              "fixo",
+              "minimo",
+              "faixa",
+              "sugerir"
+            ],
+            "title": "Team Mode",
+            "type": "string"
+          },
+          "team_sizes": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 60,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Pessoas por turma (0,5 = meia-turma de 1 posto)",
+            "title": "Team Sizes"
+          },
+          "weekly_anchor": {
+            "default": false,
+            "description": "Dia 0 do ciclo = segunda-feira",
+            "title": "Weekly Anchor",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "code",
+          "sequence"
+        ],
+        "title": "LayerIn",
+        "type": "object"
+      },
+      "LayerInfo": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "k": {
+            "title": "K",
+            "type": "integer"
+          },
+          "mode": {
+            "title": "Mode",
+            "type": "string"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "offsets": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Offsets",
+            "type": "array"
+          },
+          "sequence": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Sequence",
+            "type": "array"
+          }
+        },
+        "required": [
+          "code",
+          "mode",
+          "k",
+          "offsets",
+          "sequence"
+        ],
+        "title": "LayerInfo",
+        "type": "object"
+      },
+      "LayerReport": {
+        "properties": {
+          "avg_weekly_hours": {
+            "examples": [
+              "0.200000"
+            ],
+            "pattern": "^-?\\d+(\\.\\d{1,6})?$",
+            "title": "Avg Weekly Hours",
+            "type": "string"
+          },
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "cycle_length": {
+            "title": "Cycle Length",
+            "type": "integer"
+          },
+          "exact": {
+            "title": "Exact",
+            "type": "boolean"
+          },
+          "exact_with_half_teams": {
+            "title": "Exact With Half Teams",
+            "type": "boolean"
+          },
+          "k_required": {
+            "examples": [
+              "0.200000"
+            ],
+            "pattern": "^-?\\d+(\\.\\d{1,6})?$",
+            "title": "K Required",
+            "type": "string"
+          },
+          "k_suggested": {
+            "title": "K Suggested",
+            "type": "integer"
+          },
+          "k_used": {
+            "title": "K Used",
+            "type": "integer"
+          },
+          "max_consecutive_work_days": {
+            "title": "Max Consecutive Work Days",
+            "type": "integer"
+          },
+          "min_rest_between_shifts_hours": {
+            "anyOf": [
+              {
+                "default": "0.000000",
+                "examples": [
+                  "0.200000"
+                ],
+                "pattern": "^-?\\d+(\\.\\d{1,6})?$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min Rest Between Shifts Hours"
+          },
+          "offsets": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Offsets",
+            "type": "array"
+          },
+          "rest_days_per_7": {
+            "examples": [
+              "0.200000"
+            ],
+            "pattern": "^-?\\d+(\\.\\d{1,6})?$",
+            "title": "Rest Days Per 7",
+            "type": "string"
+          },
+          "team_sizes": {
+            "items": {
+              "default": "0.000000",
+              "examples": [
+                "0.200000"
+              ],
+              "pattern": "^-?\\d+(\\.\\d{1,6})?$",
+              "type": "string"
+            },
+            "title": "Team Sizes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "code",
+          "cycle_length",
+          "k_required",
+          "k_suggested",
+          "k_used",
+          "offsets",
+          "exact",
+          "exact_with_half_teams",
+          "avg_weekly_hours",
+          "rest_days_per_7",
+          "max_consecutive_work_days",
+          "min_rest_between_shifts_hours",
+          "team_sizes"
+        ],
+        "title": "LayerReport",
+        "type": "object"
+      },
       "LegalRegimeOut": {
         "properties": {
           "allows_6x1": {
@@ -2112,6 +3107,383 @@
         "title": "LoginIn",
         "type": "object"
       },
+      "MatrixCell": {
+        "properties": {
+          "carry": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "turno da véspera que continua pela 00:00",
+            "title": "Carry"
+          },
+          "code": {
+            "description": "sigla do turno ou F (folga)",
+            "title": "Code",
+            "type": "string"
+          },
+          "moved": {
+            "default": false,
+            "description": "v3.7: trabalhou fora do subsetor de lotação",
+            "title": "Moved",
+            "type": "boolean"
+          },
+          "reserve": {
+            "default": false,
+            "title": "Reserve",
+            "type": "boolean"
+          },
+          "subsector": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "v3.7: subsetor de destino se remanejado",
+            "title": "Subsector"
+          },
+          "workstation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "v3.7: posição trabalhada no dia",
+            "title": "Workstation"
+          }
+        },
+        "required": [
+          "code"
+        ],
+        "title": "MatrixCell",
+        "type": "object"
+      },
+      "MatrixDaily": {
+        "properties": {
+          "by_shift": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "By Shift",
+            "type": "object"
+          },
+          "by_subsector": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "By Subsector",
+            "type": "object"
+          },
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "deficit_hours": {
+            "title": "Deficit Hours",
+            "type": "integer"
+          },
+          "deficit_shifts": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Deficit Shifts",
+            "type": "array"
+          },
+          "handover_hours": {
+            "title": "Handover Hours",
+            "type": "integer"
+          },
+          "off": {
+            "title": "Off",
+            "type": "integer"
+          },
+          "required_by_shift": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Required By Shift",
+            "type": "object"
+          },
+          "required_peak": {
+            "title": "Required Peak",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "date",
+          "by_shift",
+          "required_by_shift",
+          "off",
+          "deficit_shifts",
+          "deficit_hours",
+          "handover_hours",
+          "required_peak"
+        ],
+        "title": "MatrixDaily",
+        "type": "object"
+      },
+      "MatrixDay": {
+        "properties": {
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "holiday": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Holiday"
+          },
+          "is_weekend": {
+            "title": "Is Weekend",
+            "type": "boolean"
+          },
+          "weekday": {
+            "description": "1 = segunda … 7 = domingo",
+            "title": "Weekday",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "date",
+          "weekday",
+          "is_weekend"
+        ],
+        "title": "MatrixDay",
+        "type": "object"
+      },
+      "MatrixPerson": {
+        "properties": {
+          "cells": {
+            "items": {
+              "$ref": "#/components/schemas/MatrixCell"
+            },
+            "title": "Cells",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "moved_days": {
+            "default": 0,
+            "title": "Moved Days",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role"
+          },
+          "subsector": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "v3.7: subsetor de lotação",
+            "title": "Subsector"
+          },
+          "team": {
+            "title": "Team",
+            "type": "string"
+          },
+          "totals": {
+            "$ref": "#/components/schemas/PersonTotals"
+          },
+          "workstation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "v3.7: posição padrão",
+            "title": "Workstation"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "team",
+          "cells",
+          "totals"
+        ],
+        "title": "MatrixPerson",
+        "type": "object"
+      },
+      "MatrixShift": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "crosses_midnight": {
+            "default": false,
+            "title": "Crosses Midnight",
+            "type": "boolean"
+          },
+          "duration_min": {
+            "title": "Duration Min",
+            "type": "integer"
+          },
+          "end": {
+            "title": "End",
+            "type": "string"
+          },
+          "handover_min": {
+            "default": 0,
+            "title": "Handover Min",
+            "type": "integer"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "night": {
+            "default": false,
+            "title": "Night",
+            "type": "boolean"
+          },
+          "peak": {
+            "default": false,
+            "title": "Peak",
+            "type": "boolean"
+          },
+          "start": {
+            "title": "Start",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "start",
+          "end",
+          "label",
+          "duration_min"
+        ],
+        "title": "MatrixShift",
+        "type": "object"
+      },
+      "MatrixSubsector": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "name"
+        ],
+        "title": "MatrixSubsector",
+        "type": "object"
+      },
+      "MatrixTeam": {
+        "properties": {
+          "cells": {
+            "items": {
+              "$ref": "#/components/schemas/MatrixCell"
+            },
+            "title": "Cells",
+            "type": "array"
+          },
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "size": {
+            "default": "0.000000",
+            "examples": [
+              "0.200000"
+            ],
+            "pattern": "^-?\\d+(\\.\\d{1,6})?$",
+            "title": "Size",
+            "type": "string"
+          },
+          "totals": {
+            "$ref": "#/components/schemas/PersonTotals"
+          }
+        },
+        "required": [
+          "code",
+          "size",
+          "cells",
+          "totals"
+        ],
+        "title": "MatrixTeam",
+        "type": "object"
+      },
+      "MatrixWorkstation": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role"
+          },
+          "subsector": {
+            "title": "Subsector",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "name",
+          "subsector"
+        ],
+        "title": "MatrixWorkstation",
+        "type": "object"
+      },
       "MeOut": {
         "properties": {
           "current_organization_id": {
@@ -2177,6 +3549,95 @@
           "role"
         ],
         "title": "MembershipOut",
+        "type": "object"
+      },
+      "MonthlyMatrixOut": {
+        "properties": {
+          "daily": {
+            "items": {
+              "$ref": "#/components/schemas/MatrixDaily"
+            },
+            "title": "Daily",
+            "type": "array"
+          },
+          "days": {
+            "items": {
+              "$ref": "#/components/schemas/MatrixDay"
+            },
+            "title": "Days",
+            "type": "array"
+          },
+          "generated_people": {
+            "description": "pessoas fictícias por turma (A-01…) — o MVP aloca por turma",
+            "title": "Generated People",
+            "type": "boolean"
+          },
+          "generated_people_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Generated People Note"
+          },
+          "month": {
+            "title": "Month",
+            "type": "string"
+          },
+          "moved_hours": {
+            "default": 0,
+            "title": "Moved Hours",
+            "type": "integer"
+          },
+          "people": {
+            "items": {
+              "$ref": "#/components/schemas/MatrixPerson"
+            },
+            "title": "People",
+            "type": "array"
+          },
+          "shifts": {
+            "items": {
+              "$ref": "#/components/schemas/MatrixShift"
+            },
+            "title": "Shifts",
+            "type": "array"
+          },
+          "subsectors": {
+            "items": {
+              "$ref": "#/components/schemas/MatrixSubsector"
+            },
+            "title": "Subsectors",
+            "type": "array"
+          },
+          "teams": {
+            "items": {
+              "$ref": "#/components/schemas/MatrixTeam"
+            },
+            "title": "Teams",
+            "type": "array"
+          },
+          "workstations": {
+            "items": {
+              "$ref": "#/components/schemas/MatrixWorkstation"
+            },
+            "title": "Workstations",
+            "type": "array"
+          }
+        },
+        "required": [
+          "month",
+          "generated_people",
+          "days",
+          "shifts",
+          "people",
+          "teams",
+          "daily"
+        ],
+        "title": "MonthlyMatrixOut",
         "type": "object"
       },
       "OperationIn": {
@@ -2334,6 +3795,470 @@
           }
         },
         "title": "OperationPatch",
+        "type": "object"
+      },
+      "OptimizeApplyIn": {
+        "additionalProperties": false,
+        "properties": {
+          "mode": {
+            "default": "create",
+            "enum": [
+              "create",
+              "apply"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 2,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "patch": {
+            "title": "Patch",
+            "type": "object"
+          }
+        },
+        "required": [
+          "patch"
+        ],
+        "title": "OptimizeApplyIn",
+        "type": "object"
+      },
+      "OptimizeApplyOut": {
+        "properties": {
+          "created": {
+            "title": "Created",
+            "type": "boolean"
+          },
+          "scenario_id": {
+            "format": "uuid",
+            "title": "Scenario Id",
+            "type": "string"
+          },
+          "simulation": {
+            "$ref": "#/components/schemas/SimulateOut"
+          }
+        },
+        "required": [
+          "scenario_id",
+          "created",
+          "simulation"
+        ],
+        "title": "OptimizeApplyOut",
+        "type": "object"
+      },
+      "OptimizeIn": {
+        "additionalProperties": false,
+        "properties": {
+          "half_teams": {
+            "default": false,
+            "title": "Half Teams",
+            "type": "boolean"
+          },
+          "include_act": {
+            "default": false,
+            "description": "aceita modelos viáveis só com ACT/CCT",
+            "title": "Include Act",
+            "type": "boolean"
+          },
+          "legal_hard": {
+            "default": true,
+            "description": "regras do regime como restrições duras",
+            "title": "Legal Hard",
+            "type": "boolean"
+          },
+          "max_candidates": {
+            "default": 40,
+            "maximum": 100.0,
+            "minimum": 1.0,
+            "title": "Max Candidates",
+            "type": "integer"
+          },
+          "objective": {
+            "default": "min_headcount",
+            "enum": [
+              "min_headcount",
+              "offsets",
+              "best_model",
+              "pool_allocation",
+              "fairness"
+            ],
+            "title": "Objective",
+            "type": "string"
+          },
+          "pool": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "escopo: demanda somada de um pool",
+            "title": "Pool"
+          },
+          "subsector": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "escopo: demanda de um subsetor",
+            "title": "Subsector"
+          },
+          "target_coverage": {
+            "anyOf": [
+              {
+                "maximum": 1.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "default": "1",
+            "description": "cobertura alvo (1 = 100 %)",
+            "title": "Target Coverage"
+          },
+          "team_count": {
+            "anyOf": [
+              {
+                "maximum": 500.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "K (offsets/fairness)",
+            "title": "Team Count"
+          },
+          "team_size_mode": {
+            "default": "fixo",
+            "description": "fixo = tamanho do cenário; livre = pessoas por offset",
+            "enum": [
+              "fixo",
+              "livre"
+            ],
+            "title": "Team Size Mode",
+            "type": "string"
+          },
+          "time_limit_s": {
+            "default": 5.0,
+            "exclusiveMinimum": 0.0,
+            "maximum": 60.0,
+            "title": "Time Limit S",
+            "type": "number"
+          },
+          "weights": {
+            "$ref": "#/components/schemas/OptimizeWeights"
+          }
+        },
+        "title": "OptimizeIn",
+        "type": "object"
+      },
+      "OptimizeMetrics": {
+        "properties": {
+          "coverage_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Coverage Pct"
+          },
+          "deficit_hours": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deficit Hours"
+          },
+          "deficit_post_hours": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deficit Post Hours"
+          },
+          "deficit_post_hours_week": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deficit Post Hours Week"
+          },
+          "excess_post_hours_week": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Excess Post Hours Week"
+          },
+          "headcount": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Headcount"
+          },
+          "max_borrowed_hours_person": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Borrowed Hours Person"
+          },
+          "moved_hours": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Moved Hours"
+          },
+          "nights_spread": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nights Spread"
+          },
+          "sundays_off_spread": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sundays Off Spread"
+          },
+          "team_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Team Count"
+          }
+        },
+        "title": "OptimizeMetrics",
+        "type": "object"
+      },
+      "OptimizeOut": {
+        "properties": {
+          "after": {
+            "$ref": "#/components/schemas/OptimizeMetrics"
+          },
+          "before": {
+            "$ref": "#/components/schemas/OptimizeMetrics"
+          },
+          "best_bound": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Best Bound"
+          },
+          "candidates": {
+            "items": {
+              "type": "object"
+            },
+            "title": "Candidates",
+            "type": "array"
+          },
+          "elapsed_ms": {
+            "title": "Elapsed Ms",
+            "type": "integer"
+          },
+          "gap": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gap"
+          },
+          "notes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Notes",
+            "type": "array"
+          },
+          "objective": {
+            "enum": [
+              "min_headcount",
+              "offsets",
+              "best_model",
+              "pool_allocation",
+              "fairness"
+            ],
+            "title": "Objective",
+            "type": "string"
+          },
+          "objective_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Objective Value"
+          },
+          "optimal": {
+            "title": "Optimal",
+            "type": "boolean"
+          },
+          "scenario_patch": {
+            "anyOf": [
+              {
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "campos para criar/aplicar cenário (POST …/optimize/apply)",
+            "title": "Scenario Patch"
+          },
+          "scope": {
+            "title": "Scope",
+            "type": "string"
+          },
+          "solution": {
+            "title": "Solution",
+            "type": "object"
+          },
+          "solver": {
+            "title": "Solver",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "otimo",
+              "viavel",
+              "inviavel",
+              "sem_solucao",
+              "inviavel_regime"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "objective",
+          "status",
+          "optimal",
+          "objective_value",
+          "best_bound",
+          "gap",
+          "elapsed_ms",
+          "solver",
+          "scope",
+          "before",
+          "after",
+          "solution"
+        ],
+        "title": "OptimizeOut",
+        "type": "object"
+      },
+      "OptimizeWeights": {
+        "additionalProperties": false,
+        "properties": {
+          "deficit": {
+            "default": 100,
+            "maximum": 100000.0,
+            "minimum": 0.0,
+            "title": "Deficit",
+            "type": "integer"
+          },
+          "excess": {
+            "default": 1,
+            "maximum": 100000.0,
+            "minimum": 0.0,
+            "title": "Excess",
+            "type": "integer"
+          },
+          "fairness": {
+            "default": 5,
+            "maximum": 100000.0,
+            "minimum": 0.0,
+            "title": "Fairness",
+            "type": "integer"
+          },
+          "moves": {
+            "default": 10,
+            "maximum": 100000.0,
+            "minimum": 0.0,
+            "title": "Moves",
+            "type": "integer"
+          }
+        },
+        "title": "OptimizeWeights",
         "type": "object"
       },
       "PageLinks": {
@@ -2556,6 +4481,462 @@
         "title": "Page[ShrinkageOut]",
         "type": "object"
       },
+      "PatternDuplicateIn": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "minLength": 2,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          }
+        },
+        "title": "PatternDuplicateIn",
+        "type": "object"
+      },
+      "PatternSpec-Input": {
+        "additionalProperties": false,
+        "description": "Padrão de escala completo — o mesmo JSON vai em ``scenario.params.pattern``.",
+        "properties": {
+          "anchor_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Anchor Date"
+          },
+          "derived_from": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Z0-9_]{2,24}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Derived From"
+          },
+          "layers": {
+            "items": {
+              "$ref": "#/components/schemas/LayerIn-Input"
+            },
+            "maxItems": 8,
+            "minItems": 1,
+            "title": "Layers",
+            "type": "array"
+          },
+          "name": {
+            "default": "Padrão personalizado",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "operating_window": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WindowIn"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "shifts": {
+            "items": {
+              "$ref": "#/components/schemas/ShiftIn"
+            },
+            "maxItems": 24,
+            "minItems": 1,
+            "title": "Shifts",
+            "type": "array"
+          }
+        },
+        "required": [
+          "shifts",
+          "layers"
+        ],
+        "title": "PatternSpec",
+        "type": "object"
+      },
+      "PatternSpec-Output": {
+        "additionalProperties": false,
+        "description": "Padrão de escala completo — o mesmo JSON vai em ``scenario.params.pattern``.",
+        "properties": {
+          "anchor_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Anchor Date"
+          },
+          "derived_from": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Z0-9_]{2,24}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Derived From"
+          },
+          "layers": {
+            "items": {
+              "$ref": "#/components/schemas/LayerIn-Output"
+            },
+            "maxItems": 8,
+            "minItems": 1,
+            "title": "Layers",
+            "type": "array"
+          },
+          "name": {
+            "default": "Padrão personalizado",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "operating_window": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WindowIn"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "shifts": {
+            "items": {
+              "$ref": "#/components/schemas/ShiftIn"
+            },
+            "maxItems": 24,
+            "minItems": 1,
+            "title": "Shifts",
+            "type": "array"
+          }
+        },
+        "required": [
+          "shifts",
+          "layers"
+        ],
+        "title": "PatternSpec",
+        "type": "object"
+      },
+      "PatternTemplateIn": {
+        "additionalProperties": false,
+        "properties": {
+          "is_shared": {
+            "default": true,
+            "title": "Is Shared",
+            "type": "boolean"
+          },
+          "name": {
+            "maxLength": 120,
+            "minLength": 2,
+            "title": "Name",
+            "type": "string"
+          },
+          "pattern": {
+            "$ref": "#/components/schemas/PatternSpec-Input"
+          }
+        },
+        "required": [
+          "name",
+          "pattern"
+        ],
+        "title": "PatternTemplateIn",
+        "type": "object"
+      },
+      "PatternTemplateOut": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "current_version": {
+            "title": "Current Version",
+            "type": "integer"
+          },
+          "derived_from_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Derived From Code"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "is_shared": {
+            "title": "Is Shared",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "pattern": {
+            "$ref": "#/components/schemas/PatternSpec-Output"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          },
+          "validation": {
+            "title": "Validation",
+            "type": "object"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "derived_from_code",
+          "current_version",
+          "is_shared",
+          "pattern",
+          "validation",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "PatternTemplateOut",
+        "type": "object"
+      },
+      "PatternTemplatePut": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "minLength": 2,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "pattern": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PatternSpec-Input"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "title": "PatternTemplatePut",
+        "type": "object"
+      },
+      "PatternValidateIn": {
+        "additionalProperties": false,
+        "properties": {
+          "demand": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "maxItems": 168,
+                "minItems": 168,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Curva 168 h (seg 00h…dom 23h)",
+            "title": "Demand"
+          },
+          "legal_regime_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Legal Regime Code"
+          },
+          "pattern": {
+            "$ref": "#/components/schemas/PatternSpec-Input"
+          },
+          "postos": {
+            "default": 3,
+            "description": "Demanda plana 24/7 da pré-visualização",
+            "maximum": 500.0,
+            "minimum": 1.0,
+            "title": "Postos",
+            "type": "integer"
+          },
+          "team_size": {
+            "anyOf": [
+              {
+                "maximum": 500.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Team Size"
+          },
+          "weeks": {
+            "default": 4,
+            "maximum": 12.0,
+            "minimum": 1.0,
+            "title": "Weeks",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "pattern"
+        ],
+        "title": "PatternValidateIn",
+        "type": "object"
+      },
+      "PatternValidation": {
+        "properties": {
+          "coverage_pct": {
+            "examples": [
+              "0.200000"
+            ],
+            "pattern": "^-?\\d+(\\.\\d{1,6})?$",
+            "title": "Coverage Pct",
+            "type": "string"
+          },
+          "deficit_post_hours_week": {
+            "examples": [
+              "0.200000"
+            ],
+            "pattern": "^-?\\d+(\\.\\d{1,6})?$",
+            "title": "Deficit Post Hours Week",
+            "type": "string"
+          },
+          "elapsed_ms": {
+            "title": "Elapsed Ms",
+            "type": "integer"
+          },
+          "excess_pct": {
+            "examples": [
+              "0.200000"
+            ],
+            "pattern": "^-?\\d+(\\.\\d{1,6})?$",
+            "title": "Excess Pct",
+            "type": "string"
+          },
+          "findings": {
+            "items": {
+              "$ref": "#/components/schemas/FindingLite"
+            },
+            "title": "Findings",
+            "type": "array"
+          },
+          "handover_post_hours_week": {
+            "default": "0.000000",
+            "examples": [
+              "0.200000"
+            ],
+            "pattern": "^-?\\d+(\\.\\d{1,6})?$",
+            "title": "Handover Post Hours Week",
+            "type": "string"
+          },
+          "headcount": {
+            "examples": [
+              "0.200000"
+            ],
+            "pattern": "^-?\\d+(\\.\\d{1,6})?$",
+            "title": "Headcount",
+            "type": "string"
+          },
+          "k_required_total": {
+            "examples": [
+              "0.200000"
+            ],
+            "pattern": "^-?\\d+(\\.\\d{1,6})?$",
+            "title": "K Required Total",
+            "type": "string"
+          },
+          "layers": {
+            "items": {
+              "$ref": "#/components/schemas/LayerReport"
+            },
+            "title": "Layers",
+            "type": "array"
+          },
+          "legal_regime": {
+            "title": "Legal Regime",
+            "type": "string"
+          },
+          "slots": {
+            "items": {
+              "$ref": "#/components/schemas/PreviewSlot"
+            },
+            "title": "Slots",
+            "type": "array"
+          },
+          "teams_total": {
+            "title": "Teams Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "layers",
+          "teams_total",
+          "headcount",
+          "k_required_total",
+          "coverage_pct",
+          "deficit_post_hours_week",
+          "excess_pct",
+          "slots",
+          "findings",
+          "legal_regime",
+          "elapsed_ms"
+        ],
+        "title": "PatternValidation",
+        "type": "object"
+      },
       "PeakOut": {
         "properties": {
           "at": {
@@ -2563,6 +4944,7 @@
             "type": "string"
           },
           "value": {
+            "default": "0.000000",
             "examples": [
               "0.200000"
             ],
@@ -2576,6 +4958,268 @@
           "at"
         ],
         "title": "PeakOut",
+        "type": "object"
+      },
+      "PersonTotals": {
+        "properties": {
+          "hours": {
+            "default": "0.000000",
+            "examples": [
+              "0.200000"
+            ],
+            "pattern": "^-?\\d+(\\.\\d{1,6})?$",
+            "title": "Hours",
+            "type": "string"
+          },
+          "nights": {
+            "title": "Nights",
+            "type": "integer"
+          },
+          "off_days": {
+            "title": "Off Days",
+            "type": "integer"
+          },
+          "sundays_off": {
+            "title": "Sundays Off",
+            "type": "integer"
+          },
+          "worked_days": {
+            "title": "Worked Days",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "worked_days",
+          "off_days",
+          "hours",
+          "sundays_off",
+          "nights"
+        ],
+        "title": "PersonTotals",
+        "type": "object"
+      },
+      "PoolIn": {
+        "additionalProperties": false,
+        "properties": {
+          "allowed_role_codes": {
+            "description": "modo restrito: cargos intercambiáveis",
+            "items": {
+              "type": "string"
+            },
+            "title": "Allowed Role Codes",
+            "type": "array"
+          },
+          "code": {
+            "pattern": "^[A-Za-z0-9_\\-]{1,24}$",
+            "title": "Code",
+            "type": "string"
+          },
+          "max_borrowed_hours_week": {
+            "anyOf": [
+              {
+                "maximum": 168.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Borrowed Hours Week"
+          },
+          "mode": {
+            "default": "total",
+            "enum": [
+              "total",
+              "restrito"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "prefer_home": {
+            "default": true,
+            "title": "Prefer Home",
+            "type": "boolean"
+          },
+          "subsector_codes": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 50,
+            "minItems": 2,
+            "title": "Subsector Codes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "code",
+          "name",
+          "subsector_codes"
+        ],
+        "title": "PoolIn",
+        "type": "object"
+      },
+      "PoolOut": {
+        "properties": {
+          "allowed_role_codes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Allowed Role Codes",
+            "type": "array"
+          },
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "max_borrowed_hours_week": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Borrowed Hours Week"
+          },
+          "mode": {
+            "title": "Mode",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "operation_id": {
+            "format": "uuid",
+            "title": "Operation Id",
+            "type": "string"
+          },
+          "prefer_home": {
+            "title": "Prefer Home",
+            "type": "boolean"
+          },
+          "subsector_codes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Subsector Codes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "operation_id",
+          "code",
+          "name",
+          "subsector_codes",
+          "mode",
+          "allowed_role_codes",
+          "max_borrowed_hours_week",
+          "prefer_home"
+        ],
+        "title": "PoolOut",
+        "type": "object"
+      },
+      "PoolPatch": {
+        "additionalProperties": false,
+        "properties": {
+          "allowed_role_codes": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Allowed Role Codes"
+          },
+          "max_borrowed_hours_week": {
+            "anyOf": [
+              {
+                "maximum": 168.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Borrowed Hours Week"
+          },
+          "mode": {
+            "anyOf": [
+              {
+                "enum": [
+                  "total",
+                  "restrito"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mode"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "prefer_home": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prefer Home"
+          },
+          "subsector_codes": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 50,
+                "minItems": 2,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subsector Codes"
+          }
+        },
+        "title": "PoolPatch",
         "type": "object"
       },
       "PositionIn": {
@@ -2739,9 +5383,62 @@
         "title": "PositionPatch",
         "type": "object"
       },
+      "PreviewSlot": {
+        "properties": {
+          "gap_worst": {
+            "default": "0.000000",
+            "examples": [
+              "0.200000"
+            ],
+            "pattern": "^-?\\d+(\\.\\d{1,6})?$",
+            "title": "Gap Worst",
+            "type": "string"
+          },
+          "handover": {
+            "default": "0.000000",
+            "examples": [
+              "0.200000"
+            ],
+            "pattern": "^-?\\d+(\\.\\d{1,6})?$",
+            "title": "Handover",
+            "type": "string"
+          },
+          "required": {
+            "default": "0.000000",
+            "examples": [
+              "0.200000"
+            ],
+            "pattern": "^-?\\d+(\\.\\d{1,6})?$",
+            "title": "Required",
+            "type": "string"
+          },
+          "scheduled_worst": {
+            "default": "0.000000",
+            "examples": [
+              "0.200000"
+            ],
+            "pattern": "^-?\\d+(\\.\\d{1,6})?$",
+            "title": "Scheduled Worst",
+            "type": "string"
+          },
+          "slot_index": {
+            "title": "Slot Index",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "slot_index",
+          "required",
+          "scheduled_worst",
+          "gap_worst"
+        ],
+        "title": "PreviewSlot",
+        "type": "object"
+      },
       "RoleCoverageKpi": {
         "properties": {
           "deficit_post_hours": {
+            "default": "0.000000",
             "examples": [
               "0.200000"
             ],
@@ -2750,6 +5447,7 @@
             "type": "string"
           },
           "own_post_hours": {
+            "default": "0.000000",
             "examples": [
               "0.200000"
             ],
@@ -2758,6 +5456,7 @@
             "type": "string"
           },
           "pct_hours_covered": {
+            "default": "0.000000",
             "examples": [
               "0.200000"
             ],
@@ -2770,6 +5469,7 @@
             "type": "string"
           },
           "substituted_post_hours": {
+            "default": "0.000000",
             "examples": [
               "0.200000"
             ],
@@ -3129,7 +5829,7 @@
             "type": "boolean"
           },
           "params": {
-            "description": "ex.: {\"team_size\": 3} (pessoas por turma; padrão = pico da curva)",
+            "description": "ex.: {\"team_size\": 3} (pessoas por turma; padrão = pico da curva); v3.5: {\"pattern\": PatternSpec} = padrão do construtor (camadas, K livre, tamanhos por turma, janela de operação)",
             "title": "Params",
             "type": "object"
           },
@@ -3164,7 +5864,7 @@
             "type": "boolean"
           },
           "team_count": {
-            "maximum": 12.0,
+            "maximum": 500.0,
             "minimum": 1.0,
             "title": "Team Count",
             "type": "integer"
@@ -3300,6 +6000,13 @@
             "title": "Labor Agreement Id",
             "type": "string"
           },
+          "layers": {
+            "items": {
+              "$ref": "#/components/schemas/LayerInfo"
+            },
+            "title": "Layers",
+            "type": "array"
+          },
           "legal_reference_date": {
             "anyOf": [
               {
@@ -3374,6 +6081,13 @@
           "schedule_model": {
             "$ref": "#/components/schemas/ScheduleModelRef"
           },
+          "shifts": {
+            "items": {
+              "$ref": "#/components/schemas/ShiftInfo"
+            },
+            "title": "Shifts",
+            "type": "array"
+          },
           "shrinkage_profile_id": {
             "anyOf": [
               {
@@ -3393,6 +6107,13 @@
           "status": {
             "title": "Status",
             "type": "string"
+          },
+          "subsectors": {
+            "items": {
+              "$ref": "#/components/schemas/SubsectorKpi"
+            },
+            "title": "Subsectors",
+            "type": "array"
           },
           "team_count": {
             "title": "Team Count",
@@ -3590,7 +6311,7 @@
           "team_count": {
             "anyOf": [
               {
-                "maximum": 12.0,
+                "maximum": 500.0,
                 "minimum": 1.0,
                 "type": "integer"
               },
@@ -3637,6 +6358,10 @@
             "pattern": "^-?\\d+(\\.\\d{1,6})?$",
             "title": "Daily Hours",
             "type": "string"
+          },
+          "default_params": {
+            "title": "Default Params",
+            "type": "object"
           },
           "exact_24x7": {
             "title": "Exact 24X7",
@@ -3692,6 +6417,7 @@
           "teams_24x7": {
             "anyOf": [
               {
+                "default": "0.000000",
                 "examples": [
                   "0.200000"
                 ],
@@ -3703,6 +6429,22 @@
               }
             ],
             "title": "Teams 24X7"
+          },
+          "teams_non_continuous": {
+            "anyOf": [
+              {
+                "default": "0.000000",
+                "examples": [
+                  "0.200000"
+                ],
+                "pattern": "^-?\\d+(\\.\\d{1,6})?$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Teams Non Continuous"
           },
           "typical_teams": {
             "items": {
@@ -3744,6 +6486,7 @@
       "ScheduleModelRef": {
         "properties": {
           "avg_weekly_hours": {
+            "default": "0.000000",
             "examples": [
               "0.200000"
             ],
@@ -3761,6 +6504,151 @@
           "avg_weekly_hours"
         ],
         "title": "ScheduleModelRef",
+        "type": "object"
+      },
+      "ShiftIn": {
+        "additionalProperties": false,
+        "properties": {
+          "blocks": {
+            "anyOf": [
+              {
+                "items": {
+                  "maxItems": 2,
+                  "minItems": 2,
+                  "prefixItems": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "integer"
+                    }
+                  ],
+                  "type": "array"
+                },
+                "maxItems": 3,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Jornada fracionada: [[\"07:00\", 240], [\"17:00\", 240]]",
+            "title": "Blocks"
+          },
+          "break_min": {
+            "default": 60,
+            "maximum": 240.0,
+            "minimum": 0.0,
+            "title": "Break Min",
+            "type": "integer"
+          },
+          "code": {
+            "description": "Sigla do turno (≠ F e R)",
+            "pattern": "^[A-Z][A-Z0-9_]{0,7}$",
+            "title": "Code",
+            "type": "string"
+          },
+          "color": {
+            "anyOf": [
+              {
+                "pattern": "^#[0-9a-fA-F]{6}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Color"
+          },
+          "duration_min": {
+            "description": "Tempo à disposição (min)",
+            "maximum": 1440.0,
+            "minimum": 60.0,
+            "title": "Duration Min",
+            "type": "integer"
+          },
+          "handover_min": {
+            "default": 0,
+            "description": "v3.6 — minutos finais sobrepostos ao turno seguinte (passagem de turno): contam na cobertura como excesso planejado, não ociosidade",
+            "maximum": 240.0,
+            "minimum": 0.0,
+            "title": "Handover Min",
+            "type": "integer"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 60,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "peak": {
+            "default": false,
+            "description": "v3.6 — turno de reforço de pico sobre o núcleo",
+            "title": "Peak",
+            "type": "boolean"
+          },
+          "start": {
+            "examples": [
+              "06:00"
+            ],
+            "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$",
+            "title": "Start",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "start",
+          "duration_min"
+        ],
+        "title": "ShiftIn",
+        "type": "object"
+      },
+      "ShiftInfo": {
+        "properties": {
+          "blocks": {
+            "items": {
+              "items": {},
+              "type": "array"
+            },
+            "title": "Blocks",
+            "type": "array"
+          },
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "duration_min": {
+            "title": "Duration Min",
+            "type": "integer"
+          },
+          "handover_min": {
+            "default": 0,
+            "title": "Handover Min",
+            "type": "integer"
+          },
+          "peak": {
+            "default": false,
+            "title": "Peak",
+            "type": "boolean"
+          },
+          "start": {
+            "title": "Start",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "start",
+          "duration_min"
+        ],
+        "title": "ShiftInfo",
         "type": "object"
       },
       "ShiftTemplateOut": {
@@ -4045,7 +6933,7 @@
           "team_count": {
             "anyOf": [
               {
-                "maximum": 12.0,
+                "maximum": 500.0,
                 "minimum": 1.0,
                 "type": "integer"
               },
@@ -4112,6 +7000,7 @@
             "type": "integer"
           },
           "k_effective": {
+            "default": "0.000000",
             "examples": [
               "0.200000"
             ],
@@ -4120,6 +7009,7 @@
             "type": "string"
           },
           "k_legal": {
+            "default": "0.000000",
             "examples": [
               "0.200000"
             ],
@@ -4128,6 +7018,7 @@
             "type": "string"
           },
           "k_required": {
+            "default": "0.000000",
             "examples": [
               "0.200000"
             ],
@@ -4344,6 +7235,189 @@
         "title": "SlotsSummary",
         "type": "object"
       },
+      "StructureOut": {
+        "properties": {
+          "employees": {
+            "title": "Employees",
+            "type": "integer"
+          },
+          "operation_id": {
+            "format": "uuid",
+            "title": "Operation Id",
+            "type": "string"
+          },
+          "pools": {
+            "items": {
+              "$ref": "#/components/schemas/PoolOut"
+            },
+            "title": "Pools",
+            "type": "array"
+          },
+          "subsectors": {
+            "items": {
+              "$ref": "#/components/schemas/SubsectorOut"
+            },
+            "title": "Subsectors",
+            "type": "array"
+          }
+        },
+        "required": [
+          "operation_id",
+          "subsectors",
+          "pools",
+          "employees"
+        ],
+        "title": "StructureOut",
+        "type": "object"
+      },
+      "SubsectorIn": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "pattern": "^[A-Za-z0-9_\\-]{1,24}$",
+            "title": "Code",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "sort_order": {
+            "default": 0,
+            "title": "Sort Order",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "code",
+          "name"
+        ],
+        "title": "SubsectorIn",
+        "type": "object"
+      },
+      "SubsectorKpi": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "deficit_post_hours": {
+            "title": "Deficit Post Hours",
+            "type": "integer"
+          },
+          "demand_post_hours": {
+            "title": "Demand Post Hours",
+            "type": "integer"
+          },
+          "lent_post_hours": {
+            "title": "Lent Post Hours",
+            "type": "integer"
+          },
+          "own_post_hours": {
+            "title": "Own Post Hours",
+            "type": "integer"
+          },
+          "pct_hours_covered": {
+            "default": "0.000000",
+            "examples": [
+              "0.200000"
+            ],
+            "pattern": "^-?\\d+(\\.\\d{1,6})?$",
+            "title": "Pct Hours Covered",
+            "type": "string"
+          },
+          "received_post_hours": {
+            "title": "Received Post Hours",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "code",
+          "demand_post_hours",
+          "own_post_hours",
+          "received_post_hours",
+          "lent_post_hours",
+          "deficit_post_hours",
+          "pct_hours_covered"
+        ],
+        "title": "SubsectorKpi",
+        "type": "object"
+      },
+      "SubsectorOut": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "operation_id": {
+            "format": "uuid",
+            "title": "Operation Id",
+            "type": "string"
+          },
+          "sort_order": {
+            "title": "Sort Order",
+            "type": "integer"
+          },
+          "workstations": {
+            "items": {
+              "$ref": "#/components/schemas/WorkstationOut"
+            },
+            "title": "Workstations",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "operation_id",
+          "code",
+          "name",
+          "sort_order"
+        ],
+        "title": "SubsectorOut",
+        "type": "object"
+      },
+      "SubsectorPatch": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "sort_order": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sort Order"
+          }
+        },
+        "title": "SubsectorPatch",
+        "type": "object"
+      },
       "SubstitutionRuleIn": {
         "additionalProperties": false,
         "properties": {
@@ -4394,6 +7468,7 @@
             "type": "boolean"
           },
           "coverage_factor": {
+            "default": "0.000000",
             "examples": [
               "0.200000"
             ],
@@ -4620,6 +7695,7 @@
       "TeamCountOut": {
         "properties": {
           "achievable_pct": {
+            "default": "0.000000",
             "examples": [
               "0.200000"
             ],
@@ -4628,6 +7704,7 @@
             "type": "string"
           },
           "k_required": {
+            "default": "0.000000",
             "examples": [
               "0.200000"
             ],
@@ -4642,7 +7719,8 @@
           "mode": {
             "enum": [
               "fixo",
-              "cenario"
+              "cenario",
+              "padrao"
             ],
             "title": "Mode",
             "type": "string"
@@ -4694,6 +7772,7 @@
             "type": "integer"
           },
           "size_required": {
+            "default": "0.000000",
             "examples": [
               "0.200000"
             ],
@@ -4770,6 +7849,7 @@
       "TransitionOption": {
         "properties": {
           "avg_weekly_hours": {
+            "default": "0.000000",
             "examples": [
               "0.200000"
             ],
@@ -4801,6 +7881,7 @@
             "type": "integer"
           },
           "teams_required": {
+            "default": "0.000000",
             "examples": [
               "0.200000"
             ],
@@ -4855,6 +7936,7 @@
             "type": "array"
           },
           "k_legal": {
+            "default": "0.000000",
             "examples": [
               "0.200000"
             ],
@@ -4863,6 +7945,7 @@
             "type": "string"
           },
           "k_legal_half_teams": {
+            "default": "0.000000",
             "examples": [
               "0.200000"
             ],
@@ -4914,6 +7997,7 @@
       "TransitionScenarioModel": {
         "properties": {
           "avg_weekly_hours": {
+            "default": "0.000000",
             "examples": [
               "0.200000"
             ],
@@ -4941,6 +8025,7 @@
             "type": "integer"
           },
           "teams": {
+            "default": "0.000000",
             "examples": [
               "0.200000"
             ],
@@ -4991,6 +8076,227 @@
           "type"
         ],
         "title": "ValidationError",
+        "type": "object"
+      },
+      "WindowIn": {
+        "additionalProperties": false,
+        "properties": {
+          "end": {
+            "default": "18:00",
+            "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$",
+            "title": "End",
+            "type": "string"
+          },
+          "start": {
+            "default": "08:00",
+            "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$",
+            "title": "Start",
+            "type": "string"
+          },
+          "weekdays": {
+            "items": {
+              "maximum": 6.0,
+              "minimum": 0.0,
+              "type": "integer"
+            },
+            "title": "Weekdays",
+            "type": "array"
+          }
+        },
+        "title": "WindowIn",
+        "type": "object"
+      },
+      "WorkstationDemand": {
+        "additionalProperties": false,
+        "properties": {
+          "mode": {
+            "default": "postos_fixos",
+            "enum": [
+              "postos_fixos",
+              "curva_168h"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "posts": {
+            "anyOf": [
+              {
+                "maximum": 500.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": 1,
+            "description": "postos fixos (todas as horas)",
+            "title": "Posts"
+          },
+          "values": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "168 inteiros ≥ 0 (curva_168h)",
+            "title": "Values"
+          }
+        },
+        "title": "WorkstationDemand",
+        "type": "object"
+      },
+      "WorkstationIn": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "pattern": "^[A-Za-z0-9_\\-]{1,24}$",
+            "title": "Code",
+            "type": "string"
+          },
+          "demand": {
+            "$ref": "#/components/schemas/WorkstationDemand"
+          },
+          "name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "required_role_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Required Role Code"
+          },
+          "sort_order": {
+            "default": 0,
+            "title": "Sort Order",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "code",
+          "name"
+        ],
+        "title": "WorkstationIn",
+        "type": "object"
+      },
+      "WorkstationOut": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "demand_mode": {
+            "title": "Demand Mode",
+            "type": "string"
+          },
+          "demand_values": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Demand Values",
+            "type": "array"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "peak": {
+            "title": "Peak",
+            "type": "integer"
+          },
+          "required_role_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Required Role Code"
+          },
+          "subsector_code": {
+            "title": "Subsector Code",
+            "type": "string"
+          },
+          "subsector_id": {
+            "format": "uuid",
+            "title": "Subsector Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "subsector_id",
+          "subsector_code",
+          "code",
+          "name",
+          "required_role_code",
+          "demand_mode",
+          "demand_values",
+          "peak"
+        ],
+        "title": "WorkstationOut",
+        "type": "object"
+      },
+      "WorkstationPatch": {
+        "additionalProperties": false,
+        "properties": {
+          "demand": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WorkstationDemand"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "required_role_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Required Role Code"
+          }
+        },
+        "title": "WorkstationPatch",
         "type": "object"
       }
     },
@@ -5908,6 +9214,94 @@
         "summary": "Import Slots",
         "tags": [
           "demand"
+        ]
+      }
+    },
+    "/api/v1/escalas/employees/{employee_id}": {
+      "delete": {
+        "operationId": "delete_employee_api_v1_escalas_employees__employee_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "employee_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Employee Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-organization-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Organization-Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "unauthenticated"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "not_found (inclui outro tenant)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "validation_error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Delete Employee",
+        "tags": [
+          "structure"
         ]
       }
     },
@@ -7260,6 +10654,204 @@
         ]
       }
     },
+    "/api/v1/escalas/operations/{operation_id}/employees": {
+      "get": {
+        "operationId": "list_employees_api_v1_escalas_operations__operation_id__employees_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "operation_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Operation Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-organization-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Organization-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_list_EmployeeOut__"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "unauthenticated"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "not_found (inclui outro tenant)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "validation_error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Employees",
+        "tags": [
+          "structure"
+        ]
+      },
+      "post": {
+        "operationId": "create_employee_api_v1_escalas_operations__operation_id__employees_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "operation_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Operation Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-organization-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Organization-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmployeeIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_EmployeeOut_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "unauthenticated"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "not_found (inclui outro tenant)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "validation_error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Create Employee",
+        "tags": [
+          "structure"
+        ]
+      }
+    },
     "/api/v1/escalas/operations/{operation_id}/positions": {
       "get": {
         "operationId": "list_positions_api_v1_escalas_operations__operation_id__positions_get",
@@ -7774,6 +11366,499 @@
         "summary": "Delete Requirement",
         "tags": [
           "roles"
+        ]
+      }
+    },
+    "/api/v1/escalas/operations/{operation_id}/structure": {
+      "get": {
+        "description": "Árvore Operação → Subsetores → Posições + pools (uma chamada para o wizard/visões).",
+        "operationId": "get_structure_api_v1_escalas_operations__operation_id__structure_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "operation_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Operation Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-organization-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Organization-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_StructureOut_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "unauthenticated"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "not_found (inclui outro tenant)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "validation_error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Structure",
+        "tags": [
+          "structure"
+        ]
+      }
+    },
+    "/api/v1/escalas/operations/{operation_id}/subsector-pools": {
+      "get": {
+        "operationId": "list_pools_api_v1_escalas_operations__operation_id__subsector_pools_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "operation_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Operation Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-organization-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Organization-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_list_PoolOut__"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "unauthenticated"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "not_found (inclui outro tenant)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "validation_error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Pools",
+        "tags": [
+          "structure"
+        ]
+      },
+      "post": {
+        "description": "Pool = subsetores cujos funcionários são intercambiáveis (total ou por cargo).",
+        "operationId": "create_pool_api_v1_escalas_operations__operation_id__subsector_pools_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "operation_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Operation Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-organization-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Organization-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PoolIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_PoolOut_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "unauthenticated"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "not_found (inclui outro tenant)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "validation_error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Create Pool",
+        "tags": [
+          "structure"
+        ]
+      }
+    },
+    "/api/v1/escalas/operations/{operation_id}/subsectors": {
+      "get": {
+        "operationId": "list_subsectors_api_v1_escalas_operations__operation_id__subsectors_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "operation_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Operation Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-organization-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Organization-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_list_SubsectorOut__"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "unauthenticated"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "not_found (inclui outro tenant)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "validation_error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Subsectors",
+        "tags": [
+          "structure"
+        ]
+      },
+      "post": {
+        "operationId": "create_subsector_api_v1_escalas_operations__operation_id__subsectors_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "operation_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Operation Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-organization-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Organization-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubsectorIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_SubsectorOut_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "unauthenticated"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "not_found (inclui outro tenant)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "validation_error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Create Subsector",
+        "tags": [
+          "structure"
         ]
       }
     },
@@ -9821,6 +13906,7 @@
     },
     "/api/v1/escalas/scenarios/{scenario_id}/coverage": {
       "get": {
+        "description": "v3.7: ``subsector``/``workstation`` filtram heatmap e KPIs (após remanejamento).",
         "operationId": "coverage_api_v1_escalas_scenarios__scenario_id__coverage_get",
         "parameters": [
           {
@@ -9875,6 +13961,38 @@
                 }
               ],
               "title": "Role"
+            }
+          },
+          {
+            "in": "query",
+            "name": "subsector",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Subsector"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workstation",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Workstation"
             }
           },
           {
@@ -10068,6 +14186,482 @@
         "summary": "Export",
         "tags": [
           "scenarios"
+        ]
+      }
+    },
+    "/api/v1/escalas/scenarios/{scenario_id}/monthly-matrix": {
+      "get": {
+        "description": "v3.6: matriz mensal pessoa × dia (turno/folga), rodapé por turno e totais por pessoa.\n\nRegenera o mês com a mesma âncora/K/offsets da simulação; pessoas fictícias por turma\n(``A-01``…) quando não há colaboradores cadastrados.",
+        "operationId": "monthly_matrix_api_v1_escalas_scenarios__scenario_id__monthly_matrix_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "scenario_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Scenario Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "month",
+            "required": true,
+            "schema": {
+              "examples": [
+                "2027-01"
+              ],
+              "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+              "title": "Month",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-organization-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Organization-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_MonthlyMatrixOut_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "unauthenticated"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "not_found (inclui outro tenant)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "validation_error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Monthly Matrix",
+        "tags": [
+          "scenarios"
+        ]
+      }
+    },
+    "/api/v1/escalas/scenarios/{scenario_id}/monthly-matrix/export": {
+      "get": {
+        "description": "XLSX (uma aba por mês, cores por turno), CSV ou ICS (calendário individual).",
+        "operationId": "monthly_matrix_export_api_v1_escalas_scenarios__scenario_id__monthly_matrix_export_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "scenario_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Scenario Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "month",
+            "required": true,
+            "schema": {
+              "examples": [
+                "2027-01"
+              ],
+              "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+              "title": "Month",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "format",
+            "required": false,
+            "schema": {
+              "default": "xlsx",
+              "enum": [
+                "xlsx",
+                "csv",
+                "ics"
+              ],
+              "title": "Format",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "months",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "maximum": 12,
+              "minimum": 1,
+              "title": "Months",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "person",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Person"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-organization-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Organization-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              },
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {},
+              "text/calendar": {},
+              "text/csv": {}
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "unauthenticated"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "not_found (inclui outro tenant)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "validation_error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Monthly Matrix Export",
+        "tags": [
+          "scenarios"
+        ]
+      }
+    },
+    "/api/v1/escalas/scenarios/{scenario_id}/optimize": {
+      "post": {
+        "description": "v3.7 — otimizadores (OR-Tools CP-SAT), síncronos com ``time_limit_s``.\n\n``min_headcount`` (K/tamanho mínimos p/ cobertura alvo, por subsetor/pool), ``offsets``\n(defasagem ótima dado K), ``best_model`` (ranking do catálogo + personalizados),\n``pool_allocation`` (pessoas → posições nos pools) e ``fairness`` (offsets com folgas/\nnoites/domingos equilibrados). Devolve solução, métricas antes/depois, gap e status.",
+        "operationId": "optimize_api_v1_escalas_scenarios__scenario_id__optimize_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "scenario_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Scenario Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-organization-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Organization-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OptimizeIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_OptimizeOut_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "unauthenticated"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "not_found (inclui outro tenant)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "validation_error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Optimize",
+        "tags": [
+          "scenarios",
+          "optimize"
+        ]
+      }
+    },
+    "/api/v1/escalas/scenarios/{scenario_id}/optimize/apply": {
+      "post": {
+        "description": "Cria um cenário a partir da solução (``mode=create``) ou aplica no atual e simula.",
+        "operationId": "optimize_apply_api_v1_escalas_scenarios__scenario_id__optimize_apply_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "scenario_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Scenario Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-organization-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Organization-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OptimizeApplyIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_OptimizeApplyOut_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "unauthenticated"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "not_found (inclui outro tenant)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "validation_error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Optimize Apply",
+        "tags": [
+          "scenarios",
+          "optimize"
         ]
       }
     },
@@ -10853,6 +15447,801 @@
         ]
       }
     },
+    "/api/v1/escalas/schedule-models/{code}/pattern": {
+      "get": {
+        "description": "Padrão editável derivado do modelo (\"Personalizar\" / \"Duplicar do catálogo\").",
+        "operationId": "model_pattern_api_v1_escalas_schedule_models__code__pattern_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "code",
+            "required": true,
+            "schema": {
+              "title": "Code",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "team_count",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 60,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Team Count"
+            }
+          },
+          {
+            "in": "query",
+            "name": "team_size",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 500,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Team Size"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-organization-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Organization-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_PatternSpec_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "unauthenticated"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "not_found (inclui outro tenant)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "validation_error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Model Pattern",
+        "tags": [
+          "patterns"
+        ]
+      }
+    },
+    "/api/v1/escalas/schedule-patterns": {
+      "get": {
+        "operationId": "list_patterns_api_v1_escalas_schedule_patterns_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-organization-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Organization-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_list_PatternTemplateOut__"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "unauthenticated"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "not_found (inclui outro tenant)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "validation_error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Patterns",
+        "tags": [
+          "patterns"
+        ]
+      },
+      "post": {
+        "operationId": "create_pattern_api_v1_escalas_schedule_patterns_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-organization-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Organization-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatternTemplateIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_PatternTemplateOut_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "unauthenticated"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "not_found (inclui outro tenant)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "validation_error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Create Pattern",
+        "tags": [
+          "patterns"
+        ]
+      }
+    },
+    "/api/v1/escalas/schedule-patterns/{pattern_id}": {
+      "delete": {
+        "operationId": "delete_pattern_api_v1_escalas_schedule_patterns__pattern_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pattern_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Pattern Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-organization-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Organization-Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "unauthenticated"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "not_found (inclui outro tenant)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "validation_error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Delete Pattern",
+        "tags": [
+          "patterns"
+        ]
+      },
+      "get": {
+        "operationId": "get_pattern_api_v1_escalas_schedule_patterns__pattern_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pattern_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Pattern Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-organization-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Organization-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_PatternTemplateOut_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "unauthenticated"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "not_found (inclui outro tenant)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "validation_error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Pattern",
+        "tags": [
+          "patterns"
+        ]
+      },
+      "put": {
+        "description": "Alteração cria nova versão (``current_version + 1``).",
+        "operationId": "put_pattern_api_v1_escalas_schedule_patterns__pattern_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pattern_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Pattern Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-organization-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Organization-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatternTemplatePut"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_PatternTemplateOut_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "unauthenticated"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "not_found (inclui outro tenant)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "validation_error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Put Pattern",
+        "tags": [
+          "patterns"
+        ]
+      }
+    },
+    "/api/v1/escalas/schedule-patterns/{pattern_id}/duplicate": {
+      "post": {
+        "operationId": "duplicate_pattern_api_v1_escalas_schedule_patterns__pattern_id__duplicate_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pattern_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Pattern Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-organization-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Organization-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatternDuplicateIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_PatternTemplateOut_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "unauthenticated"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "not_found (inclui outro tenant)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "validation_error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Duplicate Pattern",
+        "tags": [
+          "patterns"
+        ]
+      }
+    },
+    "/api/v1/escalas/schedule-patterns:validate": {
+      "post": {
+        "description": "Validação em tempo real: K*/exato, h/sem, interjornada, achados e cobertura 7×24.\n\nAchados legais nunca bloqueiam: o padrão sempre pode ser simulado.",
+        "operationId": "validate_api_v1_escalas_schedule_patterns_validate_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-organization-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Organization-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatternValidateIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_PatternValidation_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "unauthenticated"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "not_found (inclui outro tenant)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "validation_error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Validate",
+        "tags": [
+          "patterns"
+        ]
+      }
+    },
     "/api/v1/escalas/shift-templates": {
       "get": {
         "operationId": "shift_templates_api_v1_escalas_shift_templates_get",
@@ -11320,6 +16709,493 @@
         ]
       }
     },
+    "/api/v1/escalas/subsector-pools/{pool_id}": {
+      "delete": {
+        "operationId": "delete_pool_api_v1_escalas_subsector_pools__pool_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pool_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Pool Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-organization-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Organization-Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "unauthenticated"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "not_found (inclui outro tenant)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "validation_error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Delete Pool",
+        "tags": [
+          "structure"
+        ]
+      },
+      "patch": {
+        "operationId": "patch_pool_api_v1_escalas_subsector_pools__pool_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pool_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Pool Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-organization-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Organization-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PoolPatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_PoolOut_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "unauthenticated"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "not_found (inclui outro tenant)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "validation_error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Patch Pool",
+        "tags": [
+          "structure"
+        ]
+      }
+    },
+    "/api/v1/escalas/subsectors/{subsector_id}": {
+      "delete": {
+        "operationId": "delete_subsector_api_v1_escalas_subsectors__subsector_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "subsector_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Subsector Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-organization-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Organization-Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "unauthenticated"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "not_found (inclui outro tenant)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "validation_error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Delete Subsector",
+        "tags": [
+          "structure"
+        ]
+      },
+      "patch": {
+        "operationId": "patch_subsector_api_v1_escalas_subsectors__subsector_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "subsector_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Subsector Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-organization-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Organization-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubsectorPatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_SubsectorOut_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "unauthenticated"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "not_found (inclui outro tenant)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "validation_error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Patch Subsector",
+        "tags": [
+          "structure"
+        ]
+      }
+    },
+    "/api/v1/escalas/subsectors/{subsector_id}/workstations": {
+      "post": {
+        "operationId": "create_workstation_api_v1_escalas_subsectors__subsector_id__workstations_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "subsector_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Subsector Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-organization-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Organization-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkstationIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_WorkstationOut_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "unauthenticated"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "not_found (inclui outro tenant)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "validation_error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Create Workstation",
+        "tags": [
+          "structure"
+        ]
+      }
+    },
     "/api/v1/escalas/substitution-rules": {
       "get": {
         "operationId": "get_substitution_api_v1_escalas_substitution_rules_get",
@@ -11496,6 +17372,197 @@
         "summary": "Put Substitution",
         "tags": [
           "roles"
+        ]
+      }
+    },
+    "/api/v1/escalas/workstations/{workstation_id}": {
+      "delete": {
+        "operationId": "delete_workstation_api_v1_escalas_workstations__workstation_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workstation_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workstation Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-organization-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Organization-Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "unauthenticated"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "not_found (inclui outro tenant)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "validation_error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Delete Workstation",
+        "tags": [
+          "structure"
+        ]
+      },
+      "patch": {
+        "operationId": "patch_workstation_api_v1_escalas_workstations__workstation_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workstation_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workstation Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-organization-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Organization-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkstationPatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_WorkstationOut_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "unauthenticated"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "not_found (inclui outro tenant)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "validation_error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Patch Workstation",
+        "tags": [
+          "structure"
         ]
       }
     },

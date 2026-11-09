@@ -19,7 +19,7 @@ from typing import Any, cast
 import yaml
 
 from app.services.engine.gerador import cobre_exatamente, montar_grupo, offsets_uniformes
-from app.services.engine.types import FOLGA, GrupoTurmas, Padrao, Turno
+from app.services.engine.types import FOLGA, RESERVA, GrupoTurmas, Padrao, Turno
 
 GENERICO = "X"
 
@@ -50,6 +50,27 @@ class ModeloEscala:
     modelo_base: str | None = None
     esperado: Mapping[str, Any] | None = None
     regime_compliance: Mapping[str, Mapping[str, str]] | None = None  # FR-42 (seed)
+    grupo: str = "continuo"            # continuo | nao_continuo | complementar | variacao
+    fase: str = "mvp"                  # mvp | fase2 (catálogo completo v3.5)
+    semanal: bool = False              # sequência alinhada à segunda-feira
+    k_estrela_dado: Fraction | None = None   # override (ex.: 18x36, cobertura por hora)
+    exato_dado: bool | None = None
+    offsets_dados: tuple[int, ...] | None = None
+    turmas_grupos: tuple[int, ...] | None = None   # v3.6: turmas por grupo (núcleo + pico)
+    motor: str = "ciclico"             # ciclico | generico (camadas com alinhamento semanal)
+    sobreposicao: bool = False         # v3.6: versão com passagem/reforço planejado
+
+    def distribuir_k(self, total: int) -> tuple[int, ...]:
+        """K total → turmas por grupo (``turmas_grupos`` como base; resto aos primeiros)."""
+        n = len(self.sequencias)
+        if self.turmas_grupos and total >= sum(self.turmas_grupos):
+            extra = total - sum(self.turmas_grupos)
+            return tuple(b + (1 if i < extra % n else 0) + extra // n
+                         for i, b in enumerate(self.turmas_grupos))
+        if total < n:
+            raise ValueError(f"{self.codigo}: K={total} menor que o nº de grupos ({n})")
+        base, resto = divmod(total, n)
+        return tuple(base + (1 if i < resto else 0) for i in range(n))
 
     # ---- métricas analíticas -------------------------------------------------
     def _grupos_canonicos(self, meias: bool = False) -> tuple[GrupoTurmas, ...]:
@@ -70,6 +91,8 @@ class ModeloEscala:
         """K* = Σ s·L/w por grupo; ``None`` para modelo não contínuo."""
         if not self.continuo_24x7:
             return None
+        if self.k_estrela_dado is not None:
+            return self.k_estrela_dado
         return sum((_k_estrela_seq(s) for s in self.sequencias), Fraction(0))
 
     @property
@@ -83,7 +106,7 @@ class ModeloEscala:
     def horas_semanais(self, duracao_min: int | None = None) -> Fraction:
         """h/sem média = w × h × 7 / L (por turma)."""
         seq = self.sequencias[0]
-        w = sum(1 for e in seq if e != FOLGA)
+        w = sum(1 for e in seq if e not in (FOLGA, RESERVA))
         dur = self.duracoes_min[0] if duracao_min is None else duracao_min
         return Fraction(w * dur * 7, len(seq) * 60)
 
@@ -95,6 +118,8 @@ class ModeloEscala:
     def _exato(self, meias: bool) -> bool | None:
         if not self.continuo_24x7:
             return None
+        if self.exato_dado is not None:
+            return self.exato_dado and not meias
         try:
             grupos = self._grupos_canonicos(meias)
         except ValueError:
@@ -128,6 +153,8 @@ class ModeloEscala:
         if not self.continuo_24x7:
             raise ValueError(f"{self.codigo}: modelo não contínuo — gerador 24/7 não se aplica")
         v = variante or (self.variantes[0] if self.variantes else Variante("K*"))
+        if self.offsets_dados is not None and not v.meias:
+            return Padrao(self.codigo, (GrupoTurmas(self.sequencias[0], self.offsets_dados),))
         n_grupos = len(self.sequencias)
         grupos: list[GrupoTurmas] = []
         for seq in self.sequencias:
@@ -139,6 +166,9 @@ class ModeloEscala:
                 grupos.append(montar_grupo(seq, int(n), Fraction(1, 2)))
             else:
                 total = v.turmas if v.turmas is not None else ceil(self.k_estrela or 0)
+                if self.turmas_grupos:
+                    grupos.append(montar_grupo(seq, self.distribuir_k(total)[len(grupos)]))
+                    continue
                 if total % n_grupos:
                     raise ValueError(f"{self.codigo}: {total} turmas não divide {n_grupos} grupos")
                 grupos.append(montar_grupo(seq, total // n_grupos))
@@ -146,8 +176,8 @@ class ModeloEscala:
 
 
 def _k_estrela_seq(seq: tuple[str, ...]) -> Fraction:
-    turnos = {e for e in seq if e != FOLGA}
-    w = sum(1 for e in seq if e != FOLGA)
+    turnos = {e for e in seq if e not in (FOLGA, RESERVA)}
+    w = sum(1 for e in seq if e not in (FOLGA, RESERVA))
     return Fraction(len(turnos) * len(seq), w)
 
 
@@ -180,7 +210,9 @@ class Catalogo:
 def carregar_catalogo(dados: Mapping[str, Any]) -> Catalogo:
     """Interpreta o dicionário do seed (estrutura de ``catalogo_mvp.yaml``)."""
     turnos = {
-        c: Turno(c, _hhmm(str(t["inicio"])), int(t["duracao_min"]))
+        c: Turno(c, _hhmm(str(t["inicio"])), int(t["duracao_min"]),
+                 blocos=tuple((_hhmm(str(b[0])), int(b[1])) for b in t.get("blocos", ())),
+                 passagem_min=int(t.get("passagem_min", 0)), reforco=bool(t.get("reforco")))
         for c, t in dados["turnos"].items()
     }
     brutos = {str(m["codigo"]): m for m in dados["modelos"]}
@@ -190,12 +222,16 @@ def carregar_catalogo(dados: Mapping[str, Any]) -> Catalogo:
             base = brutos[str(m["modelo_base"])]
             seqs = _expandir(list(base["sequencia"]), base.get("rotacao"), [str(m["turno_fixo"])])
             fonte = base
+        elif "grupos" in m:   # v3.6: grupos com sequências distintas (núcleo + pico)
+            seqs = [tuple(str(e) for e in g) for g in m["grupos"]]
+            fonte = m
         else:
             seqs = _expandir([str(e) for e in m["sequencia"]], m.get("rotacao"),
                              [str(t) for t in m.get("turnos", [])])
             fonte = m
         for seq in seqs:
-            desconhecidos = {e for e in seq if e not in turnos and e not in (FOLGA, GENERICO)}
+            desconhecidos = {e for e in seq
+                             if e not in turnos and e not in (FOLGA, RESERVA, GENERICO)}
             if desconhecidos:
                 raise ValueError(f"{codigo}: turnos desconhecidos {sorted(desconhecidos)}")
         if "modelo_base" in m:
@@ -216,6 +252,18 @@ def carregar_catalogo(dados: Mapping[str, Any]) -> Catalogo:
             modelo_base=m.get("modelo_base"),
             esperado=m.get("esperado"),
             regime_compliance=m.get("regime_compliance"),
+            grupo=str(m.get("grupo") or fonte.get("grupo")
+                      or ("continuo" if fonte["continuo_24x7"] else "nao_continuo")),
+            fase=str(m.get("fase", "mvp")),
+            semanal=bool(m.get("semanal", False)),
+            k_estrela_dado=Fraction(str(m["k_estrela"])) if "k_estrela" in m else None,
+            exato_dado=m.get("exato"),
+            offsets_dados=tuple(m["offsets"]) if "offsets" in m else None,
+            turmas_grupos=tuple(int(x) for x in m["turmas_grupos"]) if "turmas_grupos" in m
+            else None,
+            motor=str(m.get("motor", "ciclico")),
+            sobreposicao=any(turnos[e].passagem_min or turnos[e].reforco
+                             for sq in seqs for e in sq if e in turnos),
         )
     return Catalogo(str(dados["versao"]), turnos, modelos)
 

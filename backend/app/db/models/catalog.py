@@ -135,3 +135,30 @@ class LegalRegime(Base):
         CheckConstraint("status IN ('vigente','previsto','premissa')", name="status"),
         CheckConstraint("valid_from IS NOT NULL OR anchor IS NOT NULL", name="vigencia"),
     )
+
+
+class CustomSchedulePattern(Base):
+    """Template do construtor (FR-29/FR-31, 05 §3.12) — padrão em camadas da organização.
+
+    v3.5: ``spec`` guarda o padrão completo (turnos, camadas, K, offsets, tamanhos, folgas
+    fixas, âncora, janela); ``current_version`` cresce a cada alteração (as versões imutáveis
+    de ``custom_schedule_pattern_versions`` ficam para a Fase 2b — o cenário copia o ``spec``
+    usado para ``params.pattern``, então o resultado é reprodutível pelo ``inputs_hash``).
+    """
+
+    __tablename__ = "custom_schedule_patterns"
+    id: Mapped[int] = pk()
+    public_id: Mapped[uuid.UUID] = public_id()
+    organization_id: Mapped[int] = mapped_column(
+        BigId, ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(Text, nullable=False)
+    derived_from_code: Mapped[str | None] = mapped_column(String(24))
+    current_version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    is_shared: Mapped[bool] = mapped_column(nullable=False, default=True)
+    spec: Mapped[dict[str, Any]] = mapped_column(nullable=False, default=dict)
+    validation: Mapped[dict[str, Any]] = mapped_column(nullable=False, default=dict)
+    created_by: Mapped[int | None] = mapped_column(BigId, ForeignKey("users.id"))
+    created_at: Mapped[datetime] = created_at()
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    __table_args__ = (UniqueConstraint("organization_id", "name"),)

@@ -249,6 +249,15 @@ Validadas com `dataviz/scripts/validate_palette.js` (claro: todos PASS; escuro: 
 ### Outros
 Botões (primário, secundário, fantasma, destrutivo), inputs com máscara pt-BR, select de escala com descrição, badge de turma, chip de filtro, toast, modal, drawer de detalhes, tooltip, skeleton, banner de premissas, trilha de auditoria (timeline).
 
+### 8.19 Subsetor e posição nas visões (v3.7) [MVP]
+- Matriz mensal: após "Pessoa", colunas **fixas** "Subsetor" (nome) e "Posição" (código) — `sticky left-28` / `left-52`, largura 6 rem; agrupamento padrão por subsetor quando existe estrutura.
+- Célula **remanejada**: sigla do turno + linha `⇄SUB/POS` em `text-primary` e **contorno tracejado** `outline-dashed outline-primary` (nunca só cor); `aria-label` "… remanejado para SUB/POS"; legenda "⇄ remanejado (pool)". CSV/XLSX: `M → SUB/POS` em itálico.
+- Rodapé: linhas "No subsetor X" (pessoas trabalhando no subsetor por dia).
+- Painel "Subsetores, posições e pools": chips tracejados por pool (`Caldeiras ⇄ Turbinas`), tabela por subsetor (demanda, próprio, **recebido ⇄** em primário, cedido, déficit em erro, cobertura %) e frase "Déficit nos subsetores: X sem pool → Y com pool".
+
+### 8.20 Painel "Otimizar" (v3.7) [MVP]
+Formulário em grade (objetivo com dica, escopo, cobertura alvo %, limite de tempo s, tamanho fixo/livre, K quando aplicável, fieldset "Restrições" com toggles) e botão primário "Otimizar". Resultado em card: selo de status (Ótimo = `sev-ok`, Viável = `sev-alerta`, Inviável/Bloqueado = `sev-erro`), linha técnica "solver · ms · gap · escopo", tabela **Antes × Depois** (melhoria em `sev-ok`), resumo da solução, ranking (linhas inelegíveis em `ink-subtle`), notas e ações "Criar cenário a partir da solução" (primário) / "Aplicar neste cenário" (secundário). Microcopy: "Resolvendo com CP-SAT (até 5 s)…".
+
 ## 9. Estados
 
 Para cada componente documentar: **padrão, hover, foco (visível), ativo, desabilitado, carregando (skeleton / "Calculando cobertura…" com progresso por módulo M1→M4), vazio (com CTA), erro (com recuperação), sucesso, desatualizado** ("Premissas mudaram — recalcular"), **somente leitura** (cenário homologado, com cadeado) e **comparação** (diff destacado).
@@ -385,6 +394,13 @@ Para cada componente documentar: **padrão, hover, foco (visível), ativo, desab
 │ └────────────────────────┘ └────────────────────────┘ └──────[Criar cenário desta fase]─┘          │
 └────────────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
+
+### 11.8 Visões do resultado e sobreposição (v3.6) [MVP]
+
+- **8.16 Matriz mensal:** tabela pessoa × dia com cabeçalho e 1ª coluna fixos (sticky), rolagem horizontal. Célula 36 px: sigla em mono bold sobre fundo 30 % da cor do turno + filete inferior na cor cheia (cor **e** texto); folga `F` com textura `pattern-off`; `←N` em micro quando a noite da véspera continua. Cabeçalho do dia: número + dia da semana; domingo em `sev-info`; fim de semana `surface-2`; feriado `sev-alerta-bg` + ★ (nome no `title` e em texto para leitor de tela). Rodapé por turno com `▼n` em `sev-erro-bg` quando abaixo do necessário, linha "Em folga", "Horas c/ déficit" e "Horas de passagem (⇄)". Totais à direita. Filtro de turno esmaece (30 %) as demais células. Impressão: `@page A4 landscape`, controles ocultos.
+- **8.17 Por turno:** cartões por turno (borda superior na cor do turno) com "n pessoas / m necessários", lista "Turma X: nomes (cargo)"; cartão tracejado "← Continua de ontem"; cartão de folga texturizado.
+- **8.18 Pessoa:** calendário mensal seg→dom (células 64 px) com dia, sigla, horário, `← N`, anel âmbar em feriado; faixa de totais (dias, folgas, horas, domingos de folga, noites); botões Exportar XLSX/CSV/ICS.
+- **Passagem planejada:** novo estado do heatmap (`⇄`, fundo "exato" com hachura de excesso) — "excesso planejado de passagem, não ociosidade"; no construtor, coluna **Passagem (min)** na régua e `⇄20′` na barra do turno.
 
 ## 12. Referências
 

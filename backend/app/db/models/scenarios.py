@@ -89,7 +89,7 @@ class Scenario(Base):
     __table_args__ = (
         UniqueConstraint("lineage_id", "version"),
         CheckConstraint(f"status IN {SCENARIO_STATUS}", name="status"),
-        CheckConstraint("team_count BETWEEN 1 AND 12", name="team_count"),
+        CheckConstraint("team_count BETWEEN 1 AND 500", name="team_count"),
         CheckConstraint("horizon_weeks BETWEEN 1 AND 104", name="horizon"),
         Index("ix_scenarios_org_op_status", "organization_id", "operation_id", "status"),
         Index("ix_scenarios_inputs_hash", "organization_id", "inputs_hash"),

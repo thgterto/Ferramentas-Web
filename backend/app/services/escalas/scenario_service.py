@@ -9,11 +9,13 @@ import base64
 import time
 import uuid
 from collections import Counter
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from fractions import Fraction
+from math import ceil
 from typing import TYPE_CHECKING, Any
 
+from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from app.core.errors import AppError, conflict, not_found, validation
@@ -41,6 +43,7 @@ from app.repositories.cadastros import (
 )
 from app.repositories.catalog import CatalogRepo
 from app.repositories.scenarios import ScenarioRepo
+from app.schemas import pattern as sp
 from app.schemas import scenario as ss
 from app.services.engine.catalogo import catalogo_mvp
 from app.services.engine.cobertura import status_de
@@ -60,7 +63,7 @@ from app.services.engine.regime_legal import (
 from app.services.engine.shrinkage import Shrinkage
 from app.services.engine.types import FOLGA, Achado, Severidade, para_decimal
 from app.services.engine.version import ENGINE_VERSION
-from app.services.escalas import demand_service
+from app.services.escalas import demand_service, pattern_service
 from app.services.escalas.catalog_service import resolve_engine_regime
 from app.services.escalas.engine_runner import (
     EntradaCargos,
@@ -77,7 +80,7 @@ if TYPE_CHECKING:
     from app.api.deps import Principal
 
 EDITABLE = ("rascunho", "erro")
-_STATUS_DB = {"deficit": "deficit", "exato": "exata", "excesso": "excesso"}
+_STATUS_DB = {"deficit": "deficit", "exato": "exata", "excesso": "excesso", "passagem": "excesso"}
 
 
 def D(f: Fraction | int) -> Decimal:
@@ -101,7 +104,6 @@ def scenario_out(db: Session, p: Principal, s: Scenario) -> ss.ScenarioOut:
     by_team: dict[int, dict[str, int]] = {}
     for c in comp:
         by_team.setdefault(c.team_id, {})[roles.get(c.role_id, "?")] = c.headcount
-    n_alerts = (s.result_summary or {}).get("warnings", 0)
     shr = ShrinkageRepo(db, p.org_id).get_by_id(s.shrinkage_profile_id) \
         if s.shrinkage_profile_id else None
     return ss.ScenarioOut(
@@ -122,14 +124,15 @@ def scenario_out(db: Session, p: Principal, s: Scenario) -> ss.ScenarioOut:
         overtime_planned=s.overtime_planned, simulate_transition=s.simulate_transition,
         params=s.params, inputs_hash=s.inputs_hash, engine_version=s.engine_version,
         rules_version=s.rules_version,
-        kpis=ss.KpisOut(teams_required=s.teams_required, coverage_pct=s.coverage_pct,
-                        deficit_post_hours=s.deficit_post_hours,
-                        peak_undercoverage=s.peak_undercoverage, deficit_hours=s.deficit_hours,
-                        headcount_min=s.headcount_min, blocking_findings=s.blocking_findings,
-                        warnings=n_alerts),
+        kpis=_kpis(s),
         teams=[ss.TeamOut(code=t.code, kind=t.kind, label=t.label, size_required=t.size_required,
                           size_assigned=t.size_assigned, cycle_offset_days=t.cycle_offset_days,
                           composition=by_team.get(t.id, {})) for t in teams],
+        shifts=[ss.ShiftInfo(**x) for x in (s.result_summary or {}).get("shifts", [])],
+        layers=[ss.LayerInfo(**x) for x in (s.result_summary or {}).get("layers", [])],
+        subsectors=[ss.SubsectorKpi(code=c, **v) for c, v in
+                    ((s.result_summary or {}).get("subsectors") or {}).get("kpis", {}).items()
+                    if not c.startswith("pos:")],
         calculated_at=s.calculated_at, created_at=s.created_at)
 
 
@@ -179,7 +182,22 @@ def _shift_ids(db: Session, p: Principal, codes: list[str]) -> list[int]:
     return [by_code[c] for c in codes]
 
 
+def _check_pattern(params: dict[str, Any] | None) -> None:
+    """``params.pattern`` (construtor v3.5) é validado já na criação/edição (422 cedo)."""
+    raw = (params or {}).get("pattern")
+    if raw is None:
+        return
+    try:
+        pattern_service.to_engine(sp.PatternSpec.model_validate(raw))
+    except ValidationError as exc:
+        raise validation("params.pattern inválido",
+                         [{"field": "params.pattern." + ".".join(str(x) for x in e["loc"]),
+                           "code": e["type"], "message": e["msg"]}
+                          for e in exc.errors()[:20]], code="PATTERN_INVALIDO") from exc
+
+
 def create(db: Session, p: Principal, body: ss.ScenarioCreate) -> ss.ScenarioCreated:
+    _check_pattern(body.params)
     op = OperationRepo(db, p.org_id).get(body.operation_id)
     curve = DemandCurveRepo(db, p.org_id).get(body.demand_curve_id)
     pos = PositionRepo(db, p.org_id).get_by_id(curve.position_id)
@@ -219,6 +237,7 @@ def patch(db: Session, p: Principal, sid: uuid.UUID, body: ss.ScenarioPatch,
     if s.status not in EDITABLE:
         raise conflict("scenario_immutable", "cenário calculado: crie nova versão (Fase 2)")
     vals = body.model_dump(exclude_unset=True)
+    _check_pattern(vals.get("params"))
     if "schedule_model_code" in vals:
         vals["schedule_model_id"] = _model(db, vals.pop("schedule_model_code")).id
     if "legal_regime_code" in vals:
@@ -255,12 +274,26 @@ def _team_size(s: Scenario, curva: CurvaDemanda) -> int:
     return max(1, max(curva.valores))
 
 
+def _offsets_param(params: dict[str, Any]) -> tuple[tuple[int, ...], ...] | None:
+    """v3.7 — ``params.offsets`` (solução do otimizador): offsets por grupo do modelo."""
+    raw = params.get("offsets")
+    if raw is None:
+        return None
+    if (not isinstance(raw, list) or not all(isinstance(g, list) for g in raw)
+            or not all(isinstance(o, int) and o >= 0 for g in raw for o in g)):
+        raise validation("params.offsets deve ser lista de listas de inteiros ≥ 0")
+    return tuple(tuple(g) for g in raw)
+
+
 def _entrada(db: Session, p: Principal, s: Scenario
              ) -> tuple[EntradaSimulacao, dict[str, Any], list[Team] | None]:
     cat = catalogo_mvp()
     model_row = CatalogRepo(db).schedule_model_by_id(s.schedule_model_id)
     modelo = cat.modelos.get(model_row.code)
-    if modelo is None:
+    raw_pattern = s.params.get("pattern")
+    spec = sp.PatternSpec.model_validate(raw_pattern) if raw_pattern is not None else None
+    padrao = pattern_service.to_engine(spec) if spec is not None else None
+    if modelo is None and padrao is None:
         raise validation(f"modelo {model_row.code} fora do catálogo do motor")
     curve_repo = DemandCurveRepo(db, p.org_id)
     curve = curve_repo.get_by_id(s.demand_curve_id)
@@ -306,19 +339,28 @@ def _entrada(db: Session, p: Principal, s: Scenario
                        "regras": sorted((g.de, g.para, g.prioridade) for g in regras),
                        "minimos": sorted((m.cargo, m.minimo, m.turnos, m.aceita_substituto)
                                          for m in minimos)}
+    from app.services.escalas.structure_service import engine_structure
+
+    estr, pessoas, snap_estr = engine_structure(db, p, s.operation_id)
+    offsets = _offsets_param(s.params)
     entrada = EntradaSimulacao(
         modelo=modelo, catalogo=cat, curva=curva, tamanho_turma=tam, k=k,
         k_fixo_operacao=tc is not None, inicio=s.horizon_start, semanas=s.horizon_weeks,
-        shrinkage=shr, regime=regime, ctx=ctx, cargos=cargos)
+        shrinkage=shr, regime=regime, ctx=ctx, cargos=cargos, padrao=padrao,
+        estrutura=estr, pessoas=pessoas, offsets=offsets)
     snapshot = {
         "engine_version": ENGINE_VERSION, "rules_version": RULES_VERSION,
         "catalog_version": cat.versao, "regimes_version": regimes_mvp().versao,
-        "schedule_model": modelo.codigo, "k": k, "k_mode": "fixo" if tc else "cenario",
+        "schedule_model": model_row.code, "k": k,
+        "k_mode": ("padrao" if padrao is not None or (modelo and not modelo.continuo_24x7)
+                   else "fixo" if tc else "cenario"),
+        "pattern": spec.model_dump(mode="json") if spec is not None else None,
         "team_size": tam, "horizon_start": s.horizon_start.isoformat(),
         "horizon_weeks": s.horizon_weeks, "demand": list(curva.valores),
         "critical": sorted(curva.criticas), "demand_checksum": curve.checksum,
         "shrinkage": [str(shr.diurno), str(shr.noturno)], "regime": regime.ref,
         "ctx": [ctx.act_cct_declarado, ctx.he_planejada], "roles": snap_cargos,
+        "structure": snap_estr, "offsets": [list(o) for o in offsets] if offsets else None,
     }
     return entrada, snapshot, teams if comp_rows else None
 
@@ -334,11 +376,15 @@ def _sev(a: Achado) -> Any:
 
 
 def _kpis(s: Scenario) -> ss.KpisOut:
+    sub = (s.result_summary or {}).get("subsectors") or {}
     return ss.KpisOut(teams_required=s.teams_required, coverage_pct=s.coverage_pct,
                       deficit_post_hours=s.deficit_post_hours,
                       peak_undercoverage=s.peak_undercoverage, deficit_hours=s.deficit_hours,
                       headcount_min=s.headcount_min, blocking_findings=s.blocking_findings,
-                      warnings=(s.result_summary or {}).get("warnings", 0))
+                      warnings=(s.result_summary or {}).get("warnings", 0),
+                      moved_hours=sub.get("moved_hours"),
+                      subsector_deficit_post_hours=sub.get("deficit_post_hours"),
+                      subsector_deficit_without_pool=sub.get("deficit_without_pool"))
 
 
 def _persist(db: Session, p: Principal, s: Scenario, r: ResultadoSimulacao,
@@ -346,14 +392,22 @@ def _persist(db: Session, p: Principal, s: Scenario, r: ResultadoSimulacao,
     repo = ScenarioRepo(db, p.org_id)
     repo.clear_results(s.id)
     org = p.org_id
+    generic = bool(r.extras.get("generic"))
+    layer_of = r.extras.get("team_layers", {})
+
+    def _size(t: Any) -> Fraction:
+        return Fraction(t.fracao_posto) if generic else tam * t.fracao_posto
+
     teams = repo.ensure_teams(s.id, [
-        {"code": t.nome, "kind": "regular", "label": f"Turma {t.nome}",
-         "cycle_offset_days": t.offset, "size_required": D(tam * t.fracao_posto),
-         "size_assigned": int(tam * t.fracao_posto)} for t in r.escala.turmas])
+        {"code": t.nome, "kind": "regular",
+         "label": f"Turma {t.nome}" + (f" · {layer_of[t.nome]}" if t.nome in layer_of else ""),
+         "cycle_offset_days": t.offset, "size_required": D(_size(t)),
+         "size_assigned": ceil(_size(t))} for t in r.escala.turmas])
     team_id = {t.code: t.id for t in teams}
+    turnos_map = r.extras["turnos"] if generic else catalogo_mvp().turnos
     repo.bulk_add([Assignment(organization_id=org, scenario_id=s.id,
                               team_id=team_id[a.pop("team")], source="engine", **a)
-                   for a in assignments(r.escala, catalogo_mvp())])
+                   for a in assignments(r.escala, turnos_map)])
     repo.bulk_add([CoverageResult(
         organization_id=org, scenario_id=s.id, slot_index=sl.slot_index,
         required_net=D(sl.required_net), required_gross=D(sl.required_gross),
@@ -413,9 +467,55 @@ def _persist(db: Session, p: Principal, s: Scenario, r: ResultadoSimulacao,
                        "k_required": str(D(dim.k_estrela)),
                        "achievable_pct": str(D(r.alcancavel))},
         "k_legal": str(D(r.k_legal)), "coverage_by_role": cargos_kpi,
+        "shifts": [{"code": c, "start": f"{t.inicio_min // 60:02d}:{t.inicio_min % 60:02d}",
+                    "duration_min": t.duracao_min, "handover_min": t.passagem_min,
+                    "peak": t.reforco,
+                    "blocks": [[f"{a // 60:02d}:{a % 60:02d}", d] for a, d in t.blocos]}
+                   for c, t in turnos_map.items()
+                   if any(c in linha for linha in r.escala.estados)],
+        "layers": r.extras.get("layers", []), "team_layers": layer_of,
+        # v3.6: sobreposição planejada (passagem/reforço) por slot 7×24 — status "passagem"
+        "handover_post_hours": str(D(k.passagem_hp)),
+        "handover_slots": {str(sl.slot_index): [str(D(sl.planned_worst)),
+                                                 str(D(sl.planned_mean))]
+                           for sl in r.slots if sl.planned_worst or sl.planned_mean},
     }
+    if r.subsetores is not None:
+        s.result_summary["subsectors"] = _subsectors_summary(r, s.horizon_start)
     if teams_before is not None and {t.code for t in teams_before} != set(team_id):
         s.result_summary["composition_reset"] = True
+
+
+def _subsectors_summary(r: ResultadoSimulacao, inicio: date) -> dict[str, Any]:
+    """KPIs por subsetor/posição + slots 7×24 (pior) para filtrar heatmap/KPIs."""
+    from app.services.engine import subsetores as SUB
+
+    rs = r.subsetores
+    assert rs is not None
+    pos_sub = dict(zip(rs.posicoes, rs.subsetor_de, strict=True))
+    kpis = {sub: {"demand_post_hours": k.demanda_hp, "own_post_hours": k.proprio_hp,
+                  "received_post_hours": k.recebido_hp, "lent_post_hours": k.cedido_hp,
+                  "deficit_post_hours": k.deficit_hp,
+                  "pct_hours_covered": str(D(Fraction(k.demanda_hp - k.deficit_hp, k.demanda_hp)
+                                             if k.demanda_hp else 1))}
+            for sub, k in rs.kpis.items()}
+    for k, c in enumerate(rs.posicoes):
+        dem = sum(hh[k][0] for hh in rs.horas)
+        defi = sum(max(0, hh[k][3]) for hh in rs.horas)
+        kpis[f"pos:{c}"] = {
+            "demand_post_hours": dem, "own_post_hours": sum(hh[k][1] for hh in rs.horas),
+            "received_post_hours": sum(hh[k][2] for hh in rs.horas), "lent_post_hours": 0,
+            "deficit_post_hours": defi,
+            "pct_hours_covered": str(D(Fraction(dem - defi, dem) if dem else 1))}
+    slots = {f"pos:{c}": [list(x) for x in SUB.agregar_7x24(rs, inicio, [c])]
+             for c in rs.posicoes}
+    for sub in rs.kpis:
+        codes = [c for c in rs.posicoes if pos_sub[c] == sub]
+        slots[f"sub:{sub}"] = [list(x) for x in SUB.agregar_7x24(rs, inicio, codes)]
+    return {"kpis": kpis, "moved_hours": rs.horas_remanejadas,
+            "deficit_post_hours": rs.deficit_hp,
+            "deficit_without_pool": rs.deficit_sem_pool_hp, "slots": slots,
+            "workstations": pos_sub}
 
 
 def simulate(db: Session, p: Principal, sid: uuid.UUID, body: ss.SimulateIn) -> ss.SimulateOut:
@@ -457,7 +557,8 @@ def _require_calc(s: Scenario) -> None:
 
 # ---- resultados ---------------------------------------------------------------------------
 def coverage(db: Session, p: Principal, sid: uuid.UUID, view: str, agg: str,
-             role: str | None) -> ss.CoverageOut:
+             role: str | None, subsector: str | None = None,
+             workstation: str | None = None) -> ss.CoverageOut:
     s = _get(db, p, sid)
     _require_calc(s)
     repo = ScenarioRepo(db, p.org_id)
@@ -469,9 +570,12 @@ def coverage(db: Session, p: Principal, sid: uuid.UUID, view: str, agg: str,
                                        at=summ["peak_at"]) if summ.get("peak_at") else None),
         deficit_hours=s.deficit_hours or 0,
         excess_post_hours=Decimal(summ.get("excess_post_hours", "0")),
+        handover_post_hours=Decimal(summ.get("handover_post_hours", "0")),
         break_gap_post_hours=Decimal(0), headcount_min=s.headcount_min,
         teams_required=s.teams_required)
     slots: list[ss.CoverageSlot] = []
+    if subsector or workstation:
+        return _coverage_structure(summ, kpis, subsector, workstation)
     if role:
         r = RoleRepo(db, p.org_id).by_code(role)
         if r is None:
@@ -493,32 +597,65 @@ def coverage(db: Session, p: Principal, sid: uuid.UUID, view: str, agg: str,
                 gap=cov - rr.required_worst, status=rr.status))  # type: ignore[arg-type]
         return ss.CoverageOut(granularity="60", view="postos", agg="pior", role=role,
                               kpis=kpis, slots=slots)
+    ho = summ.get("handover_slots", {})
     for c in repo.coverage(s.id):
+        plan_w, plan_m = (Decimal(x) for x in ho.get(str(c.slot_index), ("0", "0")))
         if view == "reserva":
             gap = c.expected_worst - c.required_net
+            plan = Decimal(0)
             st = _STATUS_DB[status_de(Fraction(gap))]
         elif agg == "media":
-            gap, st = c.gap_mean, c.status_mean
+            gap, st, plan = c.gap_mean, c.status_mean, plan_m
         else:
-            gap, st = c.gap, c.status
+            gap, st, plan = c.gap, c.status, plan_w
+        if plan and 0 < gap <= plan:
+            st = "passagem"
         slots.append(ss.CoverageSlot(
             slot_index=c.slot_index, weekday=c.slot_index // 24 + 1,
             start=f"{c.slot_index % 24:02d}:00", required_net=c.required_net,
             required_gross=c.required_gross, scheduled_worst=c.scheduled_worst,
             scheduled_mean=c.scheduled_mean, expected_worst=c.expected_worst,
             break_gap=c.break_gap, deficit_occurrences=c.deficit_occurrences, gap=gap,
-            status=st))  # type: ignore[arg-type]
+            handover=plan, status=st))  # type: ignore[arg-type]
     return ss.CoverageOut(granularity="60", view=view, agg=agg,  # type: ignore[arg-type]
                           kpis=kpis, slots=slots)
+
+
+def _coverage_structure(summ: dict[str, Any], kpis: ss.CoverageKpis, subsector: str | None,
+                        workstation: str | None) -> ss.CoverageOut:
+    """v3.7 — heatmap/KPIs filtrados por subsetor ou posição (após remanejamento)."""
+    st_ = summ.get("subsectors")
+    if not st_:
+        raise validation("cenário sem subsetores/posições (cadastre a estrutura e simule)")
+    key = f"pos:{workstation}" if workstation else f"sub:{subsector}"
+    if key not in st_["slots"]:
+        raise not_found("subsetor/posição")
+    k = st_["kpis"][key[4:] if key.startswith("sub:") else key]
+    kpis.pct_hours_covered = Decimal(k["pct_hours_covered"])
+    kpis.deficit_post_hours = Decimal(k["deficit_post_hours"])
+    kpis.excess_post_hours = Decimal(0)
+    kpis.peak_undercoverage = None
+    slots = []
+    for i, (dem, cob, rec) in enumerate(st_["slots"][key]):
+        gap = Decimal(cob - dem)
+        slots.append(ss.CoverageSlot(
+            slot_index=i, weekday=i // 24 + 1, start=f"{i % 24:02d}:00",
+            required_net=Decimal(dem), required_gross=Decimal(dem), scheduled_worst=Decimal(cob),
+            scheduled_mean=Decimal(cob), expected_worst=Decimal(cob), break_gap=Decimal(0),
+            deficit_occurrences=0, gap=gap, borrowed=Decimal(rec),
+            status=_STATUS_DB[status_de(Fraction(cob - dem))]))  # type: ignore[arg-type]
+    kpis.deficit_hours = sum(1 for sl in slots if sl.gap < 0)
+    return ss.CoverageOut(granularity="60", view="postos", agg="pior", subsector=subsector,
+                          workstation=workstation, kpis=kpis, slots=slots)
 
 
 def sizing(db: Session, p: Principal, sid: uuid.UUID, body: ss.SizingIn) -> ss.SizingOut:
     s = _get(db, p, sid)
     entrada, _, _ = _entrada(db, p, s)
     m = entrada.modelo
-    if m.k_estrela is None:
-        raise validation(f"{m.codigo}: modelo não contínuo — sem K* 24/7")
     tam = body.team_size or entrada.tamanho_turma
+    if entrada.padrao is not None or m is None or m.k_estrela is None:
+        return _sizing_generic(entrada, tam)
     dim = dimensionar(m, tam, body.team_count or entrada.k, entrada.shrinkage)
     reg = entrada.regime
     meias = dim.n_meias is not None
@@ -530,6 +667,30 @@ def sizing(db: Session, p: Principal, sid: uuid.UUID, body: ss.SizingIn) -> ss.S
         headcount_with_reserve=dim.headcount_reserva, k_legal=D(k_legal(reg, meias)),
         k_effective=D(k_efetivo(m, reg, meias)), legal_regime=reg.ref,
         findings=[_brief(a) for a in dim.achados])
+
+
+def _sizing_generic(entrada: EntradaSimulacao, tam: int) -> ss.SizingOut:
+    """Dimensionamento do padrão em camadas: Σ K* das camadas e Σ tamanhos por turma."""
+    from app.services.engine import personalizado as P
+
+    pad = entrada.padrao
+    if pad is None:
+        assert entrada.modelo is not None
+        pad = P.de_modelo(entrada.modelo, entrada.catalogo.turnos, entrada.k)
+    rel = [P.relatorio_camada(c, pad.turnos) for c in pad.camadas]
+    ks = [P.k_inicial(c) for c in pad.camadas]
+    hc = sum((sum(P.tamanhos_camada(c, k, Fraction(tam)), Fraction(0))
+              for c, k in zip(pad.camadas, ks, strict=True)), Fraction(0))
+    k_req = sum((r.k_estrela for r in rel), Fraction(0))
+    s_max = max(entrada.shrinkage.diurno, entrada.shrinkage.noturno)
+    tam_res = ceil(Fraction(tam) / (1 - s_max))
+    reg = entrada.regime
+    return ss.SizingOut(
+        schedule_model=pad.derivado_de or pad.codigo, team_size=tam, k_required=D(k_req),
+        whole_teams=sum(ks), half_teams=None, headcount_min=ceil(hc),
+        headcount_min_half_teams=None, team_size_with_reserve=tam_res,
+        headcount_with_reserve=sum(ks) * tam_res, k_legal=D(k_legal(reg)),
+        k_effective=D(max(k_req, k_legal(reg))), legal_regime=reg.ref, findings=[])
 
 
 def _cursor(n: int | None) -> str | None:
@@ -622,6 +783,10 @@ def transition(db: Session, p: Principal, sid: uuid.UUID, body: ss.TransitionIn
         raise validation(f"regimes inexistentes: {falt}", code="REGIME_NAO_RESOLVIDO")
     regs = Regimes(base.versao, base.regimes, tuple(codes))
     m = entrada.modelo
+    if m is None and entrada.padrao is not None and entrada.padrao.derivado_de:
+        m = entrada.catalogo.modelos.get(entrada.padrao.derivado_de)
+    if m is None:
+        raise validation("simular transição exige um modelo do catálogo (padrão sem origem)")
     turnos = tuple(sorted({e for sq in m.sequencias for e in sq} - {FOLGA}))
     fases = simular_transicao(entrada.tamanho_turma, entrada.catalogo, regs, turnos, m.codigo,
                               entrada.ctx)

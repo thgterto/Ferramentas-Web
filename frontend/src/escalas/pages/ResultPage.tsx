@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useParams } from 'react-router'
 import { clsx } from 'clsx'
 import {
@@ -27,13 +27,19 @@ import { ComplianceBadge } from '../components/ComplianceBadge'
 import { ErrorBox, Spinner, inputCls } from '../components/ui'
 import { useLegalRegimes } from '../wizard/useRegime'
 import { defaultShifts } from '../wizard/shifts'
-import { teamsBySlot } from '../api/schedule'
+import { presenceAtSlot, presenceByHour } from '../api/schedule'
+import { ScheduleViews } from '../components/ScheduleViews'
+import { OptimizePanel } from '../components/OptimizePanel'
+import { SubsectorPanel } from '../components/SubsectorPanel'
+import type { StructureOut } from '../api/client'
 
 const TABS = [
   ['cobertura', 'Cobertura'],
+  ['quadro', 'Quadro de turnos'],
   ['escala', 'Escala'],
   ['viabilidade', 'Viabilidade'],
   ['transicao', 'Simular transição'],
+  ['otimizar', 'Otimizar'],
 ] as const
 type Tab = (typeof TABS)[number][0]
 
@@ -44,18 +50,24 @@ export default function ResultPage() {
   const { org, op, id = '', aba = 'cobertura' } = useParams()
   const tab = (TABS.some(([k]) => k === aba) ? aba : 'cobertura') as Tab
   const nav = useNavigate()
+  const qc = useQueryClient()
   const base = `/escalas/o/${org}/operacoes/${op}/cenarios/${id}`
   const [view, setView] = useState<'postos' | 'reserva'>('postos')
   const [agg, setAgg] = useState<'pior' | 'media'>('pior')
   const [role, setRole] = useState<string>('')
+  const [subF, setSubF] = useState<string>('')
+  const [wsF, setWsF] = useState<string>('')
   const [target, setTarget] = useState<CalendarTarget | null>(null)
   const [creating, setCreating] = useState<string | null>(null)
 
   const sQ = useQuery({ queryKey: ['scenario', id], queryFn: () => apiData<ScenarioOut>(`/scenarios/${id}`) })
   const calculated = !!sQ.data?.calculated_at
   const covQ = useQuery({
-    queryKey: ['coverage', id, view, agg, role],
-    queryFn: () => apiData<CoverageOut>(`/scenarios/${id}/coverage?view=${view}&agg=${agg}${role ? `&role=${encodeURIComponent(role)}` : ''}`),
+    queryKey: ['coverage', id, view, agg, role, subF, wsF],
+    queryFn: () =>
+      apiData<CoverageOut>(
+        `/scenarios/${id}/coverage?view=${view}&agg=${agg}${role ? `&role=${encodeURIComponent(role)}` : ''}${wsF ? `&workstation=${encodeURIComponent(wsF)}` : subF ? `&subsector=${encodeURIComponent(subF)}` : ''}`,
+      ),
     enabled: calculated,
     retry: false,
   })
@@ -70,9 +82,17 @@ export default function ResultPage() {
     enabled: calculated && showTransition,
     staleTime: Infinity,
   })
+  const opId = sQ.data?.operation_id
+  const stQ = useQuery({ queryKey: ['structure', opId], queryFn: () => apiData<StructureOut>(`/operations/${opId}/structure`), enabled: !!opId, retry: false })
+  const structure = stQ.data
+  const hasSub = (structure?.subsectors.length ?? 0) > 0
   const modelsQ = useQuery({ queryKey: ['schedule-models'], queryFn: () => apiData<ScheduleModelOut[]>('/schedule-models'), staleTime: Infinity })
 
-  const teamMap = useMemo(() => teamsBySlot(aQ.data ?? []), [aQ.data])
+  const presence = useMemo(() => presenceByHour(aQ.data ?? [], sQ.data?.horizon_start ?? '2000-01-03'), [aQ.data, sQ.data?.horizon_start])
+  const sizeOf = useMemo(() => {
+    const m = new Map((sQ.data?.teams ?? []).map((t) => [t.code, Number(t.size_required) || t.size_assigned || 1]))
+    return (team: string) => m.get(team) ?? 1
+  }, [sQ.data?.teams])
   const teamCodes = useMemo(() => {
     const fromAsg = [...new Set((aQ.data ?? []).map((a) => a.team).filter(Boolean) as string[])].sort()
     return fromAsg.length ? fromAsg : (sQ.data?.teams ?? []).map((t) => t.code)
@@ -139,7 +159,8 @@ export default function ResultPage() {
         <div>
           <h1 className="text-h1 font-semibold">{sc.name}</h1>
           <p className="text-caption text-ink-muted">
-            {sc.schedule_model.code} · {sc.team_count} turmas · v{sc.version} · regime {sc.legal_regime_applied ?? '—'}
+            {sc.schedule_model.code === 'PERSONALIZADO' ? `Personalizado “${(sc.params as { pattern?: { name?: string } }).pattern?.name ?? ''}”` : sc.schedule_model.code} · {sc.teams.length || sc.team_count} turmas
+            {(sc.layers?.length ?? 0) > 1 ? ` em ${sc.layers!.length} camadas (${sc.layers!.map((l) => `${l.code} K=${l.k}`).join(' + ')})` : ''} · v{sc.version} · regime {sc.legal_regime_applied ?? '—'}
             {sc.calculated_at && ` · calculado ${new Date(sc.calculated_at).toLocaleString('pt-BR')}`}
           </p>
         </div>
@@ -154,7 +175,7 @@ export default function ResultPage() {
           {sc.kpis.teams_required && Number(sc.kpis.teams_required) > sc.team_count ? ` · Como fechar o déficit: ${Math.ceil(Number(sc.kpis.teams_required))} turmas` : ''}
         </p>
       )}
-      <div role="tablist" aria-label="Resultado" className="flex gap-1 border-b border-border">
+      <div role="tablist" aria-label="Resultado" className="flex gap-1 border-b border-border print:hidden">
         {TABS.map(([k, label]) => (
           <button
             key={k}
@@ -185,6 +206,43 @@ export default function ResultPage() {
                   ))}
                 </select>
               </label>
+              {hasSub && (
+                <>
+                  <label className="flex flex-col text-caption text-ink-muted">
+                    Subsetor
+                    <select
+                      aria-label="Subsetor"
+                      className={inputCls}
+                      value={subF}
+                      onChange={(e) => {
+                        setSubF(e.target.value)
+                        setWsF('')
+                      }}
+                    >
+                      <option value="">Todos (operação)</option>
+                      {structure!.subsectors.map((x) => (
+                        <option key={x.code} value={x.code}>
+                          {x.name} ({x.code})
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="flex flex-col text-caption text-ink-muted">
+                    Posição
+                    <select aria-label="Posição" className={inputCls} value={wsF} onChange={(e) => setWsF(e.target.value)}>
+                      <option value="">Todas</option>
+                      {structure!.subsectors
+                        .filter((x) => !subF || x.code === subF)
+                        .flatMap((x) => x.workstations ?? [])
+                        .map((w) => (
+                          <option key={w.id} value={w.code}>
+                            {w.name} ({w.code})
+                          </option>
+                        ))}
+                    </select>
+                  </label>
+                </>
+              )}
               <div role="group" aria-label="Visão" className="flex overflow-hidden rounded-cell border border-border">
                 {(['postos', 'reserva'] as const).map((v) => (
                   <button key={v} type="button" aria-pressed={view === v} onClick={() => setView(v)} className={clsx('px-3 py-1.5', view === v ? 'bg-primary text-white' : 'bg-surface')}>
@@ -207,13 +265,24 @@ export default function ResultPage() {
                 <Heatmap7x24
                   slots={covQ.data.slots}
                   weeks={sc.horizon_weeks}
-                  teamsAt={role ? undefined : (i) => [...(teamMap.get(i) ?? [])].sort()}
-                  caption={`Cobertura 7×24 · ${view === 'postos' ? 'postos' : 'postos + reserva'} · ${agg === 'pior' ? 'pior caso' : 'média'}${role ? ` · cargo ${role}` : ''}`}
+                  presenceAt={role || subF || wsF || !aQ.data ? undefined : (i) => presenceAtSlot(presence, i, sc.horizon_start, sc.horizon_weeks, sizeOf, view === 'postos' && agg === 'pior' ? Number(covQ.data.slots[i]?.scheduled_worst) : undefined)}
+                  caption={`Cobertura 7×24 · ${view === 'postos' ? 'postos' : 'postos + reserva'} · ${agg === 'pior' ? 'pior caso' : 'média'}${role ? ` · cargo ${role}` : ''}${wsF ? ` · posição ${wsF}` : subF ? ` · subsetor ${subF}` : ''}`}
                 />
               )}
             </div>
+            {hasSub && <SubsectorPanel scenario={sc} structure={structure!} />}
             {showTransition && transition}
           </>
+        )}
+        {calculated && tab === 'quadro' && (
+          <div className="rounded-card border border-border bg-surface p-4">
+            <h2 className="mb-2 text-h2 font-semibold">Quadro de turnos e visões</h2>
+            {aQ.isLoading ? (
+              <Spinner />
+            ) : (
+              <ScheduleViews scenarioId={id} assignments={aQ.data ?? []} teams={sc.teams} shifts={sc.shifts} start={sc.horizon_start} weeks={sc.horizon_weeks} roles={(rolesQ.data?.data ?? []).map((r) => ({ code: r.code, name: r.name }))} />
+            )}
+          </div>
         )}
         {calculated && tab === 'escala' && (
           <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_380px]">
@@ -239,6 +308,17 @@ export default function ResultPage() {
           </div>
         )}
         {calculated && tab === 'transicao' && transition}
+        {calculated && tab === 'otimizar' && (
+          <OptimizePanel
+            scenario={sc}
+            subsectors={(structure?.subsectors ?? []).map((x) => ({ code: x.code, name: x.name }))}
+            pools={(structure?.pools ?? []).map((x) => ({ code: x.code, name: x.name }))}
+            onApplied={(newId) => {
+              void qc.invalidateQueries()
+              nav(`/escalas/o/${org}/operacoes/${op}/cenarios/${newId}/cobertura`)
+            }}
+          />
+        )}
       </div>
     </div>
   )

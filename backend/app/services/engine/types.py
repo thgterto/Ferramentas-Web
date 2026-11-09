@@ -45,6 +45,15 @@ class Turno:
     inicio_min: int
     duracao_min: int
     intervalo_min: int = 60
+    blocos: tuple[tuple[int, int], ...] = ()
+    """Jornada fracionada (split): ``((início, duração), …)`` relativos à 00:00 do dia; vazio =
+    um bloco contínuo ``[início, início + duração)``."""
+    passagem_min: int = 0
+    """v3.6 — sobreposição de passagem de turno: os últimos ``passagem_min`` minutos se
+    sobrepõem ao turno seguinte (excesso **planejado**, não ociosidade)."""
+    reforco: bool = False
+    """v3.6 — turno de reforço de pico sobre o núcleo: toda a sua presença é sobreposição
+    planejada (não conta como excesso ocioso)."""
 
     def __post_init__(self) -> None:
         if not 0 <= self.inicio_min < MINUTOS_DIA:
@@ -53,6 +62,8 @@ class Turno:
             raise ValueError(f"turno {self.codigo}: duração fora de 60–1440 min")
         if self.codigo in (FOLGA, RESERVA):
             raise ValueError(f"código de turno reservado: {self.codigo}")
+        if not 0 <= self.passagem_min < self.duracao_min or self.passagem_min > 240:
+            raise ValueError(f"turno {self.codigo}: passagem fora de 0–240 min")
 
     @property
     def fim_min(self) -> int:
@@ -66,6 +77,26 @@ class Turno:
     @property
     def horas(self) -> Fraction:
         return Fraction(self.duracao_min, 60)
+
+    @property
+    def segmentos(self) -> tuple[tuple[int, int], ...]:
+        """Intervalos ``[ini, fim)`` em minutos desde a 00:00 do dia de início."""
+        if self.blocos:
+            return tuple((i, i + d) for i, d in self.blocos)
+        return ((self.inicio_min, self.fim_min),)
+
+    @property
+    def janelas_sobreposicao(self) -> tuple[tuple[int, int], ...]:
+        """Intervalos ``[ini, fim)`` de sobreposição planejada (passagem/reforço)."""
+        if self.reforco:
+            return self.segmentos
+        if self.passagem_min:
+            return ((self.fim_min - self.passagem_min, self.fim_min),)
+        return ()
+
+    @property
+    def minutos_trabalhados(self) -> int:
+        return sum(d for _, d in self.blocos) if self.blocos else self.duracao_min
 
 
 @dataclass(frozen=True, slots=True)

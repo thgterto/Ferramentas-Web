@@ -7,6 +7,7 @@ Nenhum modelo tem código próprio aqui: todos chegam como dados (ADR-010, ``cat
 
 from __future__ import annotations
 
+import time
 from datetime import date
 from fractions import Fraction
 from itertools import combinations
@@ -15,7 +16,7 @@ from string import ascii_uppercase
 
 from app.services.engine.types import FOLGA, RESERVA, Escala, GrupoTurmas, Padrao, Turma
 
-MAX_COMBINACOES_BUSCA = 200_000
+MAX_COMBINACOES_BUSCA = 200_000  # mantido por compatibilidade (não limita mais a busca)
 
 
 def dia_absoluto(data: date, data_ancora: date) -> int:
@@ -62,31 +63,75 @@ def cobre_exatamente(grupo: GrupoTurmas, dias: int) -> bool:
     )
 
 
-def buscar_offsets(
-    sequencia: tuple[str, ...], n_turmas: int, fracao: Fraction = Fraction(1)
-) -> tuple[int, ...]:
-    """Busca exaustiva (offset da 1ª turma = 0) para padrões não exatos.
+MAX_COMBINACOES_EXATA = 50_000
+"""Até este nº de combinações a busca é exaustiva (resultado lexicográfico estável)."""
 
-    Critério lexicográfico: maximizar a cobertura mínima por turno-dia; depois minimizar
-    ``Σ|cob − 1|``. Determinística (primeira combinação ótima em ordem lexicográfica).
+
+def _chave_offsets(pos: list[list[int]], offs: tuple[int, ...] | list[int], s: int,
+                   alvo: Fraction) -> tuple[Fraction, Fraction]:
+    """(−mín. cobertura, Σ|cob − alvo|) em contagens inteiras; ``alvo`` = 1/fração."""
+    L = len(pos[0])
+    cont = [0] * (L * s)
+    for o in offs:
+        p = pos[o]
+        for d in range(L):
+            t = p[d]
+            if t >= 0:
+                cont[d * s + t] += 1
+    return (-Fraction(min(cont)), sum((abs(c - alvo) for c in cont), Fraction(0)))
+
+
+def buscar_offsets(
+    sequencia: tuple[str, ...], n_turmas: int, fracao: Fraction = Fraction(1),
+    limite_s: float = 0.25,
+) -> tuple[int, ...]:
+    """Offsets que maximizam a cobertura mínima por turno-dia; depois minimizam ``Σ|cob − 1|``.
+
+    Exaustiva (offset da 1ª turma = 0, combinação lexicográfica) até
+    ``MAX_COMBINACOES_EXATA``; acima disso, **heurística gulosa + busca local** com limite de
+    tempo ``limite_s`` (determinística: ordem fixa de tentativas). Aceita ``n_turmas > L``
+    (offsets repetidos = turmas sobrepostas).
     """
     L = len(sequencia)
     if n_turmas < 1:
         raise ValueError("n_turmas deve ser ≥ 1")
     if n_turmas == 1:
         return (0,)
-    if comb(L - 1, n_turmas - 1) > MAX_COMBINACOES_BUSCA:
-        raise ValueError(f"busca de offsets grande demais (L={L}, K={n_turmas})")
-    melhor: tuple[int, ...] = ()
-    melhor_chave: tuple[Fraction, Fraction] | None = None
-    for resto in combinations(range(1, L), n_turmas - 1):
-        offs = (0, *resto)
-        cobs = cobertura_grupo(sequencia, offs, fracao, L)
-        valores = [v for c in cobs for v in c.values()]
-        chave = (-min(valores), sum((abs(v - 1) for v in valores), Fraction(0)))
-        if melhor_chave is None or chave < melhor_chave:
-            melhor, melhor_chave = offs, chave
-    return melhor
+    turnos = [e for e in dict.fromkeys(sequencia) if e not in (FOLGA, RESERVA)]
+    idx = {t: i for i, t in enumerate(turnos)}
+    s = max(1, len(turnos))
+    pos = [[idx.get(sequencia[(d + o) % L], -1) for d in range(L)] for o in range(L)]
+    alvo = 1 / fracao
+    if n_turmas <= L and comb(L - 1, n_turmas - 1) <= MAX_COMBINACOES_EXATA:
+        melhor: tuple[int, ...] = ()
+        melhor_chave: tuple[Fraction, Fraction] | None = None
+        for resto in combinations(range(1, L), n_turmas - 1):
+            offs = (0, *resto)
+            chave = _chave_offsets(pos, offs, s, alvo)
+            if melhor_chave is None or chave < melhor_chave:
+                melhor, melhor_chave = offs, chave
+        return melhor
+    t0 = time.perf_counter()
+    # guloso: começa pelo espaçamento uniforme aproximado e corrige turma a turma
+    atual = [round(i * L / n_turmas) % L for i in range(n_turmas)]
+    chave = _chave_offsets(pos, atual, s, alvo)
+    melhorou = True
+    while melhorou and time.perf_counter() - t0 < limite_s:
+        melhorou = False
+        for i in range(1, n_turmas):
+            for o in range(L):
+                if o == atual[i]:
+                    continue
+                cand = atual.copy()
+                cand[i] = o
+                if n_turmas <= L and len(set(cand)) < n_turmas:
+                    continue
+                c = _chave_offsets(pos, cand, s, alvo)
+                if c < chave:
+                    atual, chave, melhorou = cand, c, True
+            if time.perf_counter() - t0 >= limite_s:
+                break
+    return tuple(sorted(atual))
 
 
 def montar_grupo(

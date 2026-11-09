@@ -1,7 +1,19 @@
 import { useFormContext } from 'react-hook-form'
 import { REGIME_LABEL } from '../api/format'
+import { totalTeams, type PatternSpec } from '../pattern/model'
 import type { WizardValues } from './schema'
 import type { RegimeResolution } from './useRegime'
+
+function modelLine(v: WizardValues): string {
+  if (v.customized && v.pattern) {
+    const p = v.pattern as PatternSpec
+    const seqs = p.layers.map((l) => `${l.code} [${l.sequence.join(' ')}] K ${l.team_mode === 'fixo' ? l.k : l.team_mode}`).join(' + ')
+    return `Personalizado “${p.name}” · ${totalTeams(p)} turmas · ${seqs} · turnos ${p.shifts.map((s) => s.code).join('/')}`
+  }
+  const k = v.kMode === 'fixo' ? `${v.teamCount} turmas` : v.kMode === 'sugerir' ? 'K sugerido pelo motor' : v.kMode === 'minimo' ? `K ≥ ${v.kMin}` : `K ${v.kMin}–${v.kMax}`
+  const sizes = v.kMode === 'fixo' && v.teamSizes.length ? ` (pessoas ${v.teamSizes.join('/')})` : ''
+  return `${v.modelCode} · ${k}${sizes}${v.shiftCodes.length ? ` · turnos ${v.shiftCodes.join('/')}` : ''}`
+}
 
 export function Step5({ regime }: { regime: RegimeResolution }) {
   const v = useFormContext<WizardValues>().watch()
@@ -11,11 +23,12 @@ export function Step5({ regime }: { regime: RegimeResolution }) {
     ['Regime legal', v.legalMode === 'regime' ? REGIME_LABEL[v.legalRegimeCode] ?? v.legalRegimeCode : `data ${v.legalReferenceDate} → ${regime.code ?? '?'}`],
     ['Compensação ACT/CCT', v.compensation ? 'sim' : 'não'],
     ['Horizonte', `${v.horizonStart} · ${v.horizonWeeks} semanas`],
-    ['Demanda', v.demandMode === 'fixos' ? `${v.postos} postos fixos 24/7 (${v.positionName})` : `curva 168 h (${v.positionName})`],
+    ['Demanda', v.subsectors.length ? `soma de ${v.subsectors.reduce((a, s) => a + s.positions.length, 0)} posições em ${v.subsectors.length} subsetores (${v.subsectors.map((s) => s.name).join(', ')})` : v.demandMode === 'fixos' ? `${v.postos} postos fixos 24/7 (${v.positionName})` : `curva 168 h (${v.positionName})`],
+    ...(v.pools.length ? [['Pools', v.pools.map((p) => `${p.name}: ${p.members.join(' ⇄ ')}${p.maxHours != null ? ` (≤ ${p.maxHours} h/sem)` : ''}`).join('; ')] as [string, string]] : []),
     ['Shrinkage', `dia ${v.shrinkDay}% · noite ${v.shrinkNight}%`],
     ['Reserva', v.reserve === 'extras' ? `+${v.extrasPerTeam} por turma` : 'nenhuma'],
     ['Cargos', v.roles.length ? v.roles.map((r) => `${r.code}×${r.perTeam}`).join(', ') : 'cargo único'],
-    ['Modelo e turmas', `${v.modelCode} · ${v.teamCount} turmas · turnos ${v.shiftCodes.join('/')}`],
+    ['Modelo e turmas', modelLine(v)],
     ['Simular transição', v.simulateTransition ? 'sim' : 'não'],
   ]
   return (
