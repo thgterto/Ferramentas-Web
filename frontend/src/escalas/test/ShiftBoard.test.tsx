@@ -29,7 +29,7 @@ function asg(days = 14): AssignmentOut[] {
   })
   return out
 }
-const teams: S['TeamOut'][] = ['A', 'B', 'C', 'D'].map((c, i) => ({ code: c, kind: 'regular', label: `Turma ${c}`, size_required: '2.000000', size_assigned: 2, cycle_offset_days: i * 2, composition: c === 'A' ? { ENF: 1, TEC: 1 } : { TEC: 2 } }))
+const teams: S['TeamOut'][] = ['A', 'B', 'C', 'D'].map((c, i) => ({ code: c, kind: 'regular', label: `Turma ${c}`, size_required: '2.000000', size_assigned: 2, cycle_offset_days: i * 2, composition: (c === 'A' ? { ENF: 1, TEC: 1 } : { TEC: 2 }) as Record<string, number> }))
 const shifts = [
   { code: 'M', start: '06:00', duration_min: 480 },
   { code: 'T', start: '14:00', duration_min: 480 },

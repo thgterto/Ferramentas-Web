@@ -116,6 +116,8 @@ Legenda: **Pts** = pontos; **Dep** = dependências; **DoD** = critério de pront
 
 ### 3.5 Fase 2 (pós-MVP) — itens reclassificados
 
+> **v3.5:** FR-28 (catálogo restante), FR-29 básico+avançado/T9, FR-30 (camadas), FR-31 (templates), FR-32 mínimo/faixa/livre e FR-33 (tamanhos/meias) **foram trazidos ao MVP** (motor `engine/personalizado.py`, migração `0004`, construtor no wizard, aba "Quadro de turnos", goldens `golden/personalizado.yaml`). Pendentes: versões imutáveis de template (`custom_schedule_pattern_versions`), regras de feriado por modelo e ciclo em horas nativo (18x36 é modelado em dias).
+
 Nada foi apagado: abaixo estão os itens (ou o "resto" de itens enxutos) que saíram do MVP. Pontos originais mantidos quando o item saiu inteiro; "(resto)" indica a parte que sobrou do item enxuto. Ordem sugerida por valor.
 
 **Fase 2a — operação real (primeira onda após o beta interno)**

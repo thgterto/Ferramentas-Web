@@ -66,6 +66,7 @@ Operações ininterruptas (indústria contínua, CDs, hospitais, NOC, segurança
 ## 4. Escopo
 
 ### 4.1 MVP (Fase 1) — núcleo de cobertura enxuto, ponta a ponta (v3.3: 4 sprints, ~160 pts)
+> **v3.5 (máxima customização):** entram no MVP o catálogo **completo** da §6.1 (37 modelos como seeds YAML, inclusive 4x3, 2x2 8 h/12 h, 4x4, 3x1, 3x2, 5x1, 6x3, DuPont, Panamá, Pitman, 12x60, 24x48, 24x72, 18x36, 5T/5T francesa, 6T, fim de semana, parcial, fixos, escalonado, split, reforço); **K livre** (fixo/mínimo/faixa/sugerir, 1–60, tamanho por turma, meias-turmas); **construtor completo** (FR-29–FR-31) com camadas (FR-30) e templates da organização; **janela de operação** para modelos não contínuos (simulam normalmente); **Quadro de turnos** (Gantt por dia e calendário com sigla/horário). Selos legais são informativos: nenhuma regra impede simular.
 O MVP entrega **motor de cobertura + API + interface mínima** (wizard, heatmap 7×24, calendário de turmas, painel de achados) e export. Tudo o que está aqui é **P0**; o plano está no `06` §2–§3.
 - **Demanda (FR-01–03):** postos fixos por faixa horária e curva 168 h (grade 7×24 e upload CSV/XLSX); shrinkage diurno e noturno.
 - **Catálogo essencial (FR-28 essencial, 10 modelos):** `6X1_BASE` (baseline), `5X2`, `12X36`, `6X2`, `4X2` (5 turmas ou 9 meias-turmas), `2X2_12H`, `5T` (5 turmas, 33,6 h), `4X3` e turno fixo `FIXO_D`/`FIXO_N`. Critério: modelos mais usados em 24/7 e não contínuo no Brasil + baseline + os dois de 12 h. Geração cíclica determinística por dia absoluto (FR-05, FR-06).

@@ -34,6 +34,16 @@ Este é um **simulador operacional**. A pergunta central é: **"minha operação
 
 ## Registro de revisão
 
+### Revisão v3.5 — máxima customização (catálogo completo, K livre, construtor, quadro de turnos)
+
+**Pedido:** "Preciso de máxima capacidade de customização… não limite a 4 turmas nem descarte 4x3, 2x2, 4x4… no quadro não consigo enxergar os turnos."
+
+| Doc | Mudanças |
+|---|---|
+| `01` | §4.1: entram no MVP o **catálogo completo da §6.1** (37 modelos, incl. 2x2 8 h, 4x4, 5x2 comercial), **K livre** (fixo/mínimo/faixa/sugerir, 1–60, tamanhos por turma e meias-turmas — FR-32/33), **construtor completo** (FR-29–31: sequência livre, turnos livres/sobrepostos/fracionados, offsets manuais/auto, rotação, folgas fixas, âncora, camadas, templates) e o **Quadro de turnos** (Gantt por dia + calendário com sigla e horário). Não contínuos simulam com **janela de operação** (fim do 422). Alertas legais nunca bloqueiam: viram achados. |
+| `05` | `custom_schedule_patterns` (spec JSON + versão, RLS) — migração `0004`; `scenarios.params.pattern`; `team_count` 1..500; endpoints `/schedule-models/{code}/pattern`, `/schedule-patterns:validate`, CRUD + `/duplicate`. |
+| `06` | Itens de FR-28 restante, FR-29–33 e T9 movidos da Fase 2 para o MVP (v3.5); `buscar_offsets` heurístico com limite de tempo. |
+
 ### Revisão v3.4 — regras da mudança da escala 6x1 (regime legal versionado)
 
 **Pedido:** "As escalas simuladas devem atender às regras da mudança da escala 6x1."

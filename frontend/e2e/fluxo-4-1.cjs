@@ -110,7 +110,7 @@ async function main() {
   await page.getByRole('button', { name: 'Avançar' }).click()
   // Passo 4: 6x2, 4 turmas, M/T/N
   await page.getByTestId('modelo-6X2').click()
-  await page.getByLabel('Nº de turmas (K fixo)').fill('4')
+  await page.getByLabel('Nº de turmas (K)').fill('4')
   await page.getByRole('button', { name: 'Avançar' }).click()
   // Passo 5: revisão
   await page.getByText('6X2 · 4 turmas · turnos M/T/N').waitFor()
@@ -159,6 +159,46 @@ async function main() {
   } else {
     step('sem achados com data (nada a focar)')
   }
+
+  // v3.5: quadro de turnos do cenário 6x2
+  await page.getByRole('tab', { name: 'Quadro de turnos' }).click()
+  await page.getByRole('table', { name: /Gantt de turnos/ }).waitFor()
+  step('quadro de turnos (Gantt)')
+
+  // v3.5: padrão personalizado com K = 5 (construtor) → quadro de turnos
+  const SHOTS = process.env.E2E_SHOTS_DIR
+  await page.goto(page.url().replace(/cenarios\/.*$/, 'cenarios/novo?passo=1'))
+  await page.getByLabel('Nome do cenário').fill('Custom K5')
+  await page.getByLabel('Data inicial do horizonte').fill('2027-01-04')
+  await page.getByRole('combobox', { name: 'Regime' }).selectOption('CLT_44H_ATUAL')
+  await page.getByRole('button', { name: 'Avançar' }).click()
+  await page.getByLabel('Nome do posto').fill('Operador K5')
+  await page.getByLabel('Postos simultâneos (todas as horas)').fill('3')
+  await page.getByRole('button', { name: 'Avançar' }).click()
+  await page.getByRole('button', { name: 'Avançar' }).click()
+  await page.getByTestId('modelo-4X3').waitFor()
+  if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'catalogo.png'), fullPage: true })
+  await page.getByRole('button', { name: 'Começar do zero' }).click()
+  await page.getByTestId('construtor').waitFor()
+  await page.getByLabel('K (turmas)').fill('5')
+  await page.getByText('100,0%').first().waitFor({ timeout: 20000 })
+  if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'construtor.png'), fullPage: true })
+  step('construtor: K=5, pré-visualização 100%')
+  await page.getByRole('button', { name: 'Avançar' }).click()
+  await page.getByText(/Personalizado “Padrão personalizado” · 5 turmas/).waitFor()
+  await page.getByRole('button', { name: 'Simular cobertura' }).click()
+  await page.getByText(/100,0% das horas-posto cobertas/).waitFor({ timeout: 30000 }).catch(async (e) => {
+    console.error((await page.locator('main, body').first().innerText()).slice(0, 1500))
+    throw e
+  })
+  await page.getByRole('tab', { name: 'Quadro de turnos' }).click()
+  const gantt = page.getByRole('table', { name: /Gantt de turnos/ })
+  await gantt.waitFor()
+  assert.equal(await gantt.locator('tbody tr').count(), 5)
+  await page.getByRole('button', { name: 'Calendário turma × dia' }).click()
+  await page.getByRole('button', { name: 'Gantt por dia' }).click()
+  if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'quadro-turnos.png'), fullPage: true })
+  step('padrão personalizado K=5 → quadro de turnos com 5 turmas')
 
   await browser.close()
   console.log('E2E fluxo 4.1: OK')
