@@ -5,6 +5,8 @@ on:
   workflow_dispatch:
   push:
     tags: ["simulador-v*", "v*"]
+    branches: ["ccr-a9d904d9-cuuzg0"]
+    paths: ["simulador-escalas/**", ".github/workflows/portable.yml"]
 
 jobs:
   build:
