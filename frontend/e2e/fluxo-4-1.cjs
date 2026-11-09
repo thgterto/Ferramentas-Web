@@ -1,0 +1,180 @@
+/* E2E do fluxo 4.1 (A44): planta industrial 6x2 com 4 turmas, 3 postos 24/7.
+ *
+ * Sobe o backend (SQLite + seeds de demo) e o frontend (Vite), percorre login → operação →
+ * wizard 5 passos → resultado (heatmap, reserva, calendário/achados, export CSV) com Playwright.
+ *
+ * Uso: node e2e/fluxo-4-1.cjs            (variáveis: E2E_SCREENSHOT=arquivo.png, E2E_HEADED=1,
+ *      E2E_BASE_URL=http://host:porta para usar servidores já no ar, sem subir nada)
+ */
+const { spawn, execFileSync } = require('node:child_process')
+const fs = require('node:fs')
+const os = require('node:os')
+const path = require('node:path')
+const assert = require('node:assert/strict')
+const { chromium } = require('playwright')
+
+const ROOT = path.resolve(__dirname, '..', '..')
+const BACKEND = path.join(ROOT, 'backend')
+const FRONTEND = path.join(ROOT, 'frontend')
+const PY = process.env.E2E_PYTHON ?? path.join(BACKEND, '.venv', 'bin', 'python')
+const API_PORT = Number(process.env.E2E_API_PORT ?? 8765)
+const WEB_PORT = Number(process.env.E2E_WEB_PORT ?? 5179)
+const EMAIL = 'gerente@demo.local'
+const PASSWORD = 'demo-12345'
+
+const procs = []
+function start(cmd, args, opts) {
+  const p = spawn(cmd, args, { ...opts, detached: true, stdio: ['ignore', 'pipe', 'pipe'] })
+  let log = ''
+  p.stdout.on('data', (d) => (log += d))
+  p.stderr.on('data', (d) => (log += d))
+  p.log = () => log
+  procs.push(p)
+  return p
+}
+
+async function waitFor(url, ms = 60000) {
+  const t0 = Date.now()
+  while (Date.now() - t0 < ms) {
+    try {
+      const r = await fetch(url)
+      if (r.status < 500) return
+    } catch {
+      /* ainda subindo */
+    }
+    await new Promise((r) => setTimeout(r, 300))
+  }
+  throw new Error(`timeout esperando ${url}`)
+}
+
+async function servers() {
+  if (process.env.E2E_BASE_URL) return process.env.E2E_BASE_URL
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'escalas-e2e-'))
+  const env = { ...process.env, DATABASE_URL: `sqlite:///${path.join(tmp, 'e2e.db')}`, SEED_RESET: '1' }
+  execFileSync(PY, ['scripts/dev_seed.py'], { cwd: BACKEND, env, stdio: 'inherit' })
+  const api = start(PY, ['-m', 'uvicorn', 'app.main:app', '--port', String(API_PORT)], { cwd: BACKEND, env })
+  const web = start('npx', ['vite', '--port', String(WEB_PORT), '--strictPort'], {
+    cwd: FRONTEND,
+    env: { ...process.env, VITE_PROXY_TARGET: `http://127.0.0.1:${API_PORT}` },
+  })
+  try {
+    await waitFor(`http://127.0.0.1:${API_PORT}/health`)
+    await waitFor(`http://127.0.0.1:${WEB_PORT}/escalas/login`)
+  } catch (e) {
+    console.error(api.log(), web.log())
+    throw e
+  }
+  return `http://127.0.0.1:${WEB_PORT}`
+}
+
+async function main() {
+  const base = await servers()
+  const browser = await chromium.launch({ headless: !process.env.E2E_HEADED })
+  const ctx = await browser.newContext({ viewport: { width: 1440, height: 1000 }, deviceScaleFactor: 2, acceptDownloads: true, locale: 'pt-BR' })
+  const page = await ctx.newPage()
+  page.on('pageerror', (e) => console.error('pageerror:', e.message))
+  const step = (m) => console.log(`✓ ${m}`)
+
+  // T0 login (erro e sucesso)
+  await page.goto(`${base}/escalas`)
+  await page.getByLabel('E-mail').fill(EMAIL)
+  await page.getByLabel('Senha').fill('errada')
+  await page.getByRole('button', { name: 'Entrar' }).click()
+  await page.getByText('E-mail ou senha inválidos.').waitFor()
+  await page.getByLabel('Senha').fill(PASSWORD)
+  await page.getByRole('button', { name: 'Entrar' }).click()
+  await page.getByRole('heading', { name: 'Operações' }).waitFor()
+  step('login')
+
+  // T2 → T2.1
+  await page.getByLabel('Nome').fill('Planta Industrial')
+  await page.getByLabel('Setor').selectOption('industria')
+  await page.getByRole('button', { name: 'Criar operação' }).click()
+  await page.getByRole('link', { name: 'Planta Industrial' }).click()
+  await page.getByRole('link', { name: 'Novo cenário' }).click()
+  step('operação criada')
+
+  // Passo 1: 24/7, ACT 8 h, regime 44 h
+  await page.getByLabel('Nome do cenário').fill('6x2 4 turmas')
+  await page.getByLabel('Regras (CCT/ACT)').selectOption('ACT')
+  await page.getByLabel('Data inicial do horizonte').fill('2027-01-04')
+  await page.getByLabel(/autoriza 8 h/).check()
+  await page.getByRole('combobox', { name: 'Regime' }).selectOption('CLT_44H_ATUAL')
+  await page.getByRole('button', { name: 'Avançar' }).click()
+  // Passo 2: 3 postos fixos
+  await page.getByLabel('Postos simultâneos (todas as horas)').fill('3')
+  await page.getByRole('button', { name: 'Avançar' }).click()
+  // Passo 3: shrinkage 8% / 12%
+  await page.getByLabel('Shrinkage diurno (%)').fill('8')
+  await page.getByLabel(/Shrinkage noturno/).fill('12')
+  await page.getByRole('button', { name: 'Avançar' }).click()
+  // Passo 4: 6x2, 4 turmas, M/T/N
+  await page.getByTestId('modelo-6X2').click()
+  await page.getByLabel('Nº de turmas (K fixo)').fill('4')
+  await page.getByRole('button', { name: 'Avançar' }).click()
+  // Passo 5: revisão
+  await page.getByText('6X2 · 4 turmas · turnos M/T/N').waitFor()
+  await page.getByRole('button', { name: 'Simular cobertura' }).click()
+  step('wizard 5 passos')
+
+  // T4 cobertura: 100% (postos)
+  await page.getByRole('grid', { name: /Cobertura 7×24/ }).waitFor({ timeout: 30000 })
+  await page.getByText(/100,0% das horas-posto cobertas/).waitFor()
+  const cells = page.locator('[role="gridcell"][data-kind]')
+  assert.equal(await cells.count(), 168)
+  assert.equal(await page.locator('[data-kind="exata"]').count(), 168)
+  // teclado: foco + seta
+  await cells.first().focus()
+  await page.keyboard.press('ArrowRight')
+  const lbl = await page.evaluate(() => document.activeElement?.getAttribute('aria-label'))
+  assert.match(lbl, /^Segunda, 01 horas, exato/)
+  step('heatmap 100% coberto, teclado ok')
+  if (process.env.E2E_SCREENSHOT) {
+    await page.screenshot({ path: process.env.E2E_SCREENSHOT, fullPage: true })
+    step(`screenshot ${process.env.E2E_SCREENSHOT}`)
+  }
+
+  // Postos + reserva: déficit esperado (shrinkage)
+  await page.getByRole('button', { name: 'Postos + reserva' }).click()
+  await page.locator('[data-kind="forte"], [data-kind="leve"]').first().waitFor()
+  step('visão postos + reserva mostra déficit')
+
+  // Export CSV
+  const [dl] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Exportar CSV' }).click()])
+  const csv = fs.readFileSync(await dl.path(), 'utf8').replace(/^﻿/, '').trim().split('\n')
+  assert.equal(csv.length, 169)
+  assert.match(csv[0], /^slot;dia;hora/)
+  step('export CSV (169 linhas)')
+
+  // Escala: calendário + achados → foco na data
+  await page.getByRole('tab', { name: 'Escala' }).click()
+  await page.getByRole('grid', { name: /Calendário das turmas/ }).waitFor()
+  assert.equal(await page.locator('td[data-team="A"]').count(), 56)
+  const goto = page.getByRole('button', { name: 'Ver no calendário' }).first()
+  if (await goto.count()) {
+    await goto.click()
+    const focused = await page.evaluate(() => document.activeElement?.getAttribute('data-date'))
+    assert.ok(focused, 'foco deve ir para a célula da data do achado')
+    step(`achado → foco em ${focused}`)
+  } else {
+    step('sem achados com data (nada a focar)')
+  }
+
+  await browser.close()
+  console.log('E2E fluxo 4.1: OK')
+}
+
+main()
+  .catch((e) => {
+    console.error(e)
+    process.exitCode = 1
+  })
+  .finally(() =>
+    procs.forEach((p) => {
+      try {
+        process.kill(-p.pid, 'SIGTERM') // grupo inteiro (npx → vite)
+      } catch {
+        /* já encerrado */
+      }
+    }),
+  )

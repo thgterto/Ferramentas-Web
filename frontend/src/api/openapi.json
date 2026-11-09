@@ -1181,6 +1181,54 @@
         "title": "ErrorResponse",
         "type": "object"
       },
+      "ExportIn": {
+        "additionalProperties": false,
+        "properties": {
+          "format": {
+            "default": "xlsx",
+            "enum": [
+              "csv",
+              "xlsx"
+            ],
+            "title": "Format",
+            "type": "string"
+          },
+          "options": {
+            "$ref": "#/components/schemas/ExportOptions"
+          }
+        },
+        "title": "ExportIn",
+        "type": "object"
+      },
+      "ExportOptions": {
+        "additionalProperties": false,
+        "properties": {
+          "sheets": {
+            "anyOf": [
+              {
+                "items": {
+                  "enum": [
+                    "Escala",
+                    "Cobertura168h",
+                    "KPIs",
+                    "Violacoes",
+                    "Parametros"
+                  ],
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "CSV: a 1ª aba da lista (padrão Cobertura168h); XLSX: todas",
+            "title": "Sheets"
+          }
+        },
+        "title": "ExportOptions",
+        "type": "object"
+      },
       "FindingBrief": {
         "properties": {
           "details": {
@@ -9905,6 +9953,119 @@
           }
         ],
         "summary": "Coverage",
+        "tags": [
+          "scenarios"
+        ]
+      }
+    },
+    "/api/v1/escalas/scenarios/{scenario_id}/exports": {
+      "post": {
+        "description": "FR-23: CSV/XLSX síncrono no MVP (200 + arquivo); job 202 + URL assinada na Fase 2.",
+        "operationId": "export_api_v1_escalas_scenarios__scenario_id__exports_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "scenario_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Scenario Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-organization-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Organization-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/ExportIn"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              },
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {},
+              "text/csv": {}
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "unauthenticated"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "not_found (inclui outro tenant)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "validation_error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Export",
         "tags": [
           "scenarios"
         ]

@@ -1,0 +1,22 @@
+# Staging do simulador de escalas (A44): Postgres 16 + API (Alembic/RLS + usuário demo) + SPA.
+# Uso: docker compose -f docker-compose.staging.yml up --build  →  http://localhost:8080/escalas
+# Login demo: gerente@demo.local / demo-12345 (SEED_EMAIL/SEED_PASSWORD). E2E contra o staging:
+#   E2E_BASE_URL=http://localhost:8080 node frontend/e2e/fluxo-4-1.cjs
+services:
+  db:
+    image: postgres:16
+    environment: { POSTGRES_USER: escalas, POSTGRES_PASSWORD: escalas, POSTGRES_DB: escalas }
+    healthcheck: { test: ["CMD-SHELL", "pg_isready -U escalas"], interval: 5s, retries: 10 }
+  api:
+    build: ./backend
+    environment:
+      DATABASE_URL: postgresql+psycopg2://escalas:escalas@db:5432/escalas
+      JWT_SECRET: ${JWT_SECRET:-staging-change-me-please-32-bytes-min}
+      SEED_EMAIL: ${SEED_EMAIL:-gerente@demo.local}
+      SEED_PASSWORD: ${SEED_PASSWORD:-demo-12345}
+    depends_on: { db: { condition: service_healthy } }
+    healthcheck: { test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://localhost:8000/health')"], interval: 5s, retries: 20 }
+  web:
+    build: ./frontend
+    ports: ["8080:80"]
+    depends_on: { api: { condition: service_healthy } }

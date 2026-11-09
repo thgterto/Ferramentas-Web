@@ -11,6 +11,7 @@ from app.api.deps import DB, Current, Writer
 from app.api.v1.escalas._common import ERRORS, LimitQ, PageQ, PerPageQ, created, csv_list
 from app.schemas import scenario as ss
 from app.schemas.common import CursorPage, Envelope, Page, page_of
+from app.services.escalas import export_service
 from app.services.escalas import scenario_service as svc
 
 router = APIRouter(responses=ERRORS, tags=["scenarios"])
@@ -110,3 +111,14 @@ def transition(scenario_id: uuid.UUID, p: Writer, db: DB,
                body: ss.TransitionIn | None = None) -> object:
     """FR-41: mesma operação em cada regime da linha do tempo; persiste o resultado."""
     return {"data": svc.transition(db, p, scenario_id, body or ss.TransitionIn())}
+
+
+@router.post("/scenarios/{scenario_id}/exports",
+             responses={200: {"content": {"text/csv": {}, "application/vnd.openxmlformats-"
+                                          "officedocument.spreadsheetml.sheet": {}}}})
+def export(scenario_id: uuid.UUID, p: Current, db: DB,
+           body: ss.ExportIn | None = None) -> Response:
+    """FR-23: CSV/XLSX síncrono no MVP (200 + arquivo); job 202 + URL assinada na Fase 2."""
+    data, media, name = export_service.export(db, p, scenario_id, body or ss.ExportIn())
+    return Response(content=data, media_type=media,
+                    headers={"Content-Disposition": f'attachment; filename="{name}"'})

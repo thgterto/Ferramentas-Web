@@ -570,6 +570,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/escalas/scenarios/{scenario_id}/exports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Export
+         * @description FR-23: CSV/XLSX síncrono no MVP (200 + arquivo); job 202 + URL assinada na Fase 2.
+         */
+        post: operations["export_api_v1_escalas_scenarios__scenario_id__exports_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/escalas/scenarios/{scenario_id}/simulate": {
         parameters: {
             query?: never;
@@ -1223,6 +1243,24 @@ export interface components {
         /** ErrorResponse */
         ErrorResponse: {
             error: components["schemas"]["ErrorBody"];
+        };
+        /** ExportIn */
+        ExportIn: {
+            /**
+             * Format
+             * @default xlsx
+             * @enum {string}
+             */
+            format: "csv" | "xlsx";
+            options?: components["schemas"]["ExportOptions"];
+        };
+        /** ExportOptions */
+        ExportOptions: {
+            /**
+             * Sheets
+             * @description CSV: a 1ª aba da lista (padrão Cobertura168h); XLSX: todas
+             */
+            sheets?: ("Escala" | "Cobertura168h" | "KPIs" | "Violacoes" | "Parametros")[] | null;
         };
         /** FindingBrief */
         FindingBrief: {
@@ -5517,6 +5555,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Envelope_CoverageOut_"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description not_found (inclui outro tenant) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description validation_error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    export_api_v1_escalas_scenarios__scenario_id__exports_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-organization-id"?: string | null;
+            };
+            path: {
+                scenario_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ExportIn"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": unknown;
+                    "text/csv": unknown;
                 };
             };
             /** @description unauthenticated */

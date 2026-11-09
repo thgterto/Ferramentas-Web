@@ -296,3 +296,16 @@ class TransitionPhase(BaseModel):
 class TransitionOut(BaseModel):
     team_size: int
     phases: list[TransitionPhase]
+
+
+ExportSheet = Literal["Escala", "Cobertura168h", "KPIs", "Violacoes", "Parametros"]
+
+
+class ExportOptions(In):
+    sheets: list[ExportSheet] | None = Field(
+        None, description="CSV: a 1ª aba da lista (padrão Cobertura168h); XLSX: todas")
+
+
+class ExportIn(In):
+    format: Literal["csv", "xlsx"] = "xlsx"
+    options: ExportOptions = Field(default_factory=lambda: ExportOptions(sheets=None))
