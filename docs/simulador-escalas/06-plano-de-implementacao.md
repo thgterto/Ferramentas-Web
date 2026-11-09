@@ -118,6 +118,8 @@ Legenda: **Pts** = pontos; **Dep** = dependências; **DoD** = critério de pront
 
 > **v3.5:** FR-28 (catálogo restante), FR-29 básico+avançado/T9, FR-30 (camadas), FR-31 (templates), FR-32 mínimo/faixa/livre e FR-33 (tamanhos/meias) **foram trazidos ao MVP** (motor `engine/personalizado.py`, migração `0004`, construtor no wizard, aba "Quadro de turnos", goldens `golden/personalizado.yaml`). Pendentes: versões imutáveis de template (`custom_schedule_pattern_versions`), regras de feriado por modelo e ciclo em horas nativo (18x36 é modelado em dias).
 
+> **v3.6:** entregues no MVP — FR-43 matriz mensal (`engine/matriz_mensal.py`, `services/escalas/matrix_service.py`, `GET /scenarios/{id}/monthly-matrix` + `/export` XLSX/CSV/ICS), FR-44 visões "Por turno" e "Pessoa" (`components/MonthlyMatrix.tsx`, `ByShiftView.tsx`, `PersonCalendar.tsx`, `ScheduleViews.tsx`), FR-45 sobreposição planejada (`Turno.passagem_min/reforco`, `COB_PASSAGEM_PLANEJADA`, status `passagem`, +7 modelos `grupo: sobreposicao`, goldens `golden/sobreposicao.yaml`) e a correção do Gantt (noite da véspera). Testes: pytest (`test_matriz_mensal.py` motor + API), Vitest `Views.test.tsx`, E2E abre/exporta a matriz e simula `6X2_PASSAGEM`. Pendentes: colaboradores nominais (Fase 2 — hoje pessoas fictícias por turma), feriados estaduais/municipais por `holiday_calendar`.
+
 Nada foi apagado: abaixo estão os itens (ou o "resto" de itens enxutos) que saíram do MVP. Pontos originais mantidos quando o item saiu inteiro; "(resto)" indica a parte que sobrou do item enxuto. Ordem sugerida por valor.
 
 **Fase 2a — operação real (primeira onda após o beta interno)**

@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import time
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from fractions import Fraction
 from typing import TYPE_CHECKING, Any, cast
 
@@ -46,7 +46,8 @@ def _fmt(m: int) -> str:
 def to_engine(spec: sp.PatternSpec) -> P.PadraoPersonalizado:
     try:
         turnos = {s.code: Turno(s.code, _hhmm(s.start), s.duration_min, s.break_min,
-                                tuple((_hhmm(a), int(d)) for a, d in (s.blocks or ())))
+                                tuple((_hhmm(a), int(d)) for a, d in (s.blocks or ())),
+                                passagem_min=s.handover_min, reforco=s.peak)
                   for s in spec.shifts}
         camadas = tuple(P.Camada(
             codigo=layer.code, nome=layer.name or layer.code, sequencia=tuple(layer.sequence),
@@ -73,7 +74,8 @@ def from_engine(p: P.PadraoPersonalizado, name: str) -> sp.PatternSpec:
         shifts=[sp.ShiftIn(code=t.codigo, name=None, color=None, start=_fmt(t.inicio_min),
                            duration_min=t.duracao_min,
                            break_min=t.intervalo_min,
-                           blocks=[(_fmt(a), d) for a, d in t.blocos] or None)
+                           blocks=[(_fmt(a), d) for a, d in t.blocos] or None,
+                           handover_min=t.passagem_min, peak=t.reforco)
                 for t in p.turnos.values()],
         layers=[sp.LayerIn(
             code=c.codigo, name=c.nome, sequence=list(c.sequencia),
@@ -137,9 +139,14 @@ def validate(body: sp.PatternValidateIn) -> sp.PatternValidation:
             min_rest_between_shifts_hours=(_d(Fraction(r.menor_interjornada_min, 60))
                                            if r.menor_interjornada_min is not None else None),
             team_sizes=[_d(v) for v in P.tamanhos_camada(c, k, Fraction(tam))]))
+    plan: dict[int, Fraction] = {}
+    for h, v in enumerate(res.planejado):
+        i = (res.data_inicio + timedelta(days=h // 24)).weekday() * 24 + h % 24
+        plan[i] = min(plan.get(i, v), v)
     slots = [sp.PreviewSlot(slot_index=d * 24 + h, required=_d(curva.valores[d * 24 + h]),
                             scheduled_worst=_d(curva.valores[d * 24 + h] + res.heat_pior[d][h]),
-                            gap_worst=_d(res.heat_pior[d][h]))
+                            gap_worst=_d(res.heat_pior[d][h]),
+                            handover=_d(plan.get(d * 24 + h, Fraction(0))))
              for d in range(7) for h in range(24)]
     if p.janela is not None:
         for s in slots:
@@ -156,6 +163,7 @@ def validate(body: sp.PatternValidateIn) -> sp.PatternValidation:
         k_required_total=_d(sum((r.k_estrela for r in pv.relatorios), Fraction(0))),
         coverage_pct=_d(kp.pct_horas_posto_cobertas),
         deficit_post_hours_week=_d(kp.deficit_hp_semana), excess_pct=_d(kp.pct_excesso),
+        handover_post_hours_week=_d(kp.passagem_hp * 7 * 24 / max(1, len(res.cobertura))),
         slots=slots, findings=[_brief(a) for a in pv.achados], legal_regime=regime.ref,
         elapsed_ms=int((time.perf_counter() - t0) * 1000))
 

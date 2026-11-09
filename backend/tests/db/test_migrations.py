@@ -52,7 +52,7 @@ def _ciclo(url: str) -> None:
     from sqlalchemy.orm import Session
 
     with Session(eng) as s:
-        assert len(s.scalars(select(ScheduleModel)).all()) == 38  # v3.5: 37 + PERSONALIZADO
+        assert len(s.scalars(select(ScheduleModel)).all()) == 45  # v3.6: 44 + PERSONALIZADO
         assert [r.code for r in s.scalars(select(LegalRegime).order_by(LegalRegime.id))] == [
             "CLT_44H_ATUAL", "TRANSICAO_42H", "PEC_40H"]
     # paridade: autogenerate não detecta diferenças entre ORM e migrações

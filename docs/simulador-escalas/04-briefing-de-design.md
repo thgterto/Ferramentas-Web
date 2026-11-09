@@ -386,6 +386,13 @@ Para cada componente documentar: **padrão, hover, foco (visível), ativo, desab
 └────────────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
+### 11.8 Visões do resultado e sobreposição (v3.6) [MVP]
+
+- **8.16 Matriz mensal:** tabela pessoa × dia com cabeçalho e 1ª coluna fixos (sticky), rolagem horizontal. Célula 36 px: sigla em mono bold sobre fundo 30 % da cor do turno + filete inferior na cor cheia (cor **e** texto); folga `F` com textura `pattern-off`; `←N` em micro quando a noite da véspera continua. Cabeçalho do dia: número + dia da semana; domingo em `sev-info`; fim de semana `surface-2`; feriado `sev-alerta-bg` + ★ (nome no `title` e em texto para leitor de tela). Rodapé por turno com `▼n` em `sev-erro-bg` quando abaixo do necessário, linha "Em folga", "Horas c/ déficit" e "Horas de passagem (⇄)". Totais à direita. Filtro de turno esmaece (30 %) as demais células. Impressão: `@page A4 landscape`, controles ocultos.
+- **8.17 Por turno:** cartões por turno (borda superior na cor do turno) com "n pessoas / m necessários", lista "Turma X: nomes (cargo)"; cartão tracejado "← Continua de ontem"; cartão de folga texturizado.
+- **8.18 Pessoa:** calendário mensal seg→dom (células 64 px) com dia, sigla, horário, `← N`, anel âmbar em feriado; faixa de totais (dias, folgas, horas, domingos de folga, noites); botões Exportar XLSX/CSV/ICS.
+- **Passagem planejada:** novo estado do heatmap (`⇄`, fundo "exato" com hachura de excesso) — "excesso planejado de passagem, não ociosidade"; no construtor, coluna **Passagem (min)** na régua e `⇄20′` na barra do turno.
+
 ## 12. Referências
 
 - Visualização: Datawrapper, Observable Plot, IBM Carbon Data Viz, ferramenta `dataviz` (validador de paleta usado aqui).

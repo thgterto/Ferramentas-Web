@@ -5,13 +5,13 @@ from __future__ import annotations
 import uuid
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Header, Response
+from fastapi import APIRouter, Header, Query, Response
 
 from app.api.deps import DB, Current, Writer
 from app.api.v1.escalas._common import ERRORS, LimitQ, PageQ, PerPageQ, created, csv_list
 from app.schemas import scenario as ss
 from app.schemas.common import CursorPage, Envelope, Page, page_of
-from app.services.escalas import export_service
+from app.services.escalas import export_service, matrix_service
 from app.services.escalas import scenario_service as svc
 
 router = APIRouter(responses=ERRORS, tags=["scenarios"])
@@ -120,5 +120,34 @@ def export(scenario_id: uuid.UUID, p: Current, db: DB,
            body: ss.ExportIn | None = None) -> Response:
     """FR-23: CSV/XLSX síncrono no MVP (200 + arquivo); job 202 + URL assinada na Fase 2."""
     data, media, name = export_service.export(db, p, scenario_id, body or ss.ExportIn())
+    return Response(content=data, media_type=media,
+                    headers={"Content-Disposition": f'attachment; filename="{name}"'})
+
+
+MonthQ = Annotated[str, Query(pattern=r"^\d{4}-(0[1-9]|1[0-2])$", examples=["2027-01"])]
+
+
+@router.get("/scenarios/{scenario_id}/monthly-matrix",
+            response_model=Envelope[ss.MonthlyMatrixOut])
+def monthly_matrix(scenario_id: uuid.UUID, p: Current, db: DB, month: MonthQ) -> object:
+    """v3.6: matriz mensal pessoa × dia (turno/folga), rodapé por turno e totais por pessoa.
+
+    Regenera o mês com a mesma âncora/K/offsets da simulação; pessoas fictícias por turma
+    (``A-01``…) quando não há colaboradores cadastrados.
+    """
+    return {"data": matrix_service.monthly_matrix(db, p, scenario_id, month)}
+
+
+@router.get("/scenarios/{scenario_id}/monthly-matrix/export",
+            responses={200: {"content": {"text/csv": {}, "text/calendar": {},
+                                         "application/vnd.openxmlformats-"
+                                         "officedocument.spreadsheetml.sheet": {}}}})
+def monthly_matrix_export(scenario_id: uuid.UUID, p: Current, db: DB, month: MonthQ,
+                          format: Literal["xlsx", "csv", "ics"] = "xlsx",
+                          months: Annotated[int, Query(ge=1, le=12)] = 1,
+                          person: str | None = None) -> Response:
+    """XLSX (uma aba por mês, cores por turno), CSV ou ICS (calendário individual)."""
+    data, media, name = matrix_service.export(db, p, scenario_id, month, months, format,
+                                              person)
     return Response(content=data, media_type=media,
                     headers={"Content-Disposition": f'attachment; filename="{name}"'})

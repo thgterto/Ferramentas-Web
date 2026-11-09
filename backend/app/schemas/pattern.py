@@ -25,6 +25,10 @@ class ShiftIn(In):
     blocks: list[tuple[str, int]] | None = Field(
         None, max_length=3, description="Jornada fracionada: [[\"07:00\", 240], [\"17:00\", 240]]")
     color: str | None = Field(None, pattern=r"^#[0-9a-fA-F]{6}$")
+    handover_min: int = Field(0, ge=0, le=240, description=(
+        "v3.6 — minutos finais sobrepostos ao turno seguinte (passagem de turno): contam na "
+        "cobertura como excesso planejado, não ociosidade"))
+    peak: bool = Field(False, description="v3.6 — turno de reforço de pico sobre o núcleo")
 
     @field_validator("code")
     @classmethod
@@ -137,6 +141,7 @@ class PreviewSlot(BaseModel):
     required: Dec6
     scheduled_worst: Dec6
     gap_worst: Dec6
+    handover: Dec6 = Decimal(0)
 
 
 class PatternValidation(BaseModel):
@@ -147,6 +152,7 @@ class PatternValidation(BaseModel):
     coverage_pct: Dec6
     deficit_post_hours_week: Dec6
     excess_pct: Dec6
+    handover_post_hours_week: Dec6 = Decimal(0)
     slots: list[PreviewSlot]
     findings: list[FindingLite]
     legal_regime: str

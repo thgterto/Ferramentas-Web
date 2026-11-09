@@ -26,9 +26,10 @@ const GROUPS = [
   ['nao_continuo', 'Não contínuos'],
   ['complementar', 'Complementares'],
   ['variacao', 'Variações de turno'],
+  ['sobreposicao', 'Com sobreposição (passagem/pico)'],
 ] as const
 
-const GROUP_LABEL: Record<string, string> = { continuo: 'Contínuo 24/7', nao_continuo: 'Não contínuo', complementar: 'Complementar', variacao: 'Variação' }
+const GROUP_LABEL: Record<string, string> = { continuo: 'Contínuo 24/7', nao_continuo: 'Não contínuo', complementar: 'Complementar', variacao: 'Variação', sobreposicao: 'Sobreposição' }
 
 const norm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
 

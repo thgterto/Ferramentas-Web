@@ -230,12 +230,15 @@ def perfis_do_modelo(modelo: ModeloEscala, turnos: Mapping[str, Turno],
         for e in seq:
             if e in (FOLGA, RESERVA) or e in rel:
                 continue
-            rel[e] = dur
-            if e in turnos:
-                ini = turnos[e].inicio_min
-                comp[e] = jornada_computada_min(ini, ini + dur, sumula60)
+            t = turnos.get(e)
+            # v3.6: turnos com sobreposição (passagem/reforço) usam a duração REAL
+            d = t.duracao_min if t is not None and (t.passagem_min or t.reforco) else dur
+            rel[e] = d
+            if t is not None:
+                ini = t.inicio_min
+                comp[e] = jornada_computada_min(ini, ini + d, sumula60)
             else:
-                comp[e] = Fraction(dur)
+                comp[e] = Fraction(d)
         perfis.append(PerfilEscala(seq, rel, comp, esp))
     return tuple(perfis)
 

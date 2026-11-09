@@ -147,7 +147,7 @@ def test_legal_regimes_resolve_com_d0(ctx: Ctx, monkeypatch: object) -> None:
 
 def test_catalogo_e_regras(ctx: Ctx) -> None:
     ms = ctx.get("/schedule-models?regime=PEC_40H").json()["data"]
-    assert len(ms) == 37  # v3.5: catálogo completo (PERSONALIZADO não é listado)
+    assert len(ms) == 44  # v3.6: 37 + 7 com sobreposição (PERSONALIZADO não é listado)
     m = next(x for x in ms if x["code"] == "6X2")
     assert m["regime_compliance"] == {"PEC_40H": {"status": "nao_conforme"}}
     assert m["avg_weekly_hours"] == "42.000000" and m["teams_24x7"] == "4.000000"

@@ -32,12 +32,8 @@ class ResultadoKFixo:
 
 def padrao_k_fixo(modelo: ModeloEscala, k: int) -> Padrao:
     """Distribui ``k`` turmas entre os grupos (resto para os primeiros) e busca offsets."""
-    n = len(modelo.sequencias)
-    if k < n:
-        raise ValueError(f"{modelo.codigo}: K={k} menor que o nº de grupos ({n})")
-    base, resto = divmod(k, n)
-    grupos = tuple(montar_grupo(seq, base + (1 if i < resto else 0))
-                   for i, seq in enumerate(modelo.sequencias))
+    ks = modelo.distribuir_k(k)
+    grupos = tuple(montar_grupo(seq, n) for seq, n in zip(modelo.sequencias, ks, strict=True))
     return Padrao(modelo.codigo, grupos)
 
 

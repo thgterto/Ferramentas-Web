@@ -24,6 +24,8 @@ COMPLIANCE_RULES: list[dict[str, Any]] = [
         ("COB_DEFICIT", "alerta", "Cobertura abaixo da demanda", "FR-09/FR-12", _V, False),
         ("COB_DEFICIT_POSTO_CRITICO", "erro", "Déficit em posto crítico", "FR-02", _V, True),
         ("COB_EXCESSO", "info", "Cobertura acima da demanda", "FR-09", _V, False),
+        ("COB_PASSAGEM_PLANEJADA", "info",
+         "Excesso planejado de passagem de turno / reforço de pico", "FR-09", _V, False),
         ("COB_DEFICIT_ESPERADO_SHRINKAGE", "alerta", "Déficit esperado após absenteísmo",
          "FR-11", _V, False),
         ("COB_TURMAS_INSUFICIENTES", "erro", "Nº de turmas abaixo do K necessário", "FR-08",

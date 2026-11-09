@@ -182,7 +182,41 @@ def _rodar_personalizado(entrada: dict[str, Any], esp: dict[str, Any]) -> None:
         assert set(esp["achados_legais"]) <= {a.codigo for a in legais}
 
 
+def _rodar_sobreposicao(entrada: dict[str, Any], esp: dict[str, Any]) -> None:
+    """v3.6: versões com sobreposição — passagem conta os dois, sem virar ociosidade."""
+    from app.services.engine import personalizado as P
+    from app.services.engine.cobertura import Status, calcular_cobertura
+    from app.services.engine.turmas_k import padrao_k_fixo
+
+    cat = catalogo_mvp()
+    m = cat[entrada["modelo"]]
+    inicio = date.fromisoformat(entrada["data_inicio"])
+    curva = demanda.postos_24x7(int(entrada["postos"]))
+    if m.motor == "generico" or not m.continuo_24x7:
+        r = P.simular(P.de_modelo(m, cat.turnos, entrada["k"]), curva, inicio, entrada["dias"],
+                      entrada["postos"]).cobertura
+    else:
+        r = calcular_cobertura(padrao_k_fixo(m, entrada["k"]), cat.turnos, curva,
+                               entrada["postos"], inicio, dias=entrada["dias"])
+    k = r.kpis
+    assert k.pct_horas_posto_cobertas == Fraction(esp["pct"])
+    assert k.passagem_hp == Fraction(esp["passagem_hp"])
+    assert k.excesso_hp == Fraction(esp["excesso_hp"])
+    if "horas_passagem_dia" in esp:
+        assert r.status_hora[:24].count(Status.PASSAGEM) == esp["horas_passagem_dia"]
+    if "horas_semanais" in esp:
+        assert [m.horas_semanais(d) for d in m.duracoes_min] == [
+            Fraction(h) for h in esp["horas_semanais"]]
+    if "interjornada_min" in esp:
+        assert [P.menor_interjornada_min(s, cat.turnos) for s in m.sequencias] == \
+            esp["interjornada_min"]
+    codigos = {a.codigo for a in r.achados}
+    assert set(esp.get("achados", [])) <= codigos
+    assert not set(esp.get("sem_achados", [])) & codigos
+
+
 EXECUTORES = {
+    "sobreposicao": _rodar_sobreposicao,
     "personalizado": _rodar_personalizado,
     "demanda": _rodar_demanda,
     "shrinkage": _rodar_shrinkage,

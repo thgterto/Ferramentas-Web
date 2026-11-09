@@ -44,8 +44,29 @@ function personRows(teams: Team[], role: string): Row[] {
  * (a) Gantt por dia — linhas = turmas/pessoas, barras coloridas por turno com rótulo de horário;
  * (b) calendário turma × dia com SIGLA + horário ("M 06–14", "F") e legenda (nunca só cor).
  */
-export function ShiftBoard({ assignments, teams, shifts, start, weeks, roles = [] }: { assignments: AssignmentOut[]; teams: Team[]; shifts?: ShiftInfo[]; start: string; weeks: number; roles?: { code: string; name: string }[] }) {
-  const [view, setView] = useState<'gantt' | 'calendario'>('gantt')
+export function ShiftBoard({
+  assignments,
+  teams,
+  shifts,
+  start,
+  weeks,
+  roles = [],
+  before = {},
+  view: viewProp,
+}: {
+  assignments: AssignmentOut[]
+  teams: Team[]
+  shifts?: ShiftInfo[]
+  start: string
+  weeks: number
+  roles?: { code: string; name: string }[]
+  /** v3.6: turno de cada turma no DIA ANTERIOR ao horizonte (noite que continua na 1ª manhã) */
+  before?: Record<string, string | null | undefined>
+  /** v3.6: visão controlada pelo seletor de visões do resultado (oculta o seletor interno) */
+  view?: 'gantt' | 'calendario'
+}) {
+  const [viewState, setView] = useState<'gantt' | 'calendario'>('gantt')
+  const view = viewProp ?? viewState
   const [by, setBy] = useState<'turma' | 'pessoa'>('turma')
   const [role, setRole] = useState('')
   const [week, setWeek] = useState(0)
@@ -54,7 +75,18 @@ export function ShiftBoard({ assignments, teams, shifts, start, weeks, roles = [
   const cat = useMemo(() => shiftCatalog(assignments, shifts), [assignments, shifts])
   const codes = cat.map((s) => s.code)
   const info = useMemo(() => new Map(cat.map((s) => [s.code, s])), [cat])
-  const byKey = useMemo(() => new Map(assignments.map((a) => [`${a.team}|${a.work_date}`, a])), [assignments])
+  const byKey = useMemo(() => {
+    const m = new Map(assignments.map((a) => [`${a.team}|${a.work_date}`, a]))
+    // v3.6 (bug): a noite do dia anterior ao horizonte não está nas alocações → 00–06 vazio
+    const d0 = addDays(start, -1)
+    for (const [team, code] of Object.entries(before)) {
+      const s0 = code ? shifts?.find((x) => x.code === code) : undefined
+      if (!s0 || m.has(`${team}|${d0}`)) continue
+      const ini = `${d0}T${s0.start}:00`
+      m.set(`${team}|${d0}`, { team, work_date: d0, shift_code: code!, is_day_off: false, starts_at: ini, ends_at: null, clock_minutes: s0.duration_min })
+    }
+    return m
+  }, [assignments, before, shifts, start])
   const teamList = useMemo(() => {
     const fromAsg = [...new Set(assignments.map((a) => a.team).filter(Boolean) as string[])]
     const known = new Map(teams.map((t) => [t.code, t]))
@@ -118,6 +150,7 @@ export function ShiftBoard({ assignments, teams, shifts, start, weeks, roles = [
   return (
     <div className="flex flex-col gap-3" data-testid="quadro-turnos">
       <div className="flex flex-wrap items-end gap-3">
+        {!viewProp && (
         <div role="group" aria-label="Visão do quadro" className="flex overflow-hidden rounded-cell border border-border">
           {(
             [
@@ -130,6 +163,7 @@ export function ShiftBoard({ assignments, teams, shifts, start, weeks, roles = [
             </button>
           ))}
         </div>
+        )}
         <div role="group" aria-label="Linhas do quadro" className="flex overflow-hidden rounded-cell border border-border">
           {(
             [
@@ -227,7 +261,7 @@ export function ShiftBoard({ assignments, teams, shifts, start, weeks, roles = [
                           <span className="sr-only">{sr}</span>
                           {spill.map((b, j) => (
                             <span key={`s${j}`} aria-hidden="true" className="absolute top-1 flex h-6 items-center overflow-hidden whitespace-nowrap rounded-cell px-1.5 font-semibold text-ink opacity-80" style={{ left: `${b.left}%`, width: `${b.width}%`, ...swatch(yday!.shift_code!) }} title={`${label(yday).text} (desde ontem)`}>
-                              ↪ {label(yday).text}
+                              ← {label(yday).text}
                             </span>
                           ))}
                           {bars.map((b, j) => (
@@ -279,6 +313,9 @@ export function ShiftBoard({ assignments, teams, shifts, start, weeks, roles = [
                     const a = byKey.get(`${r.team}|${d}`)
                     const lt = label(a)
                     const off = lt.code === 'F'
+                    const y = byKey.get(`${r.team}|${addDays(d, -1)}`)
+                    const ys = y && !y.is_day_off && y.shift_code ? info.get(y.shift_code) : undefined
+                    const carry = ys && toMin(ys.start) + ys.duration_min > 1440 ? label(y) : null
                     return (
                       <td
                         key={d}
@@ -286,7 +323,7 @@ export function ShiftBoard({ assignments, teams, shifts, start, weeks, roles = [
                         data-rc={`${ri}-${ci}`}
                         tabIndex={act[0] === ri && act[1] === ci ? 0 : -1}
                         onFocus={() => setAct([ri, ci])}
-                        aria-label={`${by === 'turma' ? 'Turma' : 'Pessoa'} ${r.label}, ${fmtDate(d)}: ${off ? 'folga' : `turno ${lt.code}, ${lt.range}`}`}
+                        aria-label={`${by === 'turma' ? 'Turma' : 'Pessoa'} ${r.label}, ${fmtDate(d)}: ${off ? 'folga' : `turno ${lt.code}, ${lt.range}`}${carry ? `; continua de ontem: ${carry.text}` : ''}`}
                         className={clsx('h-11 min-w-20 rounded-cell px-1 text-center', off ? 'pattern-off bg-surface-2 text-ink-muted' : 'text-ink')}
                         style={off ? undefined : swatch(lt.code)}
                       >
@@ -296,6 +333,11 @@ export function ShiftBoard({ assignments, teams, shifts, start, weeks, roles = [
                         {!off && (
                           <span aria-hidden="true" className="block text-micro tabular-nums">
                             {lt.range}
+                          </span>
+                        )}
+                        {carry && (
+                          <span aria-hidden="true" className="block text-micro text-ink-muted" data-carry={carry.code}>
+                            ← {carry.code}
                           </span>
                         )}
                       </td>

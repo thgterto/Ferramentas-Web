@@ -1,4 +1,4 @@
-# PRD v3.4 — Simulador Operacional de Cobertura 24/7 (Brasil/CLT)
+# PRD v3.6 — Simulador Operacional de Cobertura 24/7 (Brasil/CLT)
 
 | Metadado | Detalhe |
 | :--- | :--- |
@@ -368,6 +368,28 @@ Convenções: `s` = turnos/dia a cobrir, `L` = ciclo da turma, `w` = dias trabal
 
 **MVP × fase (v3.3):** só o **catálogo essencial** entra no MVP — `6X1_BASE`, `5X2`, `12X36`, `6X2`, `4X2`, `2X2_12H`, `5T`, `4X3`, `FIXO_D`, `FIXO_N` (tag **MVP**); os demais códigos desta tabela são **Fase 2** e entram depois como dados de catálogo (o motor M2 é genérico; cada modelo é uma linha de `schedule_models` + `rotation_patterns` + teste golden). `18X36` (ciclo em horas) e `SPLIT` (dois blocos/dia) exigem extensões do gerador e são **P1**.
 
+### 6.1.1 Versões com sobreposição (v3.6, FR-45)
+
+Turnos com **sobreposição planejada**: `passagem_min` (últimos minutos sobrepostos ao turno seguinte, passagem de turno) ou `reforco` (turno de pico sobre o núcleo). Cobertura hora a hora **conta os dois** na janela sobreposta; o excesso explicado pela sobreposição vira **"excesso planejado de passagem"** (status `passagem`, KPI `handover_post_hours`, achado INFO `COB_PASSAGEM_PLANEJADA`) — não `COB_EXCESSO` (ociosidade). Horas trabalhadas, média semanal e interjornada usam a **duração e os horários reais**. Selo legal calculado (FR-42) e conferido por `pytest -k regime`; goldens em `golden/sobreposicao.yaml`.
+
+| Código | Turnos (horários reais) | Turmas | h/sem | Passagem/dia | Selo 44 h / 42 h / 40 h |
+|---|---|---|---|---|---|
+| `6X2_PASSAGEM` | MP 06:00–14:20 · TP 14:00–22:20 · NP 22:00–06:20 (20 min) | 4 | 43,75 | 3 h | só com ACT / ✗ / ✗ |
+| `4X2_PASSAGEM` | M30/T30/N30 8h30 (30 min) | 5 (ou 9 meias) | 39,67 | 3 h | só com ACT ×3 |
+| `5T_PASSAGEM` | MP/TP/NP (20 min) | 5 | 35 | 3 h | só com ACT ×3 |
+| `12X36_PASSAGEM` | D12P 06:45–19:00 · N12P 18:45–07:00 (15 + 15 = 30 min/dia) | 4 | 42,875 | 2 h | só com ACT / ✗ / ✗ |
+| `2X2_12H_PASSAGEM` | D12P / N12P (interjornada real 11h45) | 4 | 42,875 | 2 h | só com ACT / ✗ / ✗ |
+| `NUCLEO_PICO` | núcleo 6x2 M/T/N + `PICO` 10:00–18:48 seg–sex (reforço; camadas, motor genérico) | 4 + 1 | 42 / 44 | 9 h (pico) | só com ACT / ✗ / ✗ |
+| `ESCALONADO_2H` | E06 / E08 / E10 / E12 (entradas a cada 2 h, não contínuo) | 4 | 40 | — (sobreposição real = excesso) | ✔ ×3 |
+
+No construtor (FR-29), cada turno tem **"Passagem (min)"** (0–240): o valor estende o turno (06:00–14:00 + 20 → 06:00–14:20) e é tratado como sobreposição planejada.
+
+### 6.1.2 Visões do resultado (v3.6, FR-43–FR-44)
+
+- **FR-43 Matriz mensal** — `GET /scenarios/{id}/monthly-matrix?month=YYYY-MM`: linhas = pessoas (agrupáveis por turma/cargo; alternar turma/pessoa), colunas = dias do mês com dia da semana, fins de semana e **feriados nacionais** (fixos + Carnaval, Sexta-feira Santa, Corpus Christi) destacados. Célula = sigla do turno + cor (com texto, nunca só cor), `F` folga, `←N` turno da véspera que continua pela 00:00. Rodapé por dia: pessoas que iniciam cada turno × necessário (▼ déficit), total em folga, horas com déficit e horas de passagem. Totais por pessoa: dias trabalhados, folgas, horas no mês, domingos de folga, noites (≥ 2 h em 22–05 h). Filtros: turno, cargo, turma, busca. Linha e coluna fixas, rolagem horizontal, grade navegável por setas. Exportação `…/monthly-matrix/export?format=xlsx&months=N` (uma aba por mês, cores por turno) e `csv`; impressão CSS paisagem. Sem colaboradores cadastrados (MVP aloca por turma), gera **pessoas fictícias** por turma (`A-01`, `A-02`…) com o cargo da composição. Regenera o mês com a mesma âncora/K/offsets da simulação.
+- **FR-44 Visões "Por turno" e "Pessoa"** — "Por turno": para cada dia, quem está em cada turno (lista agrupada por turma, com necessário × escalados), quem continua a noite anterior e quem folga. "Pessoa": calendário mensal individual (base do calendário pessoal), totais do mês e exportação CSV/XLSX/**ICS** (`person=A-01`).
+- **Correção (v3.6):** no Gantt por dia, o turno noturno da véspera (ex.: N 22–06 de domingo) aparece no início do dia seguinte como `← N 22–06` — inclusive no 1º dia do horizonte — e em todas as visões (calendários e matriz).
+
 ### 6.2 Conformidade por regime legal (v3.4, FR-40–FR-42)
 
 Premissas: regimes `CLT_44H_ATUAL` (44 h, ≥ 1 folga/7 d, 6x1 permitida), `TRANSICAO_42H` (42 h, ≥ 1 folga/7 d, 6x1 vedada — premissa), `PEC_40H` (40 h, **≥ 2 folgas/7 d — premissa**, 6x1 vedada); jornada até 8 h (compensação por ACT/CCT; 12x36 regime especial). **Média semanal** = `w × h × 7 / L`; **folgas/7 d** = `(L − w) × 7 / L` (média no ciclo). Legenda: ✔ conforme · **ACT** só viável com ACT/CCT (`CLT_VIAVEL_SOMENTE_COM_ACT`) · **especial** regime diferenciado pendente de lei ordinária (`CLT_REGIME_PENDENTE_REGULAMENTACAO`) · ✖ não conforme. Contas conferidas para todos os códigos da §6.1 (coluna "Conformidade").
@@ -497,6 +519,7 @@ Resolvida: **Q7** (persistência) → PostgreSQL 16 (decisão do `02-TRD.md` / `
 | `COB_DEFICIT` | ALERTA | FR-09, FR-12 |
 | `COB_DEFICIT_POSTO_CRITICO` | ERRO | FR-02, FR-09 |
 | `COB_EXCESSO` | INFO | FR-09 |
+| `COB_PASSAGEM_PLANEJADA` | INFO | FR-45 (v3.6) — excesso explicado por passagem de turno / reforço de pico |
 | `COB_FURO_INTERVALO` | ALERTA | FR-10 |
 | `COB_DEFICIT_ESPERADO_SHRINKAGE` | ALERTA | FR-11 |
 | `COB_TURMAS_INSUFICIENTES` | ERRO | FR-07, FR-08 |

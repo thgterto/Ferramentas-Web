@@ -63,7 +63,7 @@ Navegação global (header): Organização ▸ Operação ▸ Cenário (breadcru
 | `/o/:org/escalas/modelos` | T8.3 | `GET /schedule-models`, `GET /custom-schedule-patterns` | *Fase 2* |
 | `/o/:org/escalas/modelos/novo?de=:codigo` · `/o/:org/escalas/modelos/:pid/editar` | T9 | `POST /custom-schedule-patterns/{id}:derive`, `POST /custom-schedule-patterns:validate`, `PATCH /custom-schedule-patterns/{id}` | *Fase 2* |
 | `/o/:org/operacoes/:op/cenarios/novo?passo=1..5` | T3 | `POST /scenarios`, `PATCH /scenarios/{id}` | **MVP** |
-| `/o/:org/operacoes/:op/cenarios/:id/:aba` (aba ∈ `cobertura` (padrão), `escala`, `viabilidade`, `custos`*) | T4 | `GET /scenarios/{id}/coverage`, `/assignments`, `/compliance-findings`, `/financials`* | **MVP (sem `custos`)** |
+| `/o/:org/operacoes/:op/cenarios/:id/:aba` (aba ∈ `cobertura` (padrão), `quadro`, `escala`, `viabilidade`, `transicao`, `custos`*) | T4 | `GET /scenarios/{id}/coverage`, `/assignments`, `/compliance-findings`, **`/monthly-matrix?month=YYYY-MM`** (v3.6), `/financials`* | **MVP (sem `custos`)** |
 | `/o/:org/operacoes/:op/cenarios/:id/transicao` | T4 (bloco "Simular transição") | `POST /scenarios/{id}/transition`, `GET /legal-regimes` | **MVP (v3.4)** |
 | `/o/:org/operacoes/:op/cenarios/:id/ajustar` | T5 | `PATCH /scenarios/{id}/assignments/{aid}` | *Fase 2* |
 | `/o/:org/operacoes/:op/comparar?ids=...` | T6 | `POST /scenario-comparisons` | *Fase 2* |
@@ -221,6 +221,8 @@ flowchart TD
 
 ### T7 · Homologação e Exportação [Fase 2 — export CSV/XLSX é MVP via botão em T4]
 - **Checklist:** 0 achados `ERRO` (ou dispensados por `legal_reviewer` com justificativa); alertas com ciência; ACT/CCT anexado se revezamento 8 h; aprovação.
+- **Aba `quadro` (v3.6, FR-43/44):** seletor de visão **Gantt por dia · Calendário turma × dia · Matriz mensal · Por turno · Pessoa**; nas visões mensais, seletor de mês/ano (◀ ▶). Matriz: filtros turno/cargo/turma/busca, agrupar por turma/cargo, linhas pessoa/turma, "Exportar matriz XLSX/CSV", "Imprimir" (paisagem). Por turno: dia ◀ ▶ com cartões por turno, "← Continua de ontem" e "Folga". Pessoa: seletor de colaborador, calendário seg→dom, totais e "Exportar XLSX/CSV/ICS". A noite da véspera aparece como `← N 22–06` em todas as visões. Edge cases: mês fora do horizonte é regenerado pela mesma âncora; `month` inválido → 422; cenário não simulado → 409.
+- **Sobreposição (v3.6, FR-45):** no heatmap, horas com passagem/reforço planejado aparecem como **"Passagem planejada"** (⇄, hachura) em vez de excesso; KPI "horas-posto de passagem".
 - **Exportações (FR-23):** XLSX com abas `Escala`, `Cobertura168h`, `KPIs`, `Violacoes`, `Parametros`; CSV por aba. Layouts WFM/AFDT/ACJEF e calendário pessoal: **Fase 2/3**.
 - **Validações:** "Homologar" desabilitado com `ERRO` pendente; cenário homologado é somente leitura (alterações geram nova versão).
 

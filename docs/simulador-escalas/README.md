@@ -15,7 +15,7 @@ Este é um **simulador operacional**. A pergunta central é: **"minha operação
 | Doc | Conteúdo | Fonte da verdade para |
 |---|---|---|
 | [`00-prd-original.md`](00-prd-original.md) | PRD v2.0 original (só referência, não editado) | — |
-| [`01-PRD.md`](01-PRD.md) | PRD v3.4 (v3.3 + regime legal / fim da 6x1: Módulo 10 FR-39–42, §6.2, §8.1): problema, personas, KPIs, escopo, **FR-01…FR-38**, modelos de escala e **catálogo ampliado (§6.1)**, NFRs, perguntas abertas, correções, **catálogo de códigos de achado (Apêndice A)** | IDs de requisito, códigos de achado, números dos modelos, escopo/fases |
+| [`01-PRD.md`](01-PRD.md) | PRD v3.6 (v3.4 regime legal + v3.5 customização + v3.6 matriz mensal, visões e sobreposição FR-43–45, §6.1.1–6.1.2): problema, personas, KPIs, escopo, **FR-01…FR-38**, modelos de escala e **catálogo ampliado (§6.1)**, NFRs, perguntas abertas, correções, **catálogo de códigos de achado (Apêndice A)** | IDs de requisito, códigos de achado, números dos modelos, escopo/fases |
 | [`02-TRD.md`](02-TRD.md) | Arquitetura, stack, **módulos do motor M1–M6**, algoritmos, performance, precisão, segurança, testes, ADRs | Módulos do motor e stack |
 | [`03-fluxo-do-app.md`](03-fluxo-do-app.md) | Sitemap, **telas T0–T9, rotas**, passos do wizard, fluxos e edge cases, rastreabilidade FR → tela | Telas, rotas, abas, passos do wizard |
 | [`04-briefing-de-design.md`](04-briefing-de-design.md) | Objetivos de design, microcopy, paleta (cobertura, severidade, turmas), componentes, wireframes, tokens Tailwind | Tokens visuais |
@@ -29,10 +29,21 @@ Este é um **simulador operacional**. A pergunta central é: **"minha operação
 - **Catálogo v3.2 (FR-28; v3.3: Fase 2 exceto o essencial):** + 5x2, 5x1, 4x3, 6x3, 3x1, 3x2, 2x2 12 h, Pitman, Panamá, DuPont, Continental 8 h, 12x60, 24x48, 24x72, 18x36 (P1), 5T francesa, 6 turmas (8 h e 4×6 h), fim de semana 12 h, parcial 20/25/30 h, fixo/rotativo, reforço, escalonado, split (P1). Exatos em 24/7 e viabilidade padrão: `01` §6.1.
 - **Motor:** M1 Demanda+shrinkage · M2 Gerador cíclico (+ M2b catálogo/construtor) · **M3 Cobertura e dimensionamento** (+ K como restrição e cobertura por cargo) · M4 Viabilidade CLT · M5 ILP (Fase 2) · M6 Financeiro (P2). Código em `backend/app/services/engine/`.
 - **Códigos de achado:** `COB_*` (cobertura, M3) e `CLT_*` (viabilidade, M4; v3.4: `CLT_CARGA_SEMANAL_EXCEDIDA`, `CLT_FOLGAS_SEMANAIS_INSUFICIENTES`, `CLT_ESCALA_6X1_VEDADA`, `CLT_VIAVEL_SOMENTE_COM_ACT`, `CLT_REGIME_PENDENTE_REGULAMENTACAO`) + `INFO_DIVERGENCIA_59A_SUMULA60`, `INFO_REGIME_PREMISSA`; severidades `erro` / `alerta` / `info`.
-- **Telas:** T0 Login · T1 Organização · T2 Operações · T2.1 Detalhe · **T2.2 Restrições de turmas** · T3 Wizard (5 passos) · T4 Resultado (abas `cobertura`, `escala`, `viabilidade`, `custos`=P2) · T5 Ajuste de escala · T6 Comparador · T7 Homologação & export · **T8 Cadastros (T8.1 cargos, T8.2 matriz de substituição, T8.3 modelos)** · **T9 Construtor de escala**.
+- **Telas:** T0 Login · T1 Organização · T2 Operações · T2.1 Detalhe · **T2.2 Restrições de turmas** · T3 Wizard (5 passos) · T4 Resultado (abas `cobertura`, `quadro` — v3.6: Gantt / Calendário / **Matriz mensal** / Por turno / Pessoa —, `escala`, `viabilidade`, `custos`=P2) · T5 Ajuste de escala · T6 Comparador · T7 Homologação & export · **T8 Cadastros (T8.1 cargos, T8.2 matriz de substituição, T8.3 modelos)** · **T9 Construtor de escala**.
 - **Stack:** React 19 + TS + Vite 7 + Tailwind 4; FastAPI + Pydantic v2 + SQLAlchemy 2 + Alembic; PostgreSQL 16 com RLS; NumPy; Celery/Redis; OR-Tools: `min_cost_flow`/GLOP no MVP (alocação por cargo, ADR-009), CP-SAT na Fase 2.
 
 ## Registro de revisão
+
+### Revisão v3.6 — matriz mensal, outras visões e escalas com sobreposição
+
+**Pedido:** "Permita outras visões além da atual. Quero a Matriz mensal pra saber quem está em cada turno e quem está folgando por dia ao longo do mês. Inclua versões de escala com sobreposição."
+
+| Doc | Mudanças |
+|---|---|
+| `01` | **FR-43 Matriz mensal** (pessoa × dia, sigla + cor, `F`, `←N` noite que continua, fins de semana/feriados BR, rodapé por turno × necessário com déficit, totais por pessoa, filtros turno/cargo/turma/busca, XLSX uma aba por mês + CSV + impressão paisagem); **FR-44 visões "Por turno" e "Pessoa"** (calendário individual exportável CSV/XLSX/ICS); **FR-45 sobreposição planejada** (`passagem_min` / `reforco` no turno: cobertura conta os dois, status `passagem` + `COB_PASSAGEM_PLANEJADA` em vez de `COB_EXCESSO`; horas/média/interjornada pelos horários reais); §6.1 +7 modelos `grupo: sobreposicao` (44 no catálogo). Bug corrigido: a noite da véspera do horizonte aparece no Gantt (`← N 22–06`). |
+| `03` | T4 aba `quadro`: seletor de visão **Gantt / Calendário / Matriz mensal / Por turno / Pessoa** + seletor de mês; rota `GET /scenarios/{id}/monthly-matrix?month=YYYY-MM` e `…/monthly-matrix/export`. |
+| `04` | §8.16 Matriz mensal, §8.17 Por turno, §8.18 Pessoa; célula "passagem planejada" (⇄, hachura) no heatmap e na pré-visualização do construtor; coluna "Passagem (min)" na régua de turnos. |
+| `06` | Itens v3.6 entregues (motor `engine/matriz_mensal.py`, `services/escalas/matrix_service.py`, goldens `golden/sobreposicao.yaml`, Vitest `Views.test.tsx`, E2E abre e exporta a matriz). |
 
 ### Revisão v3.5 — máxima customização (catálogo completo, K livre, construtor, quadro de turnos)
 

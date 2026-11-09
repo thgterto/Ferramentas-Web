@@ -124,9 +124,9 @@ export function blankPattern(): PatternSpec {
     name: 'Padrão personalizado',
     derived_from: null,
     shifts: [
-      { code: 'M', start: '06:00', duration_min: 480, break_min: 60 },
-      { code: 'T', start: '14:00', duration_min: 480, break_min: 60 },
-      { code: 'N', start: '22:00', duration_min: 480, break_min: 60 },
+      { code: 'M', start: '06:00', duration_min: 480, break_min: 60, handover_min: 0, peak: false },
+      { code: 'T', start: '14:00', duration_min: 480, break_min: 60, handover_min: 0, peak: false },
+      { code: 'N', start: '22:00', duration_min: 480, break_min: 60, handover_min: 0, peak: false },
     ],
     layers: [{ code: 'NUCLEO', name: 'Núcleo', sequence: ['M', 'M', 'T', 'T', 'N', 'N', 'F', 'F', 'F', 'F'], rotation: 'frente', team_mode: 'fixo', k: 5, fixed_off_weekdays: [], active_weekdays: ALL_DAYS, weekly_anchor: false }],
     anchor_date: null,
@@ -137,7 +137,7 @@ export function blankPattern(): PatternSpec {
 /** Camada de reforço 5x2 (FR-30): turno intermediário seg–sex. */
 export function reinforcementLayer(p: PatternSpec): { shifts: ShiftSpec[]; layer: LayerSpec } {
   const shifts = [...p.shifts]
-  if (!shifts.some((s) => s.code === 'INT')) shifts.push({ code: 'INT', start: '10:00', duration_min: 480, break_min: 60 })
+  if (!shifts.some((s) => s.code === 'INT')) shifts.push({ code: 'INT', start: '10:00', duration_min: 480, break_min: 60, handover_min: 0, peak: false })
   let code = 'REFORCO'
   for (let i = 2; p.layers.some((l) => l.code === code); i++) code = `REFORCO${i}`
   return { shifts, layer: { code, name: 'Reforço 5x2', sequence: ['INT', 'INT', 'INT', 'INT', 'INT', 'F', 'F'], rotation: 'frente', team_mode: 'fixo', k: 1, fixed_off_weekdays: [], active_weekdays: ALL_DAYS, weekly_anchor: true } }

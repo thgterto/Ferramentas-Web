@@ -329,6 +329,7 @@
       "CoverageKpis": {
         "properties": {
           "break_gap_post_hours": {
+            "default": "0.000000",
             "examples": [
               "0.200000"
             ],
@@ -341,6 +342,7 @@
             "type": "integer"
           },
           "deficit_post_hours": {
+            "default": "0.000000",
             "examples": [
               "0.200000"
             ],
@@ -349,11 +351,21 @@
             "type": "string"
           },
           "excess_post_hours": {
+            "default": "0.000000",
             "examples": [
               "0.200000"
             ],
             "pattern": "^-?\\d+(\\.\\d{1,6})?$",
             "title": "Excess Post Hours",
+            "type": "string"
+          },
+          "handover_post_hours": {
+            "default": "0.000000",
+            "examples": [
+              "0.200000"
+            ],
+            "pattern": "^-?\\d+(\\.\\d{1,6})?$",
+            "title": "Handover Post Hours",
             "type": "string"
           },
           "headcount_min": {
@@ -368,6 +380,7 @@
             "title": "Headcount Min"
           },
           "pct_hours_covered": {
+            "default": "0.000000",
             "examples": [
               "0.200000"
             ],
@@ -388,6 +401,7 @@
           "teams_required": {
             "anyOf": [
               {
+                "default": "0.000000",
                 "examples": [
                   "0.200000"
                 ],
@@ -471,6 +485,7 @@
       "CoverageSlot": {
         "properties": {
           "break_gap": {
+            "default": "0.000000",
             "examples": [
               "0.200000"
             ],
@@ -483,6 +498,7 @@
             "type": "integer"
           },
           "expected_worst": {
+            "default": "0.000000",
             "examples": [
               "0.200000"
             ],
@@ -491,6 +507,7 @@
             "type": "string"
           },
           "gap": {
+            "default": "0.000000",
             "examples": [
               "0.200000"
             ],
@@ -498,7 +515,17 @@
             "title": "Gap",
             "type": "string"
           },
+          "handover": {
+            "default": "0.000000",
+            "examples": [
+              "0.200000"
+            ],
+            "pattern": "^-?\\d+(\\.\\d{1,6})?$",
+            "title": "Handover",
+            "type": "string"
+          },
           "required_gross": {
+            "default": "0.000000",
             "examples": [
               "0.200000"
             ],
@@ -507,6 +534,7 @@
             "type": "string"
           },
           "required_net": {
+            "default": "0.000000",
             "examples": [
               "0.200000"
             ],
@@ -515,6 +543,7 @@
             "type": "string"
           },
           "scheduled_mean": {
+            "default": "0.000000",
             "examples": [
               "0.200000"
             ],
@@ -523,6 +552,7 @@
             "type": "string"
           },
           "scheduled_worst": {
+            "default": "0.000000",
             "examples": [
               "0.200000"
             ],
@@ -542,7 +572,8 @@
             "enum": [
               "deficit",
               "exata",
-              "excesso"
+              "excesso",
+              "passagem"
             ],
             "title": "Status",
             "type": "string"
@@ -811,6 +842,18 @@
           "data"
         ],
         "title": "Envelope[MeOut]",
+        "type": "object"
+      },
+      "Envelope_MonthlyMatrixOut_": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/MonthlyMatrixOut"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "title": "Envelope[MonthlyMatrixOut]",
         "type": "object"
       },
       "Envelope_OperationOut_": {
@@ -1471,6 +1514,7 @@
           "coverage_pct": {
             "anyOf": [
               {
+                "default": "0.000000",
                 "examples": [
                   "0.200000"
                 ],
@@ -1497,6 +1541,7 @@
           "deficit_post_hours": {
             "anyOf": [
               {
+                "default": "0.000000",
                 "examples": [
                   "0.200000"
                 ],
@@ -1523,6 +1568,7 @@
           "peak_undercoverage": {
             "anyOf": [
               {
+                "default": "0.000000",
                 "examples": [
                   "0.200000"
                 ],
@@ -1538,6 +1584,7 @@
           "teams_required": {
             "anyOf": [
               {
+                "default": "0.000000",
                 "examples": [
                   "0.200000"
                 ],
@@ -2452,6 +2499,7 @@
           "min_rest_between_shifts_hours": {
             "anyOf": [
               {
+                "default": "0.000000",
                 "examples": [
                   "0.200000"
                 ],
@@ -2481,6 +2529,7 @@
           },
           "team_sizes": {
             "items": {
+              "default": "0.000000",
               "examples": [
                 "0.200000"
               ],
@@ -2726,6 +2775,265 @@
         "title": "LoginIn",
         "type": "object"
       },
+      "MatrixCell": {
+        "properties": {
+          "carry": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "turno da véspera que continua pela 00:00",
+            "title": "Carry"
+          },
+          "code": {
+            "description": "sigla do turno ou F (folga)",
+            "title": "Code",
+            "type": "string"
+          },
+          "reserve": {
+            "default": false,
+            "title": "Reserve",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "code"
+        ],
+        "title": "MatrixCell",
+        "type": "object"
+      },
+      "MatrixDaily": {
+        "properties": {
+          "by_shift": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "By Shift",
+            "type": "object"
+          },
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "deficit_hours": {
+            "title": "Deficit Hours",
+            "type": "integer"
+          },
+          "deficit_shifts": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Deficit Shifts",
+            "type": "array"
+          },
+          "handover_hours": {
+            "title": "Handover Hours",
+            "type": "integer"
+          },
+          "off": {
+            "title": "Off",
+            "type": "integer"
+          },
+          "required_by_shift": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Required By Shift",
+            "type": "object"
+          },
+          "required_peak": {
+            "title": "Required Peak",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "date",
+          "by_shift",
+          "required_by_shift",
+          "off",
+          "deficit_shifts",
+          "deficit_hours",
+          "handover_hours",
+          "required_peak"
+        ],
+        "title": "MatrixDaily",
+        "type": "object"
+      },
+      "MatrixDay": {
+        "properties": {
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "holiday": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Holiday"
+          },
+          "is_weekend": {
+            "title": "Is Weekend",
+            "type": "boolean"
+          },
+          "weekday": {
+            "description": "1 = segunda … 7 = domingo",
+            "title": "Weekday",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "date",
+          "weekday",
+          "is_weekend"
+        ],
+        "title": "MatrixDay",
+        "type": "object"
+      },
+      "MatrixPerson": {
+        "properties": {
+          "cells": {
+            "items": {
+              "$ref": "#/components/schemas/MatrixCell"
+            },
+            "title": "Cells",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role"
+          },
+          "team": {
+            "title": "Team",
+            "type": "string"
+          },
+          "totals": {
+            "$ref": "#/components/schemas/PersonTotals"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "team",
+          "cells",
+          "totals"
+        ],
+        "title": "MatrixPerson",
+        "type": "object"
+      },
+      "MatrixShift": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "crosses_midnight": {
+            "default": false,
+            "title": "Crosses Midnight",
+            "type": "boolean"
+          },
+          "duration_min": {
+            "title": "Duration Min",
+            "type": "integer"
+          },
+          "end": {
+            "title": "End",
+            "type": "string"
+          },
+          "handover_min": {
+            "default": 0,
+            "title": "Handover Min",
+            "type": "integer"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "night": {
+            "default": false,
+            "title": "Night",
+            "type": "boolean"
+          },
+          "peak": {
+            "default": false,
+            "title": "Peak",
+            "type": "boolean"
+          },
+          "start": {
+            "title": "Start",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "start",
+          "end",
+          "label",
+          "duration_min"
+        ],
+        "title": "MatrixShift",
+        "type": "object"
+      },
+      "MatrixTeam": {
+        "properties": {
+          "cells": {
+            "items": {
+              "$ref": "#/components/schemas/MatrixCell"
+            },
+            "title": "Cells",
+            "type": "array"
+          },
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "size": {
+            "default": "0.000000",
+            "examples": [
+              "0.200000"
+            ],
+            "pattern": "^-?\\d+(\\.\\d{1,6})?$",
+            "title": "Size",
+            "type": "string"
+          },
+          "totals": {
+            "$ref": "#/components/schemas/PersonTotals"
+          }
+        },
+        "required": [
+          "code",
+          "size",
+          "cells",
+          "totals"
+        ],
+        "title": "MatrixTeam",
+        "type": "object"
+      },
       "MeOut": {
         "properties": {
           "current_organization_id": {
@@ -2791,6 +3099,65 @@
           "role"
         ],
         "title": "MembershipOut",
+        "type": "object"
+      },
+      "MonthlyMatrixOut": {
+        "properties": {
+          "daily": {
+            "items": {
+              "$ref": "#/components/schemas/MatrixDaily"
+            },
+            "title": "Daily",
+            "type": "array"
+          },
+          "days": {
+            "items": {
+              "$ref": "#/components/schemas/MatrixDay"
+            },
+            "title": "Days",
+            "type": "array"
+          },
+          "generated_people": {
+            "description": "pessoas fictícias por turma (A-01…) — o MVP aloca por turma",
+            "title": "Generated People",
+            "type": "boolean"
+          },
+          "month": {
+            "title": "Month",
+            "type": "string"
+          },
+          "people": {
+            "items": {
+              "$ref": "#/components/schemas/MatrixPerson"
+            },
+            "title": "People",
+            "type": "array"
+          },
+          "shifts": {
+            "items": {
+              "$ref": "#/components/schemas/MatrixShift"
+            },
+            "title": "Shifts",
+            "type": "array"
+          },
+          "teams": {
+            "items": {
+              "$ref": "#/components/schemas/MatrixTeam"
+            },
+            "title": "Teams",
+            "type": "array"
+          }
+        },
+        "required": [
+          "month",
+          "generated_people",
+          "days",
+          "shifts",
+          "people",
+          "teams",
+          "daily"
+        ],
+        "title": "MonthlyMatrixOut",
         "type": "object"
       },
       "OperationIn": {
@@ -3562,6 +3929,15 @@
             "title": "Findings",
             "type": "array"
           },
+          "handover_post_hours_week": {
+            "default": "0.000000",
+            "examples": [
+              "0.200000"
+            ],
+            "pattern": "^-?\\d+(\\.\\d{1,6})?$",
+            "title": "Handover Post Hours Week",
+            "type": "string"
+          },
           "headcount": {
             "examples": [
               "0.200000"
@@ -3624,6 +4000,7 @@
             "type": "string"
           },
           "value": {
+            "default": "0.000000",
             "examples": [
               "0.200000"
             ],
@@ -3637,6 +4014,44 @@
           "at"
         ],
         "title": "PeakOut",
+        "type": "object"
+      },
+      "PersonTotals": {
+        "properties": {
+          "hours": {
+            "default": "0.000000",
+            "examples": [
+              "0.200000"
+            ],
+            "pattern": "^-?\\d+(\\.\\d{1,6})?$",
+            "title": "Hours",
+            "type": "string"
+          },
+          "nights": {
+            "title": "Nights",
+            "type": "integer"
+          },
+          "off_days": {
+            "title": "Off Days",
+            "type": "integer"
+          },
+          "sundays_off": {
+            "title": "Sundays Off",
+            "type": "integer"
+          },
+          "worked_days": {
+            "title": "Worked Days",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "worked_days",
+          "off_days",
+          "hours",
+          "sundays_off",
+          "nights"
+        ],
+        "title": "PersonTotals",
         "type": "object"
       },
       "PositionIn": {
@@ -3803,6 +4218,7 @@
       "PreviewSlot": {
         "properties": {
           "gap_worst": {
+            "default": "0.000000",
             "examples": [
               "0.200000"
             ],
@@ -3810,7 +4226,17 @@
             "title": "Gap Worst",
             "type": "string"
           },
+          "handover": {
+            "default": "0.000000",
+            "examples": [
+              "0.200000"
+            ],
+            "pattern": "^-?\\d+(\\.\\d{1,6})?$",
+            "title": "Handover",
+            "type": "string"
+          },
           "required": {
+            "default": "0.000000",
             "examples": [
               "0.200000"
             ],
@@ -3819,6 +4245,7 @@
             "type": "string"
           },
           "scheduled_worst": {
+            "default": "0.000000",
             "examples": [
               "0.200000"
             ],
@@ -3843,6 +4270,7 @@
       "RoleCoverageKpi": {
         "properties": {
           "deficit_post_hours": {
+            "default": "0.000000",
             "examples": [
               "0.200000"
             ],
@@ -3851,6 +4279,7 @@
             "type": "string"
           },
           "own_post_hours": {
+            "default": "0.000000",
             "examples": [
               "0.200000"
             ],
@@ -3859,6 +4288,7 @@
             "type": "string"
           },
           "pct_hours_covered": {
+            "default": "0.000000",
             "examples": [
               "0.200000"
             ],
@@ -3871,6 +4301,7 @@
             "type": "string"
           },
           "substituted_post_hours": {
+            "default": "0.000000",
             "examples": [
               "0.200000"
             ],
@@ -4811,6 +5242,7 @@
           "teams_24x7": {
             "anyOf": [
               {
+                "default": "0.000000",
                 "examples": [
                   "0.200000"
                 ],
@@ -4826,6 +5258,7 @@
           "teams_non_continuous": {
             "anyOf": [
               {
+                "default": "0.000000",
                 "examples": [
                   "0.200000"
                 ],
@@ -4878,6 +5311,7 @@
       "ScheduleModelRef": {
         "properties": {
           "avg_weekly_hours": {
+            "default": "0.000000",
             "examples": [
               "0.200000"
             ],
@@ -4958,6 +5392,14 @@
             "title": "Duration Min",
             "type": "integer"
           },
+          "handover_min": {
+            "default": 0,
+            "description": "v3.6 — minutos finais sobrepostos ao turno seguinte (passagem de turno): contam na cobertura como excesso planejado, não ociosidade",
+            "maximum": 240.0,
+            "minimum": 0.0,
+            "title": "Handover Min",
+            "type": "integer"
+          },
           "name": {
             "anyOf": [
               {
@@ -4969,6 +5411,12 @@
               }
             ],
             "title": "Name"
+          },
+          "peak": {
+            "default": false,
+            "description": "v3.6 — turno de reforço de pico sobre o núcleo",
+            "title": "Peak",
+            "type": "boolean"
           },
           "start": {
             "examples": [
@@ -5004,6 +5452,16 @@
           "duration_min": {
             "title": "Duration Min",
             "type": "integer"
+          },
+          "handover_min": {
+            "default": 0,
+            "title": "Handover Min",
+            "type": "integer"
+          },
+          "peak": {
+            "default": false,
+            "title": "Peak",
+            "type": "boolean"
           },
           "start": {
             "title": "Start",
@@ -5367,6 +5825,7 @@
             "type": "integer"
           },
           "k_effective": {
+            "default": "0.000000",
             "examples": [
               "0.200000"
             ],
@@ -5375,6 +5834,7 @@
             "type": "string"
           },
           "k_legal": {
+            "default": "0.000000",
             "examples": [
               "0.200000"
             ],
@@ -5383,6 +5843,7 @@
             "type": "string"
           },
           "k_required": {
+            "default": "0.000000",
             "examples": [
               "0.200000"
             ],
@@ -5649,6 +6110,7 @@
             "type": "boolean"
           },
           "coverage_factor": {
+            "default": "0.000000",
             "examples": [
               "0.200000"
             ],
@@ -5875,6 +6337,7 @@
       "TeamCountOut": {
         "properties": {
           "achievable_pct": {
+            "default": "0.000000",
             "examples": [
               "0.200000"
             ],
@@ -5883,6 +6346,7 @@
             "type": "string"
           },
           "k_required": {
+            "default": "0.000000",
             "examples": [
               "0.200000"
             ],
@@ -5950,6 +6414,7 @@
             "type": "integer"
           },
           "size_required": {
+            "default": "0.000000",
             "examples": [
               "0.200000"
             ],
@@ -6026,6 +6491,7 @@
       "TransitionOption": {
         "properties": {
           "avg_weekly_hours": {
+            "default": "0.000000",
             "examples": [
               "0.200000"
             ],
@@ -6057,6 +6523,7 @@
             "type": "integer"
           },
           "teams_required": {
+            "default": "0.000000",
             "examples": [
               "0.200000"
             ],
@@ -6111,6 +6578,7 @@
             "type": "array"
           },
           "k_legal": {
+            "default": "0.000000",
             "examples": [
               "0.200000"
             ],
@@ -6119,6 +6587,7 @@
             "type": "string"
           },
           "k_legal_half_teams": {
+            "default": "0.000000",
             "examples": [
               "0.200000"
             ],
@@ -6170,6 +6639,7 @@
       "TransitionScenarioModel": {
         "properties": {
           "avg_weekly_hours": {
+            "default": "0.000000",
             "examples": [
               "0.200000"
             ],
@@ -6197,6 +6667,7 @@
             "type": "integer"
           },
           "teams": {
+            "default": "0.000000",
             "examples": [
               "0.200000"
             ],
@@ -11350,6 +11821,268 @@
           }
         ],
         "summary": "Export",
+        "tags": [
+          "scenarios"
+        ]
+      }
+    },
+    "/api/v1/escalas/scenarios/{scenario_id}/monthly-matrix": {
+      "get": {
+        "description": "v3.6: matriz mensal pessoa × dia (turno/folga), rodapé por turno e totais por pessoa.\n\nRegenera o mês com a mesma âncora/K/offsets da simulação; pessoas fictícias por turma\n(``A-01``…) quando não há colaboradores cadastrados.",
+        "operationId": "monthly_matrix_api_v1_escalas_scenarios__scenario_id__monthly_matrix_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "scenario_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Scenario Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "month",
+            "required": true,
+            "schema": {
+              "examples": [
+                "2027-01"
+              ],
+              "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+              "title": "Month",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-organization-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Organization-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_MonthlyMatrixOut_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "unauthenticated"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "not_found (inclui outro tenant)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "validation_error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Monthly Matrix",
+        "tags": [
+          "scenarios"
+        ]
+      }
+    },
+    "/api/v1/escalas/scenarios/{scenario_id}/monthly-matrix/export": {
+      "get": {
+        "description": "XLSX (uma aba por mês, cores por turno), CSV ou ICS (calendário individual).",
+        "operationId": "monthly_matrix_export_api_v1_escalas_scenarios__scenario_id__monthly_matrix_export_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "scenario_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Scenario Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "month",
+            "required": true,
+            "schema": {
+              "examples": [
+                "2027-01"
+              ],
+              "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+              "title": "Month",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "format",
+            "required": false,
+            "schema": {
+              "default": "xlsx",
+              "enum": [
+                "xlsx",
+                "csv",
+                "ics"
+              ],
+              "title": "Format",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "months",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "maximum": 12,
+              "minimum": 1,
+              "title": "Months",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "person",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Person"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-organization-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Organization-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              },
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {},
+              "text/calendar": {},
+              "text/csv": {}
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "unauthenticated"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "not_found (inclui outro tenant)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "validation_error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Monthly Matrix Export",
         "tags": [
           "scenarios"
         ]

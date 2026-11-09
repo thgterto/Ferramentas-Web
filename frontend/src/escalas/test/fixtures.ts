@@ -10,6 +10,7 @@ export function slots(fn: (i: number) => Partial<CoverageSlot> = () => ({})): Co
     scheduled_worst: '3.000000',
     scheduled_mean: '3.000000',
     expected_worst: '3.000000',
+    handover: '0.000000',
     break_gap: '0.000000',
     deficit_occurrences: 0,
     gap: '0.000000',

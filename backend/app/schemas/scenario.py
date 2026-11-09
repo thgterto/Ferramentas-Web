@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import date, datetime
+from decimal import Decimal
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
@@ -95,6 +96,8 @@ class ShiftInfo(BaseModel):
     code: str
     start: str
     duration_min: int
+    handover_min: int = 0
+    peak: bool = False
     blocks: list[list[Any]] = Field(default_factory=list)
 
 
@@ -201,6 +204,7 @@ class CoverageKpis(BaseModel):
     peak_undercoverage: PeakOut | None
     deficit_hours: int
     excess_post_hours: Dec6
+    handover_post_hours: Dec6 = Decimal(0)
     break_gap_post_hours: Dec6
     headcount_min: int | None
     teams_required: Dec6 | None
@@ -218,7 +222,8 @@ class CoverageSlot(BaseModel):
     break_gap: Dec6
     deficit_occurrences: int
     gap: Dec6
-    status: Literal["deficit", "exata", "excesso"]
+    handover: Dec6 = Decimal(0)
+    status: Literal["deficit", "exata", "excesso", "passagem"]
 
 
 class CoverageOut(BaseModel):
@@ -329,3 +334,75 @@ class ExportOptions(In):
 class ExportIn(In):
     format: Literal["csv", "xlsx"] = "xlsx"
     options: ExportOptions = Field(default_factory=lambda: ExportOptions(sheets=None))
+
+
+# ---- v3.6: matriz mensal / por turno / pessoa ------------------------------------------
+class MatrixDay(BaseModel):
+    date: date
+    weekday: int = Field(description="1 = segunda … 7 = domingo")
+    is_weekend: bool
+    holiday: str | None = None
+
+
+class MatrixShift(BaseModel):
+    code: str
+    start: str
+    end: str
+    label: str
+    duration_min: int
+    handover_min: int = 0
+    peak: bool = False
+    night: bool = False
+    crosses_midnight: bool = False
+
+
+class MatrixCell(BaseModel):
+    code: str = Field(description="sigla do turno ou F (folga)")
+    reserve: bool = False
+    carry: str | None = Field(None, description="turno da véspera que continua pela 00:00")
+
+
+class PersonTotals(BaseModel):
+    worked_days: int
+    off_days: int
+    hours: Dec6
+    sundays_off: int
+    nights: int
+
+
+class MatrixPerson(BaseModel):
+    id: str
+    name: str
+    team: str
+    role: str | None = None
+    cells: list[MatrixCell]
+    totals: PersonTotals
+
+
+class MatrixTeam(BaseModel):
+    code: str
+    size: Dec6
+    cells: list[MatrixCell]
+    totals: PersonTotals
+
+
+class MatrixDaily(BaseModel):
+    date: date
+    by_shift: dict[str, int]
+    required_by_shift: dict[str, int]
+    off: int
+    deficit_shifts: list[str]
+    deficit_hours: int
+    handover_hours: int
+    required_peak: int
+
+
+class MonthlyMatrixOut(BaseModel):
+    month: str
+    generated_people: bool = Field(
+        description="pessoas fictícias por turma (A-01…) — o MVP aloca por turma")
+    days: list[MatrixDay]
+    shifts: list[MatrixShift]
+    people: list[MatrixPerson]
+    teams: list[MatrixTeam]
+    daily: list[MatrixDaily]

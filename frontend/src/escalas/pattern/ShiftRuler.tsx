@@ -27,7 +27,7 @@ export function ShiftRuler({ shifts, used, onChange }: { shifts: ShiftSpec[]; us
   const add = (hours: number) => {
     const code = nextShiftCode(codes, hours)
     const start = hours === 24 ? '07:00' : hours === 12 ? '07:00' : '08:00'
-    onChange([...shifts, { code, start, duration_min: hours * 60, break_min: hours > 6 ? 60 : 15 }])
+    onChange([...shifts, { code, start, duration_min: hours * 60, break_min: hours > 6 ? 60 : 15, handover_min: 0, peak: false }])
   }
   return (
     <section aria-labelledby="regua-titulo" className="flex flex-col gap-3">
@@ -43,6 +43,9 @@ export function ShiftRuler({ shifts, used, onChange }: { shifts: ShiftSpec[]; us
               <th scope="col">Duração (h)</th>
               <th scope="col">Fim</th>
               <th scope="col">Intervalo (min)</th>
+              <th scope="col" title="Minutos finais sobrepostos ao turno seguinte (passagem de turno)">
+                Passagem (min)
+              </th>
               <th scope="col">
                 <span className="sr-only">Ações</span>
               </th>
@@ -92,6 +95,23 @@ export function ShiftRuler({ shifts, used, onChange }: { shifts: ShiftSpec[]; us
                   <td className="py-1 pr-2">
                     <input aria-label={`Intervalo do turno ${s.code} em minutos`} type="number" min={0} max={240} className={`${inputCls} w-20`} value={s.break_min} onChange={(e) => set(i, { break_min: Math.max(0, Math.min(240, Number(e.target.value) || 0)) })} />
                   </td>
+                  <td className="py-1 pr-2">
+                    <input
+                      aria-label={`Sobreposição de passagem do turno ${s.code} em minutos`}
+                      type="number"
+                      min={0}
+                      max={240}
+                      step={5}
+                      className={`${inputCls} w-20`}
+                      value={s.handover_min ?? 0}
+                      onChange={(e) => {
+                        const v = Math.max(0, Math.min(240, Math.round(Number(e.target.value) || 0)))
+                        const base = s.duration_min - (s.handover_min ?? 0)
+                        // a passagem ESTENDE o turno (06:00–14:00 + 20 min → 06:00–14:20)
+                        set(i, { handover_min: v, duration_min: Math.min(1440, base + v), blocks: null })
+                      }}
+                    />
+                  </td>
                   <td className="py-1">
                     <Button variant="ghost" disabled={shifts.length === 1 || used.has(s.code)} title={used.has(s.code) ? 'Em uso em uma sequência' : undefined} onClick={() => onChange(shifts.filter((_, j) => j !== i))} aria-label={`Remover turno ${s.code}`}>
                       Remover
@@ -128,8 +148,9 @@ export function ShiftRuler({ shifts, used, onChange }: { shifts: ShiftSpec[]; us
                   className="absolute top-0.5 flex h-5 items-center overflow-hidden rounded-cell px-1 text-micro font-semibold text-ink"
                   style={{ left: `${b.left}%`, width: `${b.width}%`, background: `color-mix(in srgb, ${shiftColor(s.code, codes)} 30%, rgb(var(--surface)))`, borderLeft: `3px solid ${shiftColor(s.code, codes)}` }}
                 >
-                  {b.cont ? '↪ ' : ''}
+                  {b.cont ? '← ' : ''}
                   {s.code} {rangeLabel(s.start, s.duration_min)}
+                  {s.handover_min ? ` · ⇄${s.handover_min}′` : ''}
                 </span>
               ))}
             </div>

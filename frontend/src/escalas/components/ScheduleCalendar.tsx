@@ -119,7 +119,9 @@ export function ScheduleCalendar({
                   const off = !a || a.is_day_off
                   const code = off ? 'F' : a.shift_code ?? '?'
                   const sunday = weekdayOf(d) === 6
-                  const label = `Turma ${t}, ${fmtDate(d)}${sunday ? ' (domingo)' : ''}: ${off ? 'folga' : `turno ${code}`}${fs.length ? `; ${fs.length} achado(s): ${fs.map((f) => f.rule_code).join(', ')}` : ''}`
+                  const y = c > 0 ? byKey.get(`${t}|${days[c - 1]}`) : undefined
+                  const carry = y && !y.is_day_off && y.shift_code && y.ends_at && y.ends_at.slice(0, 10) > y.work_date ? y.shift_code : null
+                  const label = `Turma ${t}, ${fmtDate(d)}${sunday ? ' (domingo)' : ''}: ${off ? 'folga' : `turno ${code}`}${carry ? `; continua de ontem: ${carry}` : ''}${fs.length ? `; ${fs.length} achado(s): ${fs.map((f) => f.rule_code).join(', ')}` : ''}`
                   return (
                     <td
                       key={d}
@@ -140,6 +142,11 @@ export function ScheduleCalendar({
                       style={off ? undefined : { background: `color-mix(in srgb, var(--turma-${TURMA_VARS[idx]}) 22%, rgb(var(--surface)))`, borderBottom: `2px solid var(--turma-${TURMA_VARS[idx]})` }}
                     >
                       <span aria-hidden="true">{code}</span>
+                      {carry && (
+                        <span aria-hidden="true" title={`← ${carry} continua de ontem`} className="absolute -left-0.5 -top-1 text-micro text-ink-muted">
+                          ←
+                        </span>
+                      )}
                       {sev && (
                         <span aria-hidden="true" className={clsx('absolute -right-0.5 -top-1 text-micro', sev === 'erro' ? 'text-sev-erro' : sev === 'alerta' ? 'text-sev-alerta' : 'text-sev-info')}>
                           {sev === 'erro' ? '✕' : sev === 'alerta' ? '!' : 'i'}

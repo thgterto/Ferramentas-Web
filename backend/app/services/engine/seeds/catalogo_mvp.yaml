@@ -34,6 +34,19 @@ turnos:
   E07: {inicio: "07:00", duracao_min: 480}
   E08: {inicio: "08:00", duracao_min: 480}
   SP:  {inicio: "07:00", duracao_min: 840, blocos: [["07:00", 240], ["17:00", 240]]}
+  # v3.6 — turnos com SOBREPOSIÇÃO planejada (passagem de turno / reforço de pico).
+  # passagem_min = últimos minutos sobrepostos ao turno seguinte; reforco = turno de pico.
+  MP:   {inicio: "06:00", duracao_min: 500, passagem_min: 20}   # 06:00–14:20
+  TP:   {inicio: "14:00", duracao_min: 500, passagem_min: 20}   # 14:00–22:20
+  NP:   {inicio: "22:00", duracao_min: 500, passagem_min: 20}   # 22:00–06:20
+  M30:  {inicio: "06:00", duracao_min: 510, passagem_min: 30}   # 06:00–14:30
+  T30:  {inicio: "14:00", duracao_min: 510, passagem_min: 30}   # 14:00–22:30
+  N30:  {inicio: "22:00", duracao_min: 510, passagem_min: 30}   # 22:00–06:30
+  D12P: {inicio: "06:45", duracao_min: 735, passagem_min: 15}   # 06:45–19:00
+  N12P: {inicio: "18:45", duracao_min: 735, passagem_min: 15}   # 18:45–07:00
+  PICO: {inicio: "10:00", duracao_min: 528, reforco: true}      # 10:00–18:48 (reforço, 44 h/sem)
+  E10:  {inicio: "10:00", duracao_min: 480}
+  E12:  {inicio: "12:00", duracao_min: 480}
 
 modelos:
   - codigo: 6X1_BASE
@@ -525,6 +538,117 @@ modelos:
     duracoes_min: [480]
     continuo_24x7: false
     k_nao_continuo: 1
+    esperado: {k_estrela: null, exato: null, horas_semanais: ["40"], folgas_7d: "2",
+               ciclo_calendario: 7}
+    regime_compliance: {"480": {CLT_44H_ATUAL: conforme, TRANSICAO_42H: conforme, PEC_40H: conforme}}   # calculado (FR-42) e conferido por pytest -k regime
+
+  # ---- v3.6 — versões com SOBREPOSIÇÃO (passagem de turno e reforço de pico) -----------
+  # A sobreposição conta os dois na janela (cobertura), vira "excesso planejado de passagem"
+  # (COB_PASSAGEM_PLANEJADA / status "passagem"), e horas/médias/interjornada usam a
+  # duração e os horários reais. Selo legal calculado (FR-42) e conferido por pytest -k regime.
+  - codigo: 6X2_PASSAGEM
+    nome: "6x2 com passagem de 20 min (06–14:20 / 14–22:20 / 22–06:20)"
+    fase: fase2
+    grupo: sobreposicao
+    sequencia: [MP, MP, TP, TP, NP, NP, F, F]
+    duracoes_min: [500]
+    continuo_24x7: true
+    variantes:
+      - {nome: "4 turmas", turmas: 4}
+    esperado: {k_estrela: "4", exato: true, turmas_inteiras: 4, horas_semanais: ["175/4"],
+               folgas_7d: "7/4", ciclo_calendario: 56}
+    regime_compliance: {"500": {CLT_44H_ATUAL: so_com_act, TRANSICAO_42H: nao_conforme, PEC_40H: nao_conforme}}   # calculado (FR-42) e conferido por pytest -k regime
+
+  - codigo: 4X2_PASSAGEM
+    nome: "4x2 com passagem de 30 min (8h30)"
+    fase: fase2
+    grupo: sobreposicao
+    sequencia: [X, X, X, X, F, F]
+    rotacao: rotativa
+    turnos: [M30, T30, N30]
+    duracoes_min: [510]
+    continuo_24x7: true
+    variantes:
+      - {nome: "5 turmas", turmas: 5}
+      - {nome: "9 meias-turmas", meias: true}
+    esperado: {k_estrela: "9/2", exato: false, exato_meias: true, n_meias: 9,
+               turmas_inteiras: 5, excesso: "1/9", horas_semanais: ["119/3"],
+               folgas_7d: "7/3", ciclo_calendario: 126}
+    regime_compliance: {"510": {CLT_44H_ATUAL: so_com_act, TRANSICAO_42H: so_com_act, PEC_40H: so_com_act}}   # calculado (FR-42) e conferido por pytest -k regime
+
+  - codigo: 5T_PASSAGEM
+    nome: "5 turmas com passagem de 20 min"
+    fase: fase2
+    grupo: sobreposicao
+    sequencia: [MP, MP, TP, TP, NP, NP, F, F, F, F]
+    duracoes_min: [500]
+    continuo_24x7: true
+    variantes:
+      - {nome: "5 turmas", turmas: 5}
+    esperado: {k_estrela: "5", exato: true, turmas_inteiras: 5, horas_semanais: ["35"],
+               folgas_7d: "14/5", ciclo_calendario: 70}
+    regime_compliance: {"500": {CLT_44H_ATUAL: so_com_act, TRANSICAO_42H: so_com_act, PEC_40H: so_com_act}}   # calculado (FR-42) e conferido por pytest -k regime
+
+  - codigo: 12X36_PASSAGEM
+    nome: "12x36 com passagem (06:45–19:00 / 18:45–07:00)"
+    fase: fase2
+    grupo: sobreposicao
+    sequencia: [X, F]
+    rotacao: fixa
+    turnos: [D12P, N12P]
+    duracoes_min: [735]
+    continuo_24x7: true
+    variantes:
+      - {nome: "4 turmas (2 D + 2 N)", turmas: 4}
+    esperado: {k_estrela: "4", exato: true, turmas_inteiras: 4, horas_semanais: ["343/8"],
+               folgas_7d: "7/2", ciclo_calendario: 14}
+    regime_compliance: {"735": {CLT_44H_ATUAL: so_com_act, TRANSICAO_42H: nao_conforme, PEC_40H: nao_conforme}}   # calculado (FR-42) e conferido por pytest -k regime
+
+  - codigo: 2X2_12H_PASSAGEM
+    nome: "2x2 12 h com passagem (06:45–19:00 / 18:45–07:00)"
+    fase: fase2
+    grupo: sobreposicao
+    sequencia: [X, X, F, F]
+    rotacao: fixa
+    turnos: [D12P, N12P]
+    duracoes_min: [735]
+    continuo_24x7: true
+    variantes:
+      - {nome: "4 turmas (2 D + 2 N)", turmas: 4}
+    esperado: {k_estrela: "4", exato: true, turmas_inteiras: 4, horas_semanais: ["343/8"],
+               folgas_7d: "7/2", ciclo_calendario: 28}
+    regime_compliance: {"735": {CLT_44H_ATUAL: so_com_act, TRANSICAO_42H: nao_conforme, PEC_40H: nao_conforme}}   # calculado (FR-42) e conferido por pytest -k regime
+
+  - codigo: NUCLEO_PICO
+    nome: "Núcleo 6x2 24/7 + intermediário de pico (10–18:48)"
+    fase: fase2
+    grupo: sobreposicao
+    motor: generico
+    semanal: true
+    grupos:
+      - [M, M, T, T, N, N, F, F]
+      - [PICO, PICO, PICO, PICO, PICO, F, F]
+    turmas_grupos: [4, 1]
+    duracoes_min: [480]
+    continuo_24x7: true
+    exato: false
+    variantes:
+      - {nome: "4 núcleo + 1 pico", turmas: 5}
+    esperado: {k_estrela: "27/5", exato: false, turmas_inteiras: 6, horas_semanais: ["42"],
+               folgas_7d: "7/4", ciclo_calendario: 56}
+    regime_compliance: {"480": {CLT_44H_ATUAL: so_com_act, TRANSICAO_42H: nao_conforme, PEC_40H: nao_conforme}}   # calculado (FR-42) e conferido por pytest -k regime
+
+  - codigo: ESCALONADO_2H
+    nome: "Escalonado — entradas a cada 2 h (06/08/10/12 h)"
+    fase: fase2
+    grupo: sobreposicao
+    semanal: true
+    sequencia: [X, X, X, X, X, F, F]
+    rotacao: fixa
+    turnos: [E06, E08, E10, E12]
+    duracoes_min: [480]
+    continuo_24x7: false
+    k_nao_continuo: 4
     esperado: {k_estrela: null, exato: null, horas_semanais: ["40"], folgas_7d: "2",
                ciclo_calendario: 7}
     regime_compliance: {"480": {CLT_44H_ATUAL: conforme, TRANSICAO_42H: conforme, PEC_40H: conforme}}   # calculado (FR-42) e conferido por pytest -k regime

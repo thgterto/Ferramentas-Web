@@ -80,7 +80,7 @@ if TYPE_CHECKING:
     from app.api.deps import Principal
 
 EDITABLE = ("rascunho", "erro")
-_STATUS_DB = {"deficit": "deficit", "exato": "exata", "excesso": "excesso"}
+_STATUS_DB = {"deficit": "deficit", "exato": "exata", "excesso": "excesso", "passagem": "excesso"}
 
 
 def D(f: Fraction | int) -> Decimal:
@@ -449,11 +449,17 @@ def _persist(db: Session, p: Principal, s: Scenario, r: ResultadoSimulacao,
                        "achievable_pct": str(D(r.alcancavel))},
         "k_legal": str(D(r.k_legal)), "coverage_by_role": cargos_kpi,
         "shifts": [{"code": c, "start": f"{t.inicio_min // 60:02d}:{t.inicio_min % 60:02d}",
-                    "duration_min": t.duracao_min,
+                    "duration_min": t.duracao_min, "handover_min": t.passagem_min,
+                    "peak": t.reforco,
                     "blocks": [[f"{a // 60:02d}:{a % 60:02d}", d] for a, d in t.blocos]}
                    for c, t in turnos_map.items()
                    if any(c in linha for linha in r.escala.estados)],
         "layers": r.extras.get("layers", []), "team_layers": layer_of,
+        # v3.6: sobreposição planejada (passagem/reforço) por slot 7×24 — status "passagem"
+        "handover_post_hours": str(D(k.passagem_hp)),
+        "handover_slots": {str(sl.slot_index): [str(D(sl.planned_worst)),
+                                                 str(D(sl.planned_mean))]
+                           for sl in r.slots if sl.planned_worst or sl.planned_mean},
     }
     if teams_before is not None and {t.code for t in teams_before} != set(team_id):
         s.result_summary["composition_reset"] = True
@@ -510,6 +516,7 @@ def coverage(db: Session, p: Principal, sid: uuid.UUID, view: str, agg: str,
                                        at=summ["peak_at"]) if summ.get("peak_at") else None),
         deficit_hours=s.deficit_hours or 0,
         excess_post_hours=Decimal(summ.get("excess_post_hours", "0")),
+        handover_post_hours=Decimal(summ.get("handover_post_hours", "0")),
         break_gap_post_hours=Decimal(0), headcount_min=s.headcount_min,
         teams_required=s.teams_required)
     slots: list[ss.CoverageSlot] = []
@@ -534,21 +541,26 @@ def coverage(db: Session, p: Principal, sid: uuid.UUID, view: str, agg: str,
                 gap=cov - rr.required_worst, status=rr.status))  # type: ignore[arg-type]
         return ss.CoverageOut(granularity="60", view="postos", agg="pior", role=role,
                               kpis=kpis, slots=slots)
+    ho = summ.get("handover_slots", {})
     for c in repo.coverage(s.id):
+        plan_w, plan_m = (Decimal(x) for x in ho.get(str(c.slot_index), ("0", "0")))
         if view == "reserva":
             gap = c.expected_worst - c.required_net
+            plan = Decimal(0)
             st = _STATUS_DB[status_de(Fraction(gap))]
         elif agg == "media":
-            gap, st = c.gap_mean, c.status_mean
+            gap, st, plan = c.gap_mean, c.status_mean, plan_m
         else:
-            gap, st = c.gap, c.status
+            gap, st, plan = c.gap, c.status, plan_w
+        if plan and 0 < gap <= plan:
+            st = "passagem"
         slots.append(ss.CoverageSlot(
             slot_index=c.slot_index, weekday=c.slot_index // 24 + 1,
             start=f"{c.slot_index % 24:02d}:00", required_net=c.required_net,
             required_gross=c.required_gross, scheduled_worst=c.scheduled_worst,
             scheduled_mean=c.scheduled_mean, expected_worst=c.expected_worst,
             break_gap=c.break_gap, deficit_occurrences=c.deficit_occurrences, gap=gap,
-            status=st))  # type: ignore[arg-type]
+            handover=plan, status=st))  # type: ignore[arg-type]
     return ss.CoverageOut(granularity="60", view=view, agg=agg,  # type: ignore[arg-type]
                           kpis=kpis, slots=slots)
 

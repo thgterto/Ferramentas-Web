@@ -1,0 +1,48 @@
+# Golden v3.6 — versões com SOBREPOSIÇÃO (passagem de turno / reforço de pico). revisao: pendente-SME
+# Cobertura hora a hora conta os dois turnos na janela sobreposta; o excesso explicado pela
+# sobreposição planejada vira passagem_hp (status "passagem", INFO COB_PASSAGEM_PLANEJADA) e
+# não COB_EXCESSO. Horas/semana e interjornada usam a duração e os horários REAIS.
+casos:
+  - id: GT-SOB-6X2-20MIN
+    descricao: "6x2 06–14:20/14–22:20/22–06:20, 4 turmas, 2 postos: 3 passagens/dia"
+    tipo: sobreposicao
+    entrada: {modelo: 6X2_PASSAGEM, k: 4, postos: 2, data_inicio: "2027-01-04", dias: 28}
+    esperado: {pct: "1", passagem_hp: "168", excesso_hp: "0", horas_passagem_dia: 3,
+               horas_semanais: ["175/4"], interjornada_min: [940],
+               achados: [COB_PASSAGEM_PLANEJADA], sem_achados: [COB_EXCESSO, COB_DEFICIT]}
+  - id: GT-SOB-4X2-30MIN
+    descricao: "4x2 8h30 (passagem 30 min), 5 turmas: excesso do 4x2 + passagens separados"
+    tipo: sobreposicao
+    entrada: {modelo: 4X2_PASSAGEM, k: 5, postos: 2, data_inicio: "2027-01-04", dias: 28}
+    esperado: {pct: "1", passagem_hp: "188", excesso_hp: "160", horas_semanais: ["119/3"],
+               interjornada_min: [930], achados: [COB_PASSAGEM_PLANEJADA, COB_EXCESSO]}
+  - id: GT-SOB-5T-20MIN
+    descricao: "5 turmas com passagem de 20 min: exato + 3 passagens/dia, 35 h/sem"
+    tipo: sobreposicao
+    entrada: {modelo: 5T_PASSAGEM, k: 5, postos: 2, data_inicio: "2027-01-04", dias: 28}
+    esperado: {pct: "1", passagem_hp: "168", excesso_hp: "0", horas_passagem_dia: 3,
+               horas_semanais: ["35"], sem_achados: [COB_EXCESSO]}
+  - id: GT-SOB-12X36
+    descricao: "12x36 06:45–19:00 / 18:45–07:00: 2 passagens/dia, 42,875 h/sem"
+    tipo: sobreposicao
+    entrada: {modelo: 12X36_PASSAGEM, k: 4, postos: 2, data_inicio: "2027-01-04", dias: 28}
+    esperado: {pct: "1", passagem_hp: "112", excesso_hp: "0", horas_passagem_dia: 2,
+               horas_semanais: ["343/8"], interjornada_min: [2145, 2145],
+               sem_achados: [COB_EXCESSO]}
+  - id: GT-SOB-2X2-12H
+    descricao: "2x2 12 h sobreposto: interjornada real 11h45 (19:00 → 06:45)"
+    tipo: sobreposicao
+    entrada: {modelo: 2X2_12H_PASSAGEM, k: 4, postos: 2, data_inicio: "2027-01-04", dias: 28}
+    esperado: {pct: "1", passagem_hp: "112", excesso_hp: "0", horas_passagem_dia: 2,
+               horas_semanais: ["343/8"], interjornada_min: [705, 705]}
+  - id: GT-SOB-NUCLEO-PICO
+    descricao: "núcleo 6x2 (4 turmas) + pico 10–18:48 seg–sex: pico é reforço planejado"
+    tipo: sobreposicao
+    entrada: {modelo: NUCLEO_PICO, k: 5, postos: 2, data_inicio: "2027-01-04", dias: 28}
+    esperado: {pct: "1", passagem_hp: "360", excesso_hp: "0", horas_passagem_dia: 9,
+               sem_achados: [COB_EXCESSO]}
+  - id: GT-SOB-ESCALONADO-2H
+    descricao: "entradas 06/08/10/12 h seg–sex (não contínuo): sobreposição real = excesso"
+    tipo: sobreposicao
+    entrada: {modelo: ESCALONADO_2H, k: 4, postos: 1, data_inicio: "2027-01-04", dias: 14}
+    esperado: {pct: "1", passagem_hp: "0", excesso_hp: "180", horas_semanais: ["40"]}

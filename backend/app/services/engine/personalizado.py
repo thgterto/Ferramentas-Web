@@ -29,7 +29,11 @@ from itertools import pairwise
 from math import ceil
 
 from app.services.engine.catalogo import ModeloEscala
-from app.services.engine.cobertura import ResultadoCobertura, montar_resultado
+from app.services.engine.cobertura import (
+    ResultadoCobertura,
+    montar_resultado,
+    sobreposicao_por_hora,
+)
 from app.services.engine.compliance.jornadas import jornadas_da_sequencia
 from app.services.engine.compliance.regras import CLT_JORNADA_DIARIA, validar_sequencia
 from app.services.engine.demanda import CurvaDemanda
@@ -397,7 +401,13 @@ def _avaliar(p: PadraoPersonalizado, ks: Sequence[int], curva: CurvaDemanda, ini
     ocup = ocupacao(p, esc, dias)
     cob = tuple(sum((esc.turmas[k].tamanho for k, _ in o), Fraction(0)) for o in ocup)
     req = demanda_horizonte(curva, inicio, dias, p.janela)
-    return esc, ocup, montar_resultado(inicio, req, cob, curva)
+    sob: tuple[Fraction, ...] = ()
+    if any(t.passagem_min or t.reforco for t in p.turnos.values()):
+        linhas = [(estado_dia(p.camadas[t.indice_camada], p.camadas[t.indice_camada].efetiva,
+                              t.offset, inicio - timedelta(days=1), esc.data_ancora),
+                   *esc.estados[k]) for k, t in enumerate(esc.turmas)]
+        sob = sobreposicao_por_hora(linhas, [t.tamanho for t in esc.turmas], p.turnos, dias * 24)
+    return esc, ocup, montar_resultado(inicio, req, cob, curva, sob)
 
 
 def _candidatos(c: Camada) -> range:
@@ -535,12 +545,12 @@ def de_modelo(m: ModeloEscala, turnos: Mapping[str, Turno], k: int | None = None
     total = k or (m.turmas_inteiras or m.k_nao_continuo or n)
     if m.variantes and k is None and m.variantes[0].turmas:
         total = m.variantes[0].turmas
-    total = max(total, n)
-    base, resto = divmod(total, n)
+    total = max(total, n, sum(m.turmas_grupos or ()))
+    ks = m.distribuir_k(total)
     usados = {e for s in m.sequencias for e in s if e not in (FOLGA, RESERVA)}
     camadas = []
     for i, seq in enumerate(m.sequencias):
-        kk = base + (1 if i < resto else 0)
+        kk = ks[i]
         offs = m.offsets_dados if (m.offsets_dados and len(m.offsets_dados) == kk) else None
         cod = (turnos_da_sequencia(seq)[0] if n > 1 else "NUCLEO")[:16]
         camadas.append(Camada(

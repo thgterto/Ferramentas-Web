@@ -18,16 +18,19 @@ COMPLETO = (
     "5X1", "6X3", "3X1", "3X2", "2X2_8H", "4X4", "PITMAN", "PANAMA", "DUPONT",
     "CONTINENTAL_8H", "12X60", "24X48", "24X72", "18X36", "5T_FR", "6T", "6T_6H",
     "ROT_FRENTE", "ROT_TRAS", "5X2_COM", "SDF_12H", "PARCIAL_20", "PARCIAL_25", "PARCIAL_30",
-    "INT_PICO", "ESCALONADO", "SPLIT")
+    "INT_PICO", "ESCALONADO", "SPLIT",
+    # v3.6 — versões com sobreposição (passagem de turno / reforço de pico)
+    "6X2_PASSAGEM", "4X2_PASSAGEM", "5T_PASSAGEM", "12X36_PASSAGEM", "2X2_12H_PASSAGEM",
+    "NUCLEO_PICO", "ESCALONADO_2H")
 
 
 def test_catalogo_completo_da_secao_6_1() -> None:
-    """v3.5: catálogo completo (§6.1 + 2x2 8 h + 4x4 + 5x2 comercial) — 37 modelos."""
+    """v3.5: catálogo completo (§6.1 + 2x2 8 h + 4x4 + 5x2) — 37; v3.6: +7 sobrepostos = 44."""
     cat = catalogo_mvp()
     assert set(cat.codigos) == set(COMPLETO)
     assert {c for c in cat.codigos if cat[c].fase == "mvp"} == set(ESSENCIAIS)
     assert {cat[c].grupo for c in cat.codigos} == {
-        "continuo", "nao_continuo", "complementar", "variacao"}
+        "continuo", "nao_continuo", "complementar", "variacao", "sobreposicao"}
 
 
 @pytest.mark.parametrize("codigo", COMPLETO)

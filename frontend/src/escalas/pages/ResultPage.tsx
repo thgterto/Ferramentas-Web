@@ -28,7 +28,7 @@ import { ErrorBox, Spinner, inputCls } from '../components/ui'
 import { useLegalRegimes } from '../wizard/useRegime'
 import { defaultShifts } from '../wizard/shifts'
 import { presenceAtSlot, presenceByHour } from '../api/schedule'
-import { ShiftBoard } from '../components/ShiftBoard'
+import { ScheduleViews } from '../components/ScheduleViews'
 
 const TABS = [
   ['cobertura', 'Cobertura'],
@@ -161,7 +161,7 @@ export default function ResultPage() {
           {sc.kpis.teams_required && Number(sc.kpis.teams_required) > sc.team_count ? ` · Como fechar o déficit: ${Math.ceil(Number(sc.kpis.teams_required))} turmas` : ''}
         </p>
       )}
-      <div role="tablist" aria-label="Resultado" className="flex gap-1 border-b border-border">
+      <div role="tablist" aria-label="Resultado" className="flex gap-1 border-b border-border print:hidden">
         {TABS.map(([k, label]) => (
           <button
             key={k}
@@ -224,11 +224,11 @@ export default function ResultPage() {
         )}
         {calculated && tab === 'quadro' && (
           <div className="rounded-card border border-border bg-surface p-4">
-            <h2 className="mb-2 text-h2 font-semibold">Quadro de turnos</h2>
+            <h2 className="mb-2 text-h2 font-semibold">Quadro de turnos e visões</h2>
             {aQ.isLoading ? (
               <Spinner />
             ) : (
-              <ShiftBoard assignments={aQ.data ?? []} teams={sc.teams} shifts={sc.shifts} start={sc.horizon_start} weeks={sc.horizon_weeks} roles={(rolesQ.data?.data ?? []).map((r) => ({ code: r.code, name: r.name }))} />
+              <ScheduleViews scenarioId={id} assignments={aQ.data ?? []} teams={sc.teams} shifts={sc.shifts} start={sc.horizon_start} weeks={sc.horizon_weeks} roles={(rolesQ.data?.data ?? []).map((r) => ({ code: r.code, name: r.name }))} />
             )}
           </div>
         )}

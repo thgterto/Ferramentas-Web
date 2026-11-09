@@ -590,6 +590,49 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/escalas/scenarios/{scenario_id}/monthly-matrix": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Monthly Matrix
+         * @description v3.6: matriz mensal pessoa × dia (turno/folga), rodapé por turno e totais por pessoa.
+         *
+         *     Regenera o mês com a mesma âncora/K/offsets da simulação; pessoas fictícias por turma
+         *     (``A-01``…) quando não há colaboradores cadastrados.
+         */
+        get: operations["monthly_matrix_api_v1_escalas_scenarios__scenario_id__monthly_matrix_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/escalas/scenarios/{scenario_id}/monthly-matrix/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Monthly Matrix Export
+         * @description XLSX (uma aba por mês, cores por turno), CSV ou ICS (calendário individual).
+         */
+        get: operations["monthly_matrix_export_api_v1_escalas_scenarios__scenario_id__monthly_matrix_export_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/escalas/scenarios/{scenario_id}/simulate": {
         parameters: {
             query?: never;
@@ -1064,17 +1107,34 @@ export interface components {
         };
         /** CoverageKpis */
         CoverageKpis: {
-            /** Break Gap Post Hours */
+            /**
+             * Break Gap Post Hours
+             * @default 0.000000
+             */
             break_gap_post_hours: string;
             /** Deficit Hours */
             deficit_hours: number;
-            /** Deficit Post Hours */
+            /**
+             * Deficit Post Hours
+             * @default 0.000000
+             */
             deficit_post_hours: string;
-            /** Excess Post Hours */
+            /**
+             * Excess Post Hours
+             * @default 0.000000
+             */
             excess_post_hours: string;
+            /**
+             * Handover Post Hours
+             * @default 0.000000
+             */
+            handover_post_hours: string;
             /** Headcount Min */
             headcount_min: number | null;
-            /** Pct Hours Covered */
+            /**
+             * Pct Hours Covered
+             * @default 0.000000
+             */
             pct_hours_covered: string;
             peak_undercoverage: components["schemas"]["PeakOut"] | null;
             /** Teams Required */
@@ -1102,21 +1162,47 @@ export interface components {
         };
         /** CoverageSlot */
         CoverageSlot: {
-            /** Break Gap */
+            /**
+             * Break Gap
+             * @default 0.000000
+             */
             break_gap: string;
             /** Deficit Occurrences */
             deficit_occurrences: number;
-            /** Expected Worst */
+            /**
+             * Expected Worst
+             * @default 0.000000
+             */
             expected_worst: string;
-            /** Gap */
+            /**
+             * Gap
+             * @default 0.000000
+             */
             gap: string;
-            /** Required Gross */
+            /**
+             * Handover
+             * @default 0.000000
+             */
+            handover: string;
+            /**
+             * Required Gross
+             * @default 0.000000
+             */
             required_gross: string;
-            /** Required Net */
+            /**
+             * Required Net
+             * @default 0.000000
+             */
             required_net: string;
-            /** Scheduled Mean */
+            /**
+             * Scheduled Mean
+             * @default 0.000000
+             */
             scheduled_mean: string;
-            /** Scheduled Worst */
+            /**
+             * Scheduled Worst
+             * @default 0.000000
+             */
             scheduled_worst: string;
             /** Slot Index */
             slot_index: number;
@@ -1126,7 +1212,7 @@ export interface components {
              * Status
              * @enum {string}
              */
-            status: "deficit" | "exata" | "excesso";
+            status: "deficit" | "exata" | "excesso" | "passagem";
             /** Weekday */
             weekday: number;
         };
@@ -1219,6 +1305,10 @@ export interface components {
         /** Envelope[MeOut] */
         Envelope_MeOut_: {
             data: components["schemas"]["MeOut"];
+        };
+        /** Envelope[MonthlyMatrixOut] */
+        Envelope_MonthlyMatrixOut_: {
+            data: components["schemas"]["MonthlyMatrixOut"];
         };
         /** Envelope[OperationOut] */
         Envelope_OperationOut_: {
@@ -1827,6 +1917,127 @@ export interface components {
             /** Password */
             password: string;
         };
+        /** MatrixCell */
+        MatrixCell: {
+            /**
+             * Carry
+             * @description turno da véspera que continua pela 00:00
+             */
+            carry?: string | null;
+            /**
+             * Code
+             * @description sigla do turno ou F (folga)
+             */
+            code: string;
+            /**
+             * Reserve
+             * @default false
+             */
+            reserve: boolean;
+        };
+        /** MatrixDaily */
+        MatrixDaily: {
+            /** By Shift */
+            by_shift: {
+                [key: string]: number;
+            };
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Deficit Hours */
+            deficit_hours: number;
+            /** Deficit Shifts */
+            deficit_shifts: string[];
+            /** Handover Hours */
+            handover_hours: number;
+            /** Off */
+            off: number;
+            /** Required By Shift */
+            required_by_shift: {
+                [key: string]: number;
+            };
+            /** Required Peak */
+            required_peak: number;
+        };
+        /** MatrixDay */
+        MatrixDay: {
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Holiday */
+            holiday?: string | null;
+            /** Is Weekend */
+            is_weekend: boolean;
+            /**
+             * Weekday
+             * @description 1 = segunda … 7 = domingo
+             */
+            weekday: number;
+        };
+        /** MatrixPerson */
+        MatrixPerson: {
+            /** Cells */
+            cells: components["schemas"]["MatrixCell"][];
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Role */
+            role?: string | null;
+            /** Team */
+            team: string;
+            totals: components["schemas"]["PersonTotals"];
+        };
+        /** MatrixShift */
+        MatrixShift: {
+            /** Code */
+            code: string;
+            /**
+             * Crosses Midnight
+             * @default false
+             */
+            crosses_midnight: boolean;
+            /** Duration Min */
+            duration_min: number;
+            /** End */
+            end: string;
+            /**
+             * Handover Min
+             * @default 0
+             */
+            handover_min: number;
+            /** Label */
+            label: string;
+            /**
+             * Night
+             * @default false
+             */
+            night: boolean;
+            /**
+             * Peak
+             * @default false
+             */
+            peak: boolean;
+            /** Start */
+            start: string;
+        };
+        /** MatrixTeam */
+        MatrixTeam: {
+            /** Cells */
+            cells: components["schemas"]["MatrixCell"][];
+            /** Code */
+            code: string;
+            /**
+             * Size
+             * @default 0.000000
+             */
+            size: string;
+            totals: components["schemas"]["PersonTotals"];
+        };
         /** MeOut */
         MeOut: {
             /**
@@ -1859,6 +2070,26 @@ export interface components {
             organization_name: string;
             /** Role */
             role: string;
+        };
+        /** MonthlyMatrixOut */
+        MonthlyMatrixOut: {
+            /** Daily */
+            daily: components["schemas"]["MatrixDaily"][];
+            /** Days */
+            days: components["schemas"]["MatrixDay"][];
+            /**
+             * Generated People
+             * @description pessoas fictícias por turma (A-01…) — o MVP aloca por turma
+             */
+            generated_people: boolean;
+            /** Month */
+            month: string;
+            /** People */
+            people: components["schemas"]["MatrixPerson"][];
+            /** Shifts */
+            shifts: components["schemas"]["MatrixShift"][];
+            /** Teams */
+            teams: components["schemas"]["MatrixTeam"][];
         };
         /** OperationIn */
         OperationIn: {
@@ -2106,6 +2337,11 @@ export interface components {
             excess_pct: string;
             /** Findings */
             findings: components["schemas"]["FindingLite"][];
+            /**
+             * Handover Post Hours Week
+             * @default 0.000000
+             */
+            handover_post_hours_week: string;
             /** Headcount */
             headcount: string;
             /** K Required Total */
@@ -2123,8 +2359,27 @@ export interface components {
         PeakOut: {
             /** At */
             at: string;
-            /** Value */
+            /**
+             * Value
+             * @default 0.000000
+             */
             value: string;
+        };
+        /** PersonTotals */
+        PersonTotals: {
+            /**
+             * Hours
+             * @default 0.000000
+             */
+            hours: string;
+            /** Nights */
+            nights: number;
+            /** Off Days */
+            off_days: number;
+            /** Sundays Off */
+            sundays_off: number;
+            /** Worked Days */
+            worked_days: number;
         };
         /** PositionIn */
         PositionIn: {
@@ -2179,26 +2434,52 @@ export interface components {
         };
         /** PreviewSlot */
         PreviewSlot: {
-            /** Gap Worst */
+            /**
+             * Gap Worst
+             * @default 0.000000
+             */
             gap_worst: string;
-            /** Required */
+            /**
+             * Handover
+             * @default 0.000000
+             */
+            handover: string;
+            /**
+             * Required
+             * @default 0.000000
+             */
             required: string;
-            /** Scheduled Worst */
+            /**
+             * Scheduled Worst
+             * @default 0.000000
+             */
             scheduled_worst: string;
             /** Slot Index */
             slot_index: number;
         };
         /** RoleCoverageKpi */
         RoleCoverageKpi: {
-            /** Deficit Post Hours */
+            /**
+             * Deficit Post Hours
+             * @default 0.000000
+             */
             deficit_post_hours: string;
-            /** Own Post Hours */
+            /**
+             * Own Post Hours
+             * @default 0.000000
+             */
             own_post_hours: string;
-            /** Pct Hours Covered */
+            /**
+             * Pct Hours Covered
+             * @default 0.000000
+             */
             pct_hours_covered: string;
             /** Role */
             role: string;
-            /** Substituted Post Hours */
+            /**
+             * Substituted Post Hours
+             * @default 0.000000
+             */
             substituted_post_hours: string;
             /** Unqualified Hours */
             unqualified_hours: number;
@@ -2551,7 +2832,10 @@ export interface components {
         };
         /** ScheduleModelRef */
         ScheduleModelRef: {
-            /** Avg Weekly Hours */
+            /**
+             * Avg Weekly Hours
+             * @default 0.000000
+             */
             avg_weekly_hours: string;
             /** Code */
             code: string;
@@ -2583,8 +2867,20 @@ export interface components {
              * @description Tempo à disposição (min)
              */
             duration_min: number;
+            /**
+             * Handover Min
+             * @description v3.6 — minutos finais sobrepostos ao turno seguinte (passagem de turno): contam na cobertura como excesso planejado, não ociosidade
+             * @default 0
+             */
+            handover_min: number;
             /** Name */
             name?: string | null;
+            /**
+             * Peak
+             * @description v3.6 — turno de reforço de pico sobre o núcleo
+             * @default false
+             */
+            peak: boolean;
             /** Start */
             start: string;
         };
@@ -2596,6 +2892,16 @@ export interface components {
             code: string;
             /** Duration Min */
             duration_min: number;
+            /**
+             * Handover Min
+             * @default 0
+             */
+            handover_min: number;
+            /**
+             * Peak
+             * @default false
+             */
+            peak: boolean;
             /** Start */
             start: string;
         };
@@ -2727,11 +3033,20 @@ export interface components {
             headcount_min_half_teams: number | null;
             /** Headcount With Reserve */
             headcount_with_reserve: number;
-            /** K Effective */
+            /**
+             * K Effective
+             * @default 0.000000
+             */
             k_effective: string;
-            /** K Legal */
+            /**
+             * K Legal
+             * @default 0.000000
+             */
             k_legal: string;
-            /** K Required */
+            /**
+             * K Required
+             * @default 0.000000
+             */
             k_required: string;
             /** Legal Regime */
             legal_regime: string;
@@ -2824,7 +3139,10 @@ export interface components {
         SubstitutionRuleOut: {
             /** Counts For Minimum */
             counts_for_minimum: boolean;
-            /** Coverage Factor */
+            /**
+             * Coverage Factor
+             * @default 0.000000
+             */
             coverage_factor: string;
             /** From Role */
             from_role: string;
@@ -2894,9 +3212,15 @@ export interface components {
         };
         /** TeamCountOut */
         TeamCountOut: {
-            /** Achievable Pct */
+            /**
+             * Achievable Pct
+             * @default 0.000000
+             */
             achievable_pct: string;
-            /** K Required */
+            /**
+             * K Required
+             * @default 0.000000
+             */
             k_required: string;
             /** K Used */
             k_used: number;
@@ -2922,7 +3246,10 @@ export interface components {
             label: string | null;
             /** Size Assigned */
             size_assigned: number;
-            /** Size Required */
+            /**
+             * Size Required
+             * @default 0.000000
+             */
             size_required: string;
         };
         /** TokenOut */
@@ -2954,7 +3281,10 @@ export interface components {
         };
         /** TransitionOption */
         TransitionOption: {
-            /** Avg Weekly Hours */
+            /**
+             * Avg Weekly Hours
+             * @default 0.000000
+             */
             avg_weekly_hours: string;
             /** Code */
             code: string;
@@ -2964,7 +3294,10 @@ export interface components {
             half_teams: boolean;
             /** Headcount */
             headcount: number;
-            /** Teams Required */
+            /**
+             * Teams Required
+             * @default 0.000000
+             */
             teams_required: string;
             /** Variant */
             variant: string;
@@ -2980,9 +3313,15 @@ export interface components {
         TransitionPhase: {
             /** Alternatives */
             alternatives: components["schemas"]["TransitionOption"][];
-            /** K Legal */
+            /**
+             * K Legal
+             * @default 0.000000
+             */
             k_legal: string;
-            /** K Legal Half Teams */
+            /**
+             * K Legal Half Teams
+             * @default 0.000000
+             */
             k_legal_half_teams: string;
             /** Min Headcount Legal */
             min_headcount_legal: number;
@@ -2993,7 +3332,10 @@ export interface components {
         };
         /** TransitionScenarioModel */
         TransitionScenarioModel: {
-            /** Avg Weekly Hours */
+            /**
+             * Avg Weekly Hours
+             * @default 0.000000
+             */
             avg_weekly_hours: string;
             /** Code */
             code: string;
@@ -3003,7 +3345,10 @@ export interface components {
             findings: components["schemas"]["FindingBrief"][];
             /** Headcount */
             headcount: number;
-            /** Teams */
+            /**
+             * Teams
+             * @default 0.000000
+             */
             teams: string;
         };
         /** ValidationError */
@@ -6108,6 +6453,136 @@ export interface operations {
                 content: {
                     "application/json": unknown;
                     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": unknown;
+                    "text/csv": unknown;
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description not_found (inclui outro tenant) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description validation_error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    monthly_matrix_api_v1_escalas_scenarios__scenario_id__monthly_matrix_get: {
+        parameters: {
+            query: {
+                month: string;
+            };
+            header?: {
+                "x-organization-id"?: string | null;
+            };
+            path: {
+                scenario_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_MonthlyMatrixOut_"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description not_found (inclui outro tenant) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description validation_error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    monthly_matrix_export_api_v1_escalas_scenarios__scenario_id__monthly_matrix_export_get: {
+        parameters: {
+            query: {
+                month: string;
+                format?: "xlsx" | "csv" | "ics";
+                months?: number;
+                person?: string | null;
+            };
+            header?: {
+                "x-organization-id"?: string | null;
+            };
+            path: {
+                scenario_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": unknown;
+                    "text/calendar": unknown;
                     "text/csv": unknown;
                 };
             };

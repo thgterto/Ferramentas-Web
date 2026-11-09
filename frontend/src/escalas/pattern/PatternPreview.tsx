@@ -95,8 +95,10 @@ export function PatternPreview({ pattern, postos, teamSize, regimeCode, demand }
                   const s = v.slots[r * 24 + h]
                   const gap = num(s.gap_worst)
                   const req = num(s.required)
-                  const cls = req === 0 && num(s.scheduled_worst) === 0 ? 'bg-surface-2' : gap < 0 ? 'bg-cov-deficit' : gap > 0 ? 'bg-cov-over-fill' : 'bg-cov-exact-fill'
-                  return <span key={h} className={clsx('h-3 rounded-[2px]', cls)} title={`${d} ${String(h).padStart(2, '0')}h: necessário ${fmt(req)}, escalados ${fmt(s.scheduled_worst)}`} />
+                  const handover = num(s.handover ?? '0')
+                  const pas = gap > 0 && handover > 0 && gap <= handover
+                  const cls = req === 0 && num(s.scheduled_worst) === 0 ? 'bg-surface-2' : gap < 0 ? 'bg-cov-deficit' : pas ? 'bg-cov-exact-fill pattern-over' : gap > 0 ? 'bg-cov-over-fill' : 'bg-cov-exact-fill'
+                  return <span key={h} data-kind={pas ? 'passagem' : undefined} className={clsx('h-3 rounded-[2px]', cls)} title={`${d} ${String(h).padStart(2, '0')}h: necessário ${fmt(req)}, escalados ${fmt(s.scheduled_worst)}${pas ? ' · passagem planejada' : ''}`} />
                 })}
               </div>
             ))}
@@ -104,6 +106,7 @@ export function PatternPreview({ pattern, postos, teamSize, regimeCode, demand }
           <p className="text-micro text-ink-subtle">
             <span className="mr-2">■ vermelho = déficit</span>
             <span className="mr-2">■ verde = exato</span>
+            <span className="mr-2">▨ verde hachurado = passagem planejada{num(v.handover_post_hours_week ?? '0') > 0 ? ` (${fmt(v.handover_post_hours_week ?? '0')} h-posto/sem)` : ''}</span>
             <span>■ azul = excesso · {v.elapsed_ms} ms</span>
           </p>
           {v.findings.length > 0 && (

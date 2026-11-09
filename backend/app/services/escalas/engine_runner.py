@@ -77,6 +77,8 @@ class Slot7x24:
     scheduled_mean: Fraction
     expected_worst: Fraction
     deficit_occurrences: int
+    planned_worst: Fraction = Fraction(0)   # v3.6: passagem/reforço na ocorrência pior
+    planned_mean: Fraction = Fraction(0)
 
 
 @dataclass(frozen=True, slots=True)
@@ -108,20 +110,24 @@ def canonical_hash(snapshot: Mapping[str, Any]) -> str:
 
 
 def _agregar(res: ResultadoCobertura, shr: Shrinkage) -> list[Slot7x24]:
-    cel: list[list[tuple[Fraction, int]]] = [[] for _ in range(168)]
-    for h, c in enumerate(res.cobertura):
+    cel: list[list[tuple[Fraction, int, Fraction]]] = [[] for _ in range(168)]
+    for h, (c, p) in enumerate(zip(res.cobertura, res.planejado, strict=True)):
         idx = (res.data_inicio + timedelta(days=h // 24)).weekday() * 24 + h % 24
-        cel[idx].append((c, res.demanda[h]))
+        cel[idx].append((c, res.demanda[h], p))
     out = []
     for i, vals in enumerate(cel):
         s = shr.na_hora(i % 24)
         req = Fraction(vals[0][1]) if vals else Fraction(0)
-        covs = [c for c, _ in vals] or [Fraction(0)]
+        covs = [c for c, _, _ in vals] or [Fraction(0)]
+        pior = min(covs)
+        plan_pior = min((p for c, _, p in vals if c == pior), default=Fraction(0))
+        plans = [p for _, _, p in vals] or [Fraction(0)]
         out.append(Slot7x24(
             slot_index=i, required_net=req, required_gross=req / (1 - s),
-            scheduled_worst=min(covs), scheduled_mean=sum(covs, Fraction(0)) / len(covs),
-            expected_worst=min(covs) * (1 - s),
-            deficit_occurrences=sum(1 for c, r in vals if c < r)))
+            scheduled_worst=pior, scheduled_mean=sum(covs, Fraction(0)) / len(covs),
+            expected_worst=pior * (1 - s),
+            deficit_occurrences=sum(1 for c, r, _ in vals if c < r),
+            planned_worst=plan_pior, planned_mean=sum(plans, Fraction(0)) / len(plans)))
     return out
 
 
@@ -197,7 +203,7 @@ def run_simulation(e: EntradaSimulacao) -> ResultadoSimulacao:
     m = e.modelo
     if m is None:
         raise EntradaInvalida("cenário sem modelo nem padrão personalizado")
-    if not m.continuo_24x7:
+    if not m.continuo_24x7 or m.motor == "generico":
         # v3.5: não contínuo simula normalmente pelo motor genérico (janela de operação)
         return _run_generico(replace(e, padrao=P.de_modelo(m, e.catalogo.turnos, e.k)))
     try:
