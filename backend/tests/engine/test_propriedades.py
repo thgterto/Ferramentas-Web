@@ -90,7 +90,7 @@ SEQ = st.lists(st.sampled_from("MTNF"), min_size=3, max_size=21).filter(
 @given(SEQ, st.integers(30 * 60, 50 * 60))
 def test_carga_excedida_sse_k_estrela_menor_que_k_legal(seq: list[str], carga: int) -> None:
     base = REG["PEC_40H"]
-    reg = RegimeLegal(**{**{f: getattr(base, f) for f in base.__slots__},  # type: ignore[arg-type]
+    reg = RegimeLegal(**{**{f: getattr(base, f) for f in base.__slots__},  # type: ignore[arg-type, unused-ignore]
                          "carga_semanal_max_min": carga})
     perfil = PerfilEscala(tuple(seq), dict.fromkeys("MTN", 480),
                           dict.fromkeys("MTN", Fraction(480)))

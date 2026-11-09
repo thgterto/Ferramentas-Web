@@ -6,7 +6,12 @@ from datetime import date
 from fractions import Fraction
 
 from app.services.engine.catalogo import Variante, catalogo_mvp
-from app.services.engine.cobertura import Status, calcular_cobertura, visao_reserva
+from app.services.engine.cobertura import (
+    ResultadoCobertura,
+    Status,
+    calcular_cobertura,
+    visao_reserva,
+)
 from app.services.engine.demanda import Faixa, postos_24x7, postos_fixos
 from app.services.engine.dimensionamento import dimensionar
 from app.services.engine.regime_legal import k_legal, regimes_mvp
@@ -17,7 +22,8 @@ CAT = catalogo_mvp()
 SEG = date(2026, 1, 5)  # segunda-feira
 
 
-def _cob(codigo: str, postos: int, variante: Variante | None = None, **kw: object):
+def _cob(codigo: str, postos: int, variante: Variante | None = None,
+         **kw: object) -> ResultadoCobertura:
     m = CAT[codigo]
     return calcular_cobertura(m.montar_padrao(variante), CAT.turnos, postos_24x7(postos),
                               postos, SEG, **kw)  # type: ignore[arg-type]
@@ -84,7 +90,7 @@ def test_reserva_fr11_6x2_noturno_10pct() -> None:
 
 def test_dimensionamento_6x2_3_postos() -> None:
     d = dimensionar(CAT["6X2"], 3)
-    assert (d.k_estrela, d.headcount_min, d.achados) == (4, 12, ())
+    assert d.k_estrela == 4 and d.headcount_min == 12 and d.achados == ()
     assert dimensionar(CAT["6X2"], 3, shr=Shrinkage.de(0, "0.10")).headcount_reserva == 16
 
 
