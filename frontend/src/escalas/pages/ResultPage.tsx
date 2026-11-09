@@ -211,6 +211,7 @@ export default function ResultPage() {
                   <label className="flex flex-col text-caption text-ink-muted">
                     Subsetor
                     <select
+                      aria-label="Subsetor"
                       className={inputCls}
                       value={subF}
                       onChange={(e) => {
@@ -228,7 +229,7 @@ export default function ResultPage() {
                   </label>
                   <label className="flex flex-col text-caption text-ink-muted">
                     Posição
-                    <select className={inputCls} value={wsF} onChange={(e) => setWsF(e.target.value)}>
+                    <select aria-label="Posição" className={inputCls} value={wsF} onChange={(e) => setWsF(e.target.value)}>
                       <option value="">Todas</option>
                       {structure!.subsectors
                         .filter((x) => !subF || x.code === subF)
