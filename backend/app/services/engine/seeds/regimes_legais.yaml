@@ -1,0 +1,55 @@
+# Regimes legais versionados (01-PRD FR-39, §6.2, §8.1; 02-TRD §5.5.2; ADR-011) — DADOS.
+# Parâmetros baseados em reportagens sobre a PEC do fim da 6x1 — texto promulgado NÃO
+# confirmado (Q14): status "premissa" ⇒ INFO_REGIME_PREMISSA em todo resultado.
+# Vigência: data fixa (valid_from/valid_to) ou âncora relativa a D0 = data da promulgação
+# ({dias: n} ou {meses: n}, opcionalmente menos 1 dia). Sem D0 informado, regimes
+# ancorados não resolvem por data (o wizard pede escolha explícita).
+versao: "regimes-2026.11"
+
+regimes:
+  - codigo: CLT_44H_ATUAL
+    versao: 1
+    nome: "CLT atual — 44 h semanais"
+    status: premissa
+    valid_from: "1988-10-05"
+    valid_to: {d0: {dias: 59}}
+    carga_semanal_max_min: 2640
+    jornada_diaria_max_min: 480
+    folgas_semanais_min: "1"
+    criterio_folgas: media_ciclo
+    permite_6x1: true
+    compensacao_act: true
+    especiais: {"12X36": autorizado}
+    fonte: "CF art. 7º, XIII; CLT arts. 58, 59, 59-A, 67"
+
+  - codigo: TRANSICAO_42H
+    versao: 1
+    nome: "Transição — 42 h semanais (premissa PL3)"
+    status: premissa
+    valid_from: {d0: {dias: 60}}
+    valid_to: {d0: {meses: 14, menos_um_dia: true}}
+    carga_semanal_max_min: 2520
+    jornada_diaria_max_min: 480
+    folgas_semanais_min: "1"
+    criterio_folgas: media_ciclo
+    permite_6x1: false
+    compensacao_act: true
+    especiais: {"12X36": autorizado}
+    fonte: "EC do fim da 6x1 (reportagens; PRD §8.1 PL1–PL7)"
+
+  - codigo: PEC_40H
+    versao: 1
+    nome: "PEC — 40 h semanais e 2 folgas (premissa PL7)"
+    status: premissa
+    valid_from: {d0: {meses: 14}}
+    valid_to: null
+    carga_semanal_max_min: 2400
+    jornada_diaria_max_min: 480
+    folgas_semanais_min: "2"
+    criterio_folgas: media_ciclo
+    permite_6x1: false
+    compensacao_act: true
+    especiais: {"12X36": autorizado_pendente_lei}
+    fonte: "EC do fim da 6x1 (reportagens; PRD §8.1 PL1–PL7)"
+
+linha_do_tempo: [CLT_44H_ATUAL, TRANSICAO_42H, PEC_40H]

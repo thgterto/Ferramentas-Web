@@ -1,0 +1,7 @@
+from fastapi import APIRouter
+
+from app.api.v1.escalas import auth, cadastros, catalog, roles, scenarios
+
+router = APIRouter()
+for r in (auth.router, cadastros.router, catalog.router, roles.router, scenarios.router):
+    router.include_router(r)

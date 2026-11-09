@@ -1,0 +1,42 @@
+# Golden M1 — demanda e shrinkage (FR-01–FR-03). revisao: pendente-SME
+casos:
+  - id: GT-DEM-POSTOS-3
+    descricao: "FR-02: 3 postos 24/7 → 168 células = 3"
+    tipo: demanda
+    entrada: {postos_24x7: 3}
+    esperado: {todas: 3, total_semanal: 504}
+  - id: GT-DEM-FAIXA-COMERCIAL
+    descricao: "Faixa seg–sex 08–18 com 2 postos críticos"
+    tipo: demanda
+    entrada:
+      faixas: [{dias: [0, 1, 2, 3, 4], hora_ini: 8, hora_fim: 18, postos: 2, critico: true}]
+    esperado: {total_semanal: 100, celulas: {"0,8": 2, "0,18": 0, "5,10": 0}, criticas: 50}
+  - id: GT-DEM-FAIXAS-SOMADAS
+    descricao: "Base 24/7 de 2 + reforço 10–16 de 1"
+    tipo: demanda
+    entrada:
+      faixas:
+        - {dias: [0, 1, 2, 3, 4, 5, 6], hora_ini: 0, hora_fim: 24, postos: 2}
+        - {dias: [0, 1, 2, 3, 4, 5, 6], hora_ini: 10, hora_fim: 16, postos: 1}
+    esperado: {total_semanal: 378, celulas: {"3,9": 2, "3,10": 3, "3,15": 3, "3,16": 2}}
+  - id: GT-SHR-NOTURNO-10
+    descricao: "FR-03: 3 postos, S_noturno=10% → 22h–04h = 4; diurnas = 3"
+    tipo: shrinkage
+    entrada: {postos_24x7: 3, s_diurno: "0", s_noturno: "0.10"}
+    esperado: {celulas: {"0,22": 4, "0,23": 4, "1,0": 4, "1,4": 4, "1,5": 3, "1,21": 3, "6,12": 3},
+               total_semanal: 553}
+  - id: GT-SHR-DIURNO-NOTURNO
+    descricao: "S_diurno=5%, S_noturno=15%: ceil(10/0,95)=11 e ceil(10/0,85)=12"
+    tipo: shrinkage
+    entrada: {postos_24x7: 10, s_diurno: "0.05", s_noturno: "0.15"}
+    esperado: {celulas: {"2,12": 11, "2,23": 12, "2,3": 12}, total_semanal: 1897}
+  - id: GT-SHR-EXATO-SEM-RUIDO
+    descricao: "ceil exato: 3/(1−0,25) = 4 (não 5 por ruído de float)"
+    tipo: shrinkage
+    entrada: {postos_24x7: 3, s_diurno: "0.25", s_noturno: "0.25"}
+    esperado: {todas: 4}
+  - id: GT-SHR-60-REJEITADO
+    descricao: "FR-03: S ≥ 60% é rejeitado"
+    tipo: shrinkage
+    entrada: {postos_24x7: 3, s_diurno: "0", s_noturno: "0.60"}
+    esperado: {erro: ErroShrinkage}

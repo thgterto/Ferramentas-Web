@@ -1,0 +1,139 @@
+# Catálogo essencial do MVP (01-PRD §6.1 / §6.2) — modelos como DADOS (ADR-010).
+# sequencia: estados por dia do ciclo; "X" = dia trabalhado genérico, expandido conforme
+#   rotacao: "fixa"     → um grupo por turno (turmas fixas D/N);
+#            "rotativa" → blocos concatenados M→T→N (mesmo turno no bloco).
+# Sequência com turnos concretos é usada como está.
+# esperado: valores da §6.1 conferidos pelo teste `pytest -k catalogo`.
+# regime_compliance: selo por regime (FR-42, PRD §6.2) por duração do turno (min);
+#   conferido por `pytest -k regime`.
+versao: "catalogo-mvp-2026.11"
+
+turnos:
+  M:   {inicio: "06:00", duracao_min: 480}
+  T:   {inicio: "14:00", duracao_min: 480}
+  N:   {inicio: "22:00", duracao_min: 480}
+  D12: {inicio: "07:00", duracao_min: 720}
+  N12: {inicio: "19:00", duracao_min: 720}
+
+modelos:
+  - codigo: 6X1_BASE
+    nome: "6x1 (baseline)"
+    sequencia: [X, X, X, X, X, X, F]
+    rotacao: rotativa
+    turnos: [M, T, N]
+    duracoes_min: [480, 440]          # 8 h / 7h20
+    continuo_24x7: true
+    variantes:
+      - {nome: "7 meias-turmas", meias: true}
+      - {nome: "4 turmas + folguistas", turmas: 4}
+    esperado: {k_estrela: "7/2", exato: false, exato_meias: true, n_meias: 7,
+               turmas_inteiras: 4, horas_semanais: ["48", "44"], folgas_7d: "1",
+               ciclo_calendario: 21}
+    regime_compliance: {"440": {CLT_44H_ATUAL: conforme, TRANSICAO_42H: nao_conforme, PEC_40H: nao_conforme}, "480": {CLT_44H_ATUAL: nao_conforme, TRANSICAO_42H: nao_conforme, PEC_40H: nao_conforme}}   # PRD §6.2 (FR-42)
+
+  - codigo: 5X2
+    nome: "5x2"
+    sequencia: [X, X, X, X, X, F, F]
+    rotacao: rotativa
+    turnos: [M, T, N]
+    duracoes_min: [480, 528]          # 8 h / 8h48
+    continuo_24x7: true
+    k_nao_continuo: 1
+    variantes:
+      - {nome: "5 turmas", turmas: 5}
+    esperado: {k_estrela: "21/5", exato: false, exato_meias: false, turmas_inteiras: 5,
+               excesso: "4/21", horas_semanais: ["40", "44"], folgas_7d: "2",
+               ciclo_calendario: 21}
+    regime_compliance: {"480": {CLT_44H_ATUAL: conforme, TRANSICAO_42H: conforme, PEC_40H: conforme}}   # PRD §6.2 (FR-42)
+
+  - codigo: 12X36
+    nome: "12x36"
+    sequencia: [X, F]
+    rotacao: fixa
+    turnos: [D12, N12]
+    duracoes_min: [720]
+    continuo_24x7: true
+    variantes:
+      - {nome: "4 turmas (2 D + 2 N)", turmas: 4}
+    esperado: {k_estrela: "4", exato: true, turmas_inteiras: 4, horas_semanais: ["42"],
+               folgas_7d: "7/2", ciclo_calendario: 14}
+    regime_compliance: {"720": {CLT_44H_ATUAL: conforme, TRANSICAO_42H: conforme, PEC_40H: regime_especial}}   # PRD §6.2 (FR-42)
+
+  - codigo: 6X2
+    nome: "6x2"
+    sequencia: [M, M, T, T, N, N, F, F]
+    turnos: [M, T, N]
+    duracoes_min: [480]
+    continuo_24x7: true
+    variantes:
+      - {nome: "4 turmas", turmas: 4}
+    esperado: {k_estrela: "4", exato: true, turmas_inteiras: 4, horas_semanais: ["42"],
+               folgas_7d: "7/4", ciclo_calendario: 56}
+    regime_compliance: {"480": {CLT_44H_ATUAL: conforme, TRANSICAO_42H: conforme, PEC_40H: nao_conforme}}   # PRD §6.2 (FR-42)
+
+  - codigo: 4X2
+    nome: "4x2"
+    sequencia: [X, X, X, X, F, F]
+    rotacao: rotativa
+    turnos: [M, T, N]
+    duracoes_min: [480]
+    continuo_24x7: true
+    variantes:
+      - {nome: "5 turmas", turmas: 5}
+      - {nome: "9 meias-turmas", meias: true}
+    esperado: {k_estrela: "9/2", exato: false, exato_meias: true, n_meias: 9,
+               turmas_inteiras: 5, excesso: "1/9", horas_semanais: ["112/3"],
+               folgas_7d: "7/3", ciclo_calendario: 126}
+    regime_compliance: {"480": {CLT_44H_ATUAL: conforme, TRANSICAO_42H: conforme, PEC_40H: conforme}}   # PRD §6.2 (FR-42)
+
+  - codigo: 2X2_12H
+    nome: "2x2 (12 h)"
+    sequencia: [X, X, F, F]
+    rotacao: fixa
+    turnos: [D12, N12]
+    duracoes_min: [720]
+    continuo_24x7: true
+    variantes:
+      - {nome: "4 turmas (2 D + 2 N)", turmas: 4}
+    esperado: {k_estrela: "4", exato: true, turmas_inteiras: 4, horas_semanais: ["42"],
+               folgas_7d: "7/2", ciclo_calendario: 28}
+    regime_compliance: {"720": {CLT_44H_ATUAL: so_com_act, TRANSICAO_42H: so_com_act, PEC_40H: nao_conforme}}   # PRD §6.2 (FR-42)
+
+  - codigo: 5T
+    nome: "5 turmas"
+    sequencia: [M, M, T, T, N, N, F, F, F, F]
+    turnos: [M, T, N]
+    duracoes_min: [480]
+    continuo_24x7: true
+    variantes:
+      - {nome: "5 turmas", turmas: 5}
+    esperado: {k_estrela: "5", exato: true, turmas_inteiras: 5, horas_semanais: ["168/5"],
+               folgas_7d: "14/5", ciclo_calendario: 70}
+    regime_compliance: {"480": {CLT_44H_ATUAL: conforme, TRANSICAO_42H: conforme, PEC_40H: conforme}}   # PRD §6.2 (FR-42)
+
+  - codigo: 4X3
+    nome: "4x3 (10 h)"
+    sequencia: [X, X, X, X, F, F, F]
+    turnos: []                         # 10 h não divide 24 h: não contínuo
+    duracoes_min: [600]
+    continuo_24x7: false
+    k_nao_continuo: 2                  # seg–qui + qui–dom
+    esperado: {k_estrela: null, exato: null, horas_semanais: ["40"], folgas_7d: "3",
+               ciclo_calendario: 7}
+    regime_compliance: {"600": {CLT_44H_ATUAL: so_com_act, TRANSICAO_42H: so_com_act, PEC_40H: so_com_act}}   # PRD §6.2 (FR-42)
+
+  - codigo: FIXO_D
+    nome: "Turno fixo diurno"
+    modelo_base: 12X36
+    turno_fixo: D12
+    esperado: {k_estrela: "2", exato: true, turmas_inteiras: 2, horas_semanais: ["42"],
+               folgas_7d: "7/2", ciclo_calendario: 14}
+    regime_compliance: {"720": {CLT_44H_ATUAL: conforme, TRANSICAO_42H: conforme, PEC_40H: regime_especial}}   # PRD §6.2 (FR-42)
+
+  - codigo: FIXO_N
+    nome: "Turno fixo noturno"
+    modelo_base: 12X36
+    turno_fixo: N12
+    esperado: {k_estrela: "2", exato: true, turmas_inteiras: 2, horas_semanais: ["42"],
+               folgas_7d: "7/2", ciclo_calendario: 14}
+    regime_compliance: {"720": {CLT_44H_ATUAL: conforme, TRANSICAO_42H: conforme, PEC_40H: regime_especial}}   # PRD §6.2 (FR-42)
