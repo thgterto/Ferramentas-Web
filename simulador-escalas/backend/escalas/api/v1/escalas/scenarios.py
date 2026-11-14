@@ -155,6 +155,38 @@ def monthly_matrix_export(scenario_id: uuid.UUID, p: Current, db: DB, month: Mon
                     headers={"Content-Disposition": f'attachment; filename="{name}"'})
 
 
+@router.post("/scenarios/{scenario_id}/staffing", response_model=Envelope[ss.StaffingOut])
+def staffing(scenario_id: uuid.UUID, p: Current, db: DB,
+             body: ss.StaffingIn | None = None) -> object:
+    """v3.9 — calculadora de quadro: horas do posto × horas úteis por colaborador.
+
+    Taxa de indisponibilidade decomposta (férias, feriados, absenteísmo, treinamento,
+    passagem), equipe mínima, equipe recomendada e fator de cobertura; compara com o
+    quadro atual do cenário.
+    """
+    from escalas.services.escalas import quadro_service
+
+    body = body or ss.StaffingIn(weekly_hours=None, shift_hours=None)
+    return {"data": quadro_service.staffing(db, p, scenario_id, body)}
+
+
+@router.get("/scenarios/{scenario_id}/rest-report", response_model=Envelope[ss.RestReportOut])
+def rest_report(scenario_id: uuid.UUID, p: Current, db: DB, month: MonthQ,
+                weekly_rest_days: Annotated[float | None, Query(ge=0, le=7)] = None,
+                max_consecutive_days: Annotated[int | None, Query(ge=1, le=31)] = None
+                ) -> object:
+    """v3.9 — folgas e indicadores por colaborador no mês e pendências de fechamento.
+
+    Folgas mínimas = ``floor(dias × folgas/semana ÷ 7)`` (padrão: folgas do regime do
+    cenário), dias consecutivos (com a sequência que vem do mês anterior), domingos,
+    feriados e noites trabalhados, equidade e índice de cobertura por dia/turno.
+    """
+    from escalas.services.escalas import quadro_service
+
+    return {"data": quadro_service.rest_report(db, p, scenario_id, month, weekly_rest_days,
+                                               max_consecutive_days)}
+
+
 @router.post("/scenarios/{scenario_id}/optimize", response_model=Envelope[ss.OptimizeOut],
              tags=["optimize"])
 def optimize(scenario_id: uuid.UUID, body: ss.OptimizeIn, p: Current, db: DB) -> object:

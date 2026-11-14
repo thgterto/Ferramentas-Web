@@ -103,6 +103,29 @@
         "title": "Body_import_slots_api_v1_escalas_demand_curves__curve_id__slots_import_post",
         "type": "object"
       },
+      "ClosingBlocker": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "count",
+          "message"
+        ],
+        "title": "ClosingBlocker",
+        "type": "object"
+      },
       "ComplianceRuleOut": {
         "properties": {
           "code": {
@@ -1320,6 +1343,18 @@
         "title": "Envelope[PositionOut]",
         "type": "object"
       },
+      "Envelope_RestReportOut_": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/RestReportOut"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "title": "Envelope[RestReportOut]",
+        "type": "object"
+      },
       "Envelope_RoleOut_": {
         "properties": {
           "data": {
@@ -1438,6 +1473,18 @@
           "data"
         ],
         "title": "Envelope[SlotsSummary]",
+        "type": "object"
+      },
+      "Envelope_StaffingOut_": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/StaffingOut"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "title": "Envelope[StaffingOut]",
         "type": "object"
       },
       "Envelope_StructureOut_": {
@@ -1702,6 +1749,66 @@
           "data"
         ],
         "title": "Envelope[list[TeamOut]]",
+        "type": "object"
+      },
+      "EquityOut": {
+        "properties": {
+          "index": {
+            "default": "0.000000",
+            "description": "1 − desvio-padrão ÷ média (1 = distribuição igual)",
+            "examples": [
+              "0.200000"
+            ],
+            "pattern": "^-?\\d+(\\.\\d{1,6})?$",
+            "title": "Index",
+            "type": "string"
+          },
+          "max": {
+            "default": "0.000000",
+            "examples": [
+              "0.200000"
+            ],
+            "pattern": "^-?\\d+(\\.\\d{1,6})?$",
+            "title": "Max",
+            "type": "string"
+          },
+          "mean": {
+            "default": "0.000000",
+            "examples": [
+              "0.200000"
+            ],
+            "pattern": "^-?\\d+(\\.\\d{1,6})?$",
+            "title": "Mean",
+            "type": "string"
+          },
+          "metric": {
+            "enum": [
+              "rest_days",
+              "sundays_worked",
+              "holidays_worked",
+              "nights",
+              "hours"
+            ],
+            "title": "Metric",
+            "type": "string"
+          },
+          "min": {
+            "default": "0.000000",
+            "examples": [
+              "0.200000"
+            ],
+            "pattern": "^-?\\d+(\\.\\d{1,6})?$",
+            "title": "Min",
+            "type": "string"
+          }
+        },
+        "required": [
+          "metric",
+          "min",
+          "max",
+          "mean"
+        ],
+        "title": "EquityOut",
         "type": "object"
       },
       "ErrorBody": {
@@ -5659,6 +5766,253 @@
         "title": "PreviewSlot",
         "type": "object"
       },
+      "RestCoverage": {
+        "properties": {
+          "coverage_index_mean": {
+            "anyOf": [
+              {
+                "default": "0.000000",
+                "examples": [
+                  "0.200000"
+                ],
+                "pattern": "^-?\\d+(\\.\\d{1,6})?$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Coverage Index Mean"
+          },
+          "coverage_index_min": {
+            "anyOf": [
+              {
+                "default": "0.000000",
+                "examples": [
+                  "0.200000"
+                ],
+                "pattern": "^-?\\d+(\\.\\d{1,6})?$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "menor pessoas ÷ necessário por dia e turno (< 1 = déficit)",
+            "title": "Coverage Index Min"
+          },
+          "days_with_deficit": {
+            "title": "Days With Deficit",
+            "type": "integer"
+          },
+          "deficit_hours": {
+            "title": "Deficit Hours",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "deficit_hours",
+          "days_with_deficit",
+          "coverage_index_min",
+          "coverage_index_mean"
+        ],
+        "title": "RestCoverage",
+        "type": "object"
+      },
+      "RestPerson": {
+        "properties": {
+          "alerts": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Alerts",
+            "type": "array"
+          },
+          "holidays_worked": {
+            "title": "Holidays Worked",
+            "type": "integer"
+          },
+          "hours": {
+            "default": "0.000000",
+            "examples": [
+              "0.200000"
+            ],
+            "pattern": "^-?\\d+(\\.\\d{1,6})?$",
+            "title": "Hours",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "max_consecutive_days": {
+            "title": "Max Consecutive Days",
+            "type": "integer"
+          },
+          "min_rest_days": {
+            "title": "Min Rest Days",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "nights": {
+            "title": "Nights",
+            "type": "integer"
+          },
+          "pending_rest_days": {
+            "title": "Pending Rest Days",
+            "type": "integer"
+          },
+          "rest_days": {
+            "title": "Rest Days",
+            "type": "integer"
+          },
+          "role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role"
+          },
+          "sundays_worked": {
+            "title": "Sundays Worked",
+            "type": "integer"
+          },
+          "team": {
+            "title": "Team",
+            "type": "string"
+          },
+          "weekends_off": {
+            "title": "Weekends Off",
+            "type": "integer"
+          },
+          "worked_days": {
+            "title": "Worked Days",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "team",
+          "worked_days",
+          "rest_days",
+          "min_rest_days",
+          "pending_rest_days",
+          "max_consecutive_days",
+          "hours",
+          "sundays_worked",
+          "holidays_worked",
+          "nights",
+          "weekends_off",
+          "alerts"
+        ],
+        "title": "RestPerson",
+        "type": "object"
+      },
+      "RestReportOut": {
+        "properties": {
+          "blockers": {
+            "items": {
+              "$ref": "#/components/schemas/ClosingBlocker"
+            },
+            "title": "Blockers",
+            "type": "array"
+          },
+          "can_close": {
+            "title": "Can Close",
+            "type": "boolean"
+          },
+          "coverage": {
+            "$ref": "#/components/schemas/RestCoverage"
+          },
+          "equity": {
+            "items": {
+              "$ref": "#/components/schemas/EquityOut"
+            },
+            "title": "Equity",
+            "type": "array"
+          },
+          "generated_people": {
+            "title": "Generated People",
+            "type": "boolean"
+          },
+          "month": {
+            "title": "Month",
+            "type": "string"
+          },
+          "people": {
+            "items": {
+              "$ref": "#/components/schemas/RestPerson"
+            },
+            "title": "People",
+            "type": "array"
+          },
+          "rule": {
+            "$ref": "#/components/schemas/RestRule"
+          }
+        },
+        "required": [
+          "month",
+          "generated_people",
+          "rule",
+          "people",
+          "equity",
+          "coverage",
+          "can_close",
+          "blockers"
+        ],
+        "title": "RestReportOut",
+        "type": "object"
+      },
+      "RestRule": {
+        "properties": {
+          "legal_regime": {
+            "title": "Legal Regime",
+            "type": "string"
+          },
+          "max_consecutive_days": {
+            "title": "Max Consecutive Days",
+            "type": "integer"
+          },
+          "min_rest_days_month": {
+            "title": "Min Rest Days Month",
+            "type": "integer"
+          },
+          "source": {
+            "enum": [
+              "informado",
+              "regime"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
+          "weekly_rest_days": {
+            "default": "0.000000",
+            "examples": [
+              "0.200000"
+            ],
+            "pattern": "^-?\\d+(\\.\\d{1,6})?$",
+            "title": "Weekly Rest Days",
+            "type": "string"
+          }
+        },
+        "required": [
+          "weekly_rest_days",
+          "max_consecutive_days",
+          "min_rest_days_month",
+          "source",
+          "legal_regime"
+        ],
+        "title": "RestRule",
+        "type": "object"
+      },
       "RoleCoverageKpi": {
         "properties": {
           "deficit_post_hours": {
@@ -7457,6 +7811,349 @@
           "night_slots"
         ],
         "title": "SlotsSummary",
+        "type": "object"
+      },
+      "StaffingComponent": {
+        "properties": {
+          "code": {
+            "enum": [
+              "ferias",
+              "feriados",
+              "absenteismo",
+              "treinamento",
+              "passagem"
+            ],
+            "title": "Code",
+            "type": "string"
+          },
+          "hours_per_year": {
+            "default": "0.000000",
+            "examples": [
+              "0.200000"
+            ],
+            "pattern": "^-?\\d+(\\.\\d{1,6})?$",
+            "title": "Hours Per Year",
+            "type": "string"
+          },
+          "rate": {
+            "default": "0.000000",
+            "examples": [
+              "0.200000"
+            ],
+            "pattern": "^-?\\d+(\\.\\d{1,6})?$",
+            "title": "Rate",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "rate",
+          "hours_per_year"
+        ],
+        "title": "StaffingComponent",
+        "type": "object"
+      },
+      "StaffingIn": {
+        "additionalProperties": false,
+        "properties": {
+          "absenteeism_pct": {
+            "anyOf": [
+              {
+                "exclusiveMaximum": 0.6,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "default": "0",
+            "description": "faltas, atestados e licenças (fração 0..0,6)",
+            "title": "Absenteeism Pct"
+          },
+          "handover_min": {
+            "anyOf": [
+              {
+                "maximum": 120.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "default": "0",
+            "description": "minutos de passagem de turno por jornada",
+            "title": "Handover Min"
+          },
+          "holidays_days": {
+            "anyOf": [
+              {
+                "maximum": 30.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "default": "0",
+            "description": "feriados não trabalhados por ano",
+            "title": "Holidays Days"
+          },
+          "shift_hours": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "maximum": 24.0,
+                "type": "number"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "jornada diária; padrão = duração do turno do modelo",
+            "title": "Shift Hours"
+          },
+          "training_hours": {
+            "anyOf": [
+              {
+                "maximum": 500.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "default": "0",
+            "description": "horas de treinamento por ano",
+            "title": "Training Hours"
+          },
+          "vacation_days": {
+            "anyOf": [
+              {
+                "maximum": 60.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "default": "30",
+            "description": "dias corridos de férias por ano",
+            "title": "Vacation Days"
+          },
+          "weekly_hours": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "maximum": 60.0,
+                "type": "number"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "horas semanais por pessoa; padrão = média do modelo",
+            "title": "Weekly Hours"
+          }
+        },
+        "title": "StaffingIn",
+        "type": "object"
+      },
+      "StaffingOut": {
+        "properties": {
+          "components": {
+            "items": {
+              "$ref": "#/components/schemas/StaffingComponent"
+            },
+            "title": "Components",
+            "type": "array"
+          },
+          "contracted_hours_year": {
+            "default": "0.000000",
+            "examples": [
+              "0.200000"
+            ],
+            "pattern": "^-?\\d+(\\.\\d{1,6})?$",
+            "title": "Contracted Hours Year",
+            "type": "string"
+          },
+          "coverage_factor": {
+            "default": "0.000000",
+            "description": "horas anuais do posto ÷ horas úteis por pessoa",
+            "examples": [
+              "0.200000"
+            ],
+            "pattern": "^-?\\d+(\\.\\d{1,6})?$",
+            "title": "Coverage Factor",
+            "type": "string"
+          },
+          "headcount_current": {
+            "title": "Headcount Current",
+            "type": "integer"
+          },
+          "headcount_gap": {
+            "description": "recomendado − atual (positivo = faltam pessoas)",
+            "title": "Headcount Gap",
+            "type": "integer"
+          },
+          "headcount_min": {
+            "description": "ceil(horas-posto/semana ÷ horas semanais)",
+            "title": "Headcount Min",
+            "type": "integer"
+          },
+          "headcount_recommended": {
+            "description": "ceil(mínima ÷ (1 − indisponibilidade))",
+            "title": "Headcount Recommended",
+            "type": "integer"
+          },
+          "legal_regime": {
+            "title": "Legal Regime",
+            "type": "string"
+          },
+          "legal_weekly_hours": {
+            "default": "0.000000",
+            "examples": [
+              "0.200000"
+            ],
+            "pattern": "^-?\\d+(\\.\\d{1,6})?$",
+            "title": "Legal Weekly Hours",
+            "type": "string"
+          },
+          "net_hours_year": {
+            "default": "0.000000",
+            "examples": [
+              "0.200000"
+            ],
+            "pattern": "^-?\\d+(\\.\\d{1,6})?$",
+            "title": "Net Hours Year",
+            "type": "string"
+          },
+          "people_per_post": {
+            "anyOf": [
+              {
+                "default": "0.000000",
+                "examples": [
+                  "0.200000"
+                ],
+                "pattern": "^-?\\d+(\\.\\d{1,6})?$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "fator por posto simultâneo médio",
+            "title": "People Per Post"
+          },
+          "post_hours_week": {
+            "default": "0.000000",
+            "examples": [
+              "0.200000"
+            ],
+            "pattern": "^-?\\d+(\\.\\d{1,6})?$",
+            "title": "Post Hours Week",
+            "type": "string"
+          },
+          "post_hours_year": {
+            "default": "0.000000",
+            "examples": [
+              "0.200000"
+            ],
+            "pattern": "^-?\\d+(\\.\\d{1,6})?$",
+            "title": "Post Hours Year",
+            "type": "string"
+          },
+          "reserve": {
+            "title": "Reserve",
+            "type": "integer"
+          },
+          "shift_hours": {
+            "default": "0.000000",
+            "examples": [
+              "0.200000"
+            ],
+            "pattern": "^-?\\d+(\\.\\d{1,6})?$",
+            "title": "Shift Hours",
+            "type": "string"
+          },
+          "simultaneous_posts_avg": {
+            "default": "0.000000",
+            "examples": [
+              "0.200000"
+            ],
+            "pattern": "^-?\\d+(\\.\\d{1,6})?$",
+            "title": "Simultaneous Posts Avg",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "suficiente",
+              "sem_reserva",
+              "insuficiente"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "unavailability_rate": {
+            "default": "0.000000",
+            "examples": [
+              "0.200000"
+            ],
+            "pattern": "^-?\\d+(\\.\\d{1,6})?$",
+            "title": "Unavailability Rate",
+            "type": "string"
+          },
+          "weekly_hours": {
+            "default": "0.000000",
+            "examples": [
+              "0.200000"
+            ],
+            "pattern": "^-?\\d+(\\.\\d{1,6})?$",
+            "title": "Weekly Hours",
+            "type": "string"
+          },
+          "weekly_hours_source": {
+            "enum": [
+              "informado",
+              "modelo",
+              "regime"
+            ],
+            "title": "Weekly Hours Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "post_hours_week",
+          "post_hours_year",
+          "simultaneous_posts_avg",
+          "weekly_hours",
+          "weekly_hours_source",
+          "shift_hours",
+          "contracted_hours_year",
+          "net_hours_year",
+          "unavailability_rate",
+          "components",
+          "people_per_post",
+          "headcount_min",
+          "headcount_recommended",
+          "reserve",
+          "headcount_current",
+          "headcount_gap",
+          "status",
+          "legal_regime",
+          "legal_weekly_hours"
+        ],
+        "title": "StaffingOut",
         "type": "object"
       },
       "StructureOut": {
@@ -15371,6 +16068,151 @@
         ]
       }
     },
+    "/api/v1/escalas/scenarios/{scenario_id}/rest-report": {
+      "get": {
+        "description": "v3.9 — folgas e indicadores por colaborador no mês e pendências de fechamento.\n\nFolgas mínimas = ``floor(dias × folgas/semana ÷ 7)`` (padrão: folgas do regime do\ncenário), dias consecutivos (com a sequência que vem do mês anterior), domingos,\nferiados e noites trabalhados, equidade e índice de cobertura por dia/turno.",
+        "operationId": "rest_report_api_v1_escalas_scenarios__scenario_id__rest_report_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "scenario_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Scenario Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "month",
+            "required": true,
+            "schema": {
+              "examples": [
+                "2027-01"
+              ],
+              "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+              "title": "Month",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "weekly_rest_days",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 7.0,
+                  "minimum": 0.0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Weekly Rest Days"
+            }
+          },
+          {
+            "in": "query",
+            "name": "max_consecutive_days",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 31,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Max Consecutive Days"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-organization-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Organization-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_RestReportOut_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "unauthenticated"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "not_found (inclui outro tenant)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "validation_error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Rest Report",
+        "tags": [
+          "scenarios"
+        ]
+      }
+    },
     "/api/v1/escalas/scenarios/{scenario_id}/simulate": {
       "post": {
         "description": "Síncrono no MVP (200): M1 demanda → M2 gerador → M3 cobertura → M4 viabilidade.",
@@ -15592,6 +16434,119 @@
           }
         ],
         "summary": "Sizing",
+        "tags": [
+          "scenarios"
+        ]
+      }
+    },
+    "/api/v1/escalas/scenarios/{scenario_id}/staffing": {
+      "post": {
+        "description": "v3.9 — calculadora de quadro: horas do posto × horas úteis por colaborador.\n\nTaxa de indisponibilidade decomposta (férias, feriados, absenteísmo, treinamento,\npassagem), equipe mínima, equipe recomendada e fator de cobertura; compara com o\nquadro atual do cenário.",
+        "operationId": "staffing_api_v1_escalas_scenarios__scenario_id__staffing_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "scenario_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Scenario Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-organization-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Organization-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/StaffingIn"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_StaffingOut_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "unauthenticated"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "not_found (inclui outro tenant)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "validation_error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Staffing",
         "tags": [
           "scenarios"
         ]

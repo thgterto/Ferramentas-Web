@@ -451,6 +451,112 @@ class MonthlyMatrixOut(BaseModel):
     generated_people_note: str | None = None
 
 
+# ---- v3.9: calculadora de quadro e folgas por colaborador ----------------------------------
+class StaffingIn(In):
+    weekly_hours: Decimal | None = Field(
+        None, gt=0, le=60, description="horas semanais por pessoa; padrão = média do modelo")
+    shift_hours: Decimal | None = Field(
+        None, gt=0, le=24, description="jornada diária; padrão = duração do turno do modelo")
+    vacation_days: Decimal = Field(default=Decimal(30), ge=0, le=60,
+                                   description="dias corridos de férias por ano")
+    holidays_days: Decimal = Field(default=Decimal(0), ge=0, le=30,
+                                   description="feriados não trabalhados por ano")
+    absenteeism_pct: Decimal = Field(default=Decimal(0), ge=0, lt=Decimal("0.6"),
+                                     description="faltas, atestados e licenças (fração 0..0,6)")
+    training_hours: Decimal = Field(default=Decimal(0), ge=0, le=500,
+                                    description="horas de treinamento por ano")
+    handover_min: Decimal = Field(default=Decimal(0), ge=0, le=120,
+                                  description="minutos de passagem de turno por jornada")
+
+
+class StaffingComponent(BaseModel):
+    code: Literal["ferias", "feriados", "absenteismo", "treinamento", "passagem"]
+    rate: Dec6
+    hours_per_year: Dec6
+
+
+class StaffingOut(BaseModel):
+    post_hours_week: Dec6
+    post_hours_year: Dec6
+    simultaneous_posts_avg: Dec6
+    weekly_hours: Dec6
+    weekly_hours_source: Literal["informado", "modelo", "regime"]
+    shift_hours: Dec6
+    contracted_hours_year: Dec6
+    net_hours_year: Dec6
+    unavailability_rate: Dec6
+    components: list[StaffingComponent]
+    coverage_factor: Dec6 = Field(description="horas anuais do posto ÷ horas úteis por pessoa")
+    people_per_post: Dec6 | None = Field(description="fator por posto simultâneo médio")
+    headcount_min: int = Field(description="ceil(horas-posto/semana ÷ horas semanais)")
+    headcount_recommended: int = Field(description="ceil(mínima ÷ (1 − indisponibilidade))")
+    reserve: int
+    headcount_current: int
+    headcount_gap: int = Field(description="recomendado − atual (positivo = faltam pessoas)")
+    status: Literal["suficiente", "sem_reserva", "insuficiente"]
+    legal_regime: str
+    legal_weekly_hours: Dec6
+
+
+class RestRule(BaseModel):
+    weekly_rest_days: Dec6
+    max_consecutive_days: int
+    min_rest_days_month: int
+    source: Literal["informado", "regime"]
+    legal_regime: str
+
+
+class RestPerson(BaseModel):
+    id: str
+    name: str
+    team: str
+    role: str | None = None
+    worked_days: int
+    rest_days: int
+    min_rest_days: int
+    pending_rest_days: int
+    max_consecutive_days: int
+    hours: Dec6
+    sundays_worked: int
+    holidays_worked: int
+    nights: int
+    weekends_off: int
+    alerts: list[str]
+
+
+class EquityOut(BaseModel):
+    metric: Literal["rest_days", "sundays_worked", "holidays_worked", "nights", "hours"]
+    min: Dec6
+    max: Dec6
+    mean: Dec6
+    index: Dec6 = Field(description="1 − desvio-padrão ÷ média (1 = distribuição igual)")
+
+
+class RestCoverage(BaseModel):
+    deficit_hours: int
+    days_with_deficit: int
+    coverage_index_min: Dec6 | None = Field(
+        description="menor pessoas ÷ necessário por dia e turno (< 1 = déficit)")
+    coverage_index_mean: Dec6 | None
+
+
+class ClosingBlocker(BaseModel):
+    code: str
+    count: int
+    message: str
+
+
+class RestReportOut(BaseModel):
+    month: str
+    generated_people: bool
+    rule: RestRule
+    people: list[RestPerson]
+    equity: list[EquityOut]
+    coverage: RestCoverage
+    can_close: bool
+    blockers: list[ClosingBlocker]
+
+
 # ---- v3.7: otimizadores ------------------------------------------------------------------
 Objective = Literal["min_headcount", "offsets", "best_model", "pool_allocation", "fairness"]
 

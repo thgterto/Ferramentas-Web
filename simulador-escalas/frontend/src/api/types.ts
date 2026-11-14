@@ -771,6 +771,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/escalas/scenarios/{scenario_id}/rest-report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Rest Report
+         * @description v3.9 — folgas e indicadores por colaborador no mês e pendências de fechamento.
+         *
+         *     Folgas mínimas = ``floor(dias × folgas/semana ÷ 7)`` (padrão: folgas do regime do
+         *     cenário), dias consecutivos (com a sequência que vem do mês anterior), domingos,
+         *     feriados e noites trabalhados, equidade e índice de cobertura por dia/turno.
+         */
+        get: operations["rest_report_api_v1_escalas_scenarios__scenario_id__rest_report_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/escalas/scenarios/{scenario_id}/simulate": {
         parameters: {
             query?: never;
@@ -805,6 +829,30 @@ export interface paths {
          * @description K*, headcount mínimo com/sem reserva e K legal do regime (folguistas: Fase 2).
          */
         post: operations["sizing_api_v1_escalas_scenarios__scenario_id__sizing_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/escalas/scenarios/{scenario_id}/staffing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Staffing
+         * @description v3.9 — calculadora de quadro: horas do posto × horas úteis por colaborador.
+         *
+         *     Taxa de indisponibilidade decomposta (férias, feriados, absenteísmo, treinamento,
+         *     passagem), equipe mínima, equipe recomendada e fator de cobertura; compara com o
+         *     quadro atual do cenário.
+         */
+        post: operations["staffing_api_v1_escalas_scenarios__scenario_id__staffing_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1202,6 +1250,15 @@ export interface components {
              * Format: binary
              */
             file: string;
+        };
+        /** ClosingBlocker */
+        ClosingBlocker: {
+            /** Code */
+            code: string;
+            /** Count */
+            count: number;
+            /** Message */
+            message: string;
         };
         /** ComplianceRuleOut */
         ComplianceRuleOut: {
@@ -1607,6 +1664,10 @@ export interface components {
         Envelope_PositionOut_: {
             data: components["schemas"]["PositionOut"];
         };
+        /** Envelope[RestReportOut] */
+        Envelope_RestReportOut_: {
+            data: components["schemas"]["RestReportOut"];
+        };
         /** Envelope[RoleOut] */
         Envelope_RoleOut_: {
             data: components["schemas"]["RoleOut"];
@@ -1646,6 +1707,10 @@ export interface components {
         /** Envelope[SlotsSummary] */
         Envelope_SlotsSummary_: {
             data: components["schemas"]["SlotsSummary"];
+        };
+        /** Envelope[StaffingOut] */
+        Envelope_StaffingOut_: {
+            data: components["schemas"]["StaffingOut"];
         };
         /** Envelope[StructureOut] */
         Envelope_StructureOut_: {
@@ -1730,6 +1795,35 @@ export interface components {
         Envelope_list_TeamOut__: {
             /** Data */
             data: components["schemas"]["TeamOut"][];
+        };
+        /** EquityOut */
+        EquityOut: {
+            /**
+             * Index
+             * @description 1 − desvio-padrão ÷ média (1 = distribuição igual)
+             * @default 0.000000
+             */
+            index: string;
+            /**
+             * Max
+             * @default 0.000000
+             */
+            max: string;
+            /**
+             * Mean
+             * @default 0.000000
+             */
+            mean: string;
+            /**
+             * Metric
+             * @enum {string}
+             */
+            metric: "rest_days" | "sundays_worked" | "holidays_worked" | "nights" | "hours";
+            /**
+             * Min
+             * @default 0.000000
+             */
+            min: string;
         };
         /** ErrorBody */
         ErrorBody: {
@@ -3094,6 +3188,92 @@ export interface components {
             /** Slot Index */
             slot_index: number;
         };
+        /** RestCoverage */
+        RestCoverage: {
+            /** Coverage Index Mean */
+            coverage_index_mean: string | null;
+            /**
+             * Coverage Index Min
+             * @description menor pessoas ÷ necessário por dia e turno (< 1 = déficit)
+             */
+            coverage_index_min: string | null;
+            /** Days With Deficit */
+            days_with_deficit: number;
+            /** Deficit Hours */
+            deficit_hours: number;
+        };
+        /** RestPerson */
+        RestPerson: {
+            /** Alerts */
+            alerts: string[];
+            /** Holidays Worked */
+            holidays_worked: number;
+            /**
+             * Hours
+             * @default 0.000000
+             */
+            hours: string;
+            /** Id */
+            id: string;
+            /** Max Consecutive Days */
+            max_consecutive_days: number;
+            /** Min Rest Days */
+            min_rest_days: number;
+            /** Name */
+            name: string;
+            /** Nights */
+            nights: number;
+            /** Pending Rest Days */
+            pending_rest_days: number;
+            /** Rest Days */
+            rest_days: number;
+            /** Role */
+            role?: string | null;
+            /** Sundays Worked */
+            sundays_worked: number;
+            /** Team */
+            team: string;
+            /** Weekends Off */
+            weekends_off: number;
+            /** Worked Days */
+            worked_days: number;
+        };
+        /** RestReportOut */
+        RestReportOut: {
+            /** Blockers */
+            blockers: components["schemas"]["ClosingBlocker"][];
+            /** Can Close */
+            can_close: boolean;
+            coverage: components["schemas"]["RestCoverage"];
+            /** Equity */
+            equity: components["schemas"]["EquityOut"][];
+            /** Generated People */
+            generated_people: boolean;
+            /** Month */
+            month: string;
+            /** People */
+            people: components["schemas"]["RestPerson"][];
+            rule: components["schemas"]["RestRule"];
+        };
+        /** RestRule */
+        RestRule: {
+            /** Legal Regime */
+            legal_regime: string;
+            /** Max Consecutive Days */
+            max_consecutive_days: number;
+            /** Min Rest Days Month */
+            min_rest_days_month: number;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "informado" | "regime";
+            /**
+             * Weekly Rest Days
+             * @default 0.000000
+             */
+            weekly_rest_days: string;
+        };
         /** RoleCoverageKpi */
         RoleCoverageKpi: {
             /**
@@ -3751,6 +3931,159 @@ export interface components {
             night_slots: number;
             /** Slot Count */
             slot_count: number;
+        };
+        /** StaffingComponent */
+        StaffingComponent: {
+            /**
+             * Code
+             * @enum {string}
+             */
+            code: "ferias" | "feriados" | "absenteismo" | "treinamento" | "passagem";
+            /**
+             * Hours Per Year
+             * @default 0.000000
+             */
+            hours_per_year: string;
+            /**
+             * Rate
+             * @default 0.000000
+             */
+            rate: string;
+        };
+        /** StaffingIn */
+        StaffingIn: {
+            /**
+             * Absenteeism Pct
+             * @description faltas, atestados e licenças (fração 0..0,6)
+             * @default 0
+             */
+            absenteeism_pct: number | string;
+            /**
+             * Handover Min
+             * @description minutos de passagem de turno por jornada
+             * @default 0
+             */
+            handover_min: number | string;
+            /**
+             * Holidays Days
+             * @description feriados não trabalhados por ano
+             * @default 0
+             */
+            holidays_days: number | string;
+            /**
+             * Shift Hours
+             * @description jornada diária; padrão = duração do turno do modelo
+             */
+            shift_hours?: number | string | null;
+            /**
+             * Training Hours
+             * @description horas de treinamento por ano
+             * @default 0
+             */
+            training_hours: number | string;
+            /**
+             * Vacation Days
+             * @description dias corridos de férias por ano
+             * @default 30
+             */
+            vacation_days: number | string;
+            /**
+             * Weekly Hours
+             * @description horas semanais por pessoa; padrão = média do modelo
+             */
+            weekly_hours?: number | string | null;
+        };
+        /** StaffingOut */
+        StaffingOut: {
+            /** Components */
+            components: components["schemas"]["StaffingComponent"][];
+            /**
+             * Contracted Hours Year
+             * @default 0.000000
+             */
+            contracted_hours_year: string;
+            /**
+             * Coverage Factor
+             * @description horas anuais do posto ÷ horas úteis por pessoa
+             * @default 0.000000
+             */
+            coverage_factor: string;
+            /** Headcount Current */
+            headcount_current: number;
+            /**
+             * Headcount Gap
+             * @description recomendado − atual (positivo = faltam pessoas)
+             */
+            headcount_gap: number;
+            /**
+             * Headcount Min
+             * @description ceil(horas-posto/semana ÷ horas semanais)
+             */
+            headcount_min: number;
+            /**
+             * Headcount Recommended
+             * @description ceil(mínima ÷ (1 − indisponibilidade))
+             */
+            headcount_recommended: number;
+            /** Legal Regime */
+            legal_regime: string;
+            /**
+             * Legal Weekly Hours
+             * @default 0.000000
+             */
+            legal_weekly_hours: string;
+            /**
+             * Net Hours Year
+             * @default 0.000000
+             */
+            net_hours_year: string;
+            /**
+             * People Per Post
+             * @description fator por posto simultâneo médio
+             */
+            people_per_post: string | null;
+            /**
+             * Post Hours Week
+             * @default 0.000000
+             */
+            post_hours_week: string;
+            /**
+             * Post Hours Year
+             * @default 0.000000
+             */
+            post_hours_year: string;
+            /** Reserve */
+            reserve: number;
+            /**
+             * Shift Hours
+             * @default 0.000000
+             */
+            shift_hours: string;
+            /**
+             * Simultaneous Posts Avg
+             * @default 0.000000
+             */
+            simultaneous_posts_avg: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "suficiente" | "sem_reserva" | "insuficiente";
+            /**
+             * Unavailability Rate
+             * @default 0.000000
+             */
+            unavailability_rate: string;
+            /**
+             * Weekly Hours
+             * @default 0.000000
+             */
+            weekly_hours: string;
+            /**
+             * Weekly Hours Source
+             * @enum {string}
+             */
+            weekly_hours_source: "informado" | "modelo" | "regime";
         };
         /** StructureOut */
         StructureOut: {
@@ -8230,6 +8563,70 @@ export interface operations {
             };
         };
     };
+    rest_report_api_v1_escalas_scenarios__scenario_id__rest_report_get: {
+        parameters: {
+            query: {
+                month: string;
+                weekly_rest_days?: number | null;
+                max_consecutive_days?: number | null;
+            };
+            header?: {
+                "x-organization-id"?: string | null;
+            };
+            path: {
+                scenario_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_RestReportOut_"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description not_found (inclui outro tenant) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description validation_error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     simulate_api_v1_escalas_scenarios__scenario_id__simulate_post: {
         parameters: {
             query?: never;
@@ -8318,6 +8715,70 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Envelope_SizingOut_"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description not_found (inclui outro tenant) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description validation_error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    staffing_api_v1_escalas_scenarios__scenario_id__staffing_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-organization-id"?: string | null;
+            };
+            path: {
+                scenario_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["StaffingIn"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_StaffingOut_"];
                 };
             };
             /** @description unauthenticated */

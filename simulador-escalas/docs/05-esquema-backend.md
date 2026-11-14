@@ -1779,3 +1779,10 @@ RETURNING *;
 | POST | `/operations/{id}/employees:assign-teams` | `{scenario_id, apply, only_unassigned}` → turmas, vagas, quem faz noite, atribuições |
 
 Otimizador `pool_allocation` agora devolve `scenario_patch = {params: {pool_allocation}}` aplicável por `POST /scenarios/{id}/optimize/apply`; a matriz expõe `pool_allocation_applied`.
+
+### v3.9 — calculadora de quadro e folgas (sem migração)
+
+| Método | Rota | Entrada → saída |
+|---|---|---|
+| POST | `/scenarios/{id}/staffing` | `{weekly_hours?, shift_hours?, vacation_days=30, holidays_days=0, absenteeism_pct=0, training_hours=0, handover_min=0}` → `StaffingOut` (horas do posto, taxa e componentes, equipe mínima/recomendada, fator de cobertura, quadro atual, `status`) |
+| GET | `/scenarios/{id}/rest-report?month=YYYY-MM&weekly_rest_days=&max_consecutive_days=` | `RestReportOut` (regra, indicadores por pessoa, equidade, índice de cobertura, `can_close`, `blockers`); 409 se o cenário não foi simulado |

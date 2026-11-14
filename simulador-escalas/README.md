@@ -1,4 +1,4 @@
-# Simulador de Cobertura de Escalas 24/7 (v3.8)
+# Simulador de Cobertura de Escalas 24/7 (v3.9)
 
 App independente dentro do repositório Ferramentas-Web (o app de atas continua em `../backend` e `../frontend`).
 

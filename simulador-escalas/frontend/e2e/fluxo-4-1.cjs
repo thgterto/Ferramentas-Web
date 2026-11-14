@@ -195,6 +195,25 @@ async function main() {
   await page.getByRole('table', { name: /Calendário de A-01 em 2027-01/ }).waitFor()
   step('visões "Por turno" e "Pessoa"')
 
+  // v3.9: calculadora de quadro (horas do posto × horas úteis) e folgas/fechamento do mês
+  await page.getByRole('tab', { name: 'Equipe e folgas' }).click()
+  const stStatus = page.getByTestId('staffing-status')
+  await stStatus.waitFor()
+  // 3 postos 24/7 = 504 h-posto/sem ÷ 42 h = 12; com 30 dias de férias → ceil(12 ÷ 0,918) = 14
+  assert.match(await stStatus.textContent(), /faltam 2 pessoa\(s\)/)
+  await page.getByLabel('Absenteísmo (%)').fill('8')
+  await page.getByRole('button', { name: 'Calcular quadro' }).click()
+  await page.getByText(/faltam 3 pessoa\(s\)/).waitFor()
+  const closing = page.getByTestId('closing-status')
+  await closing.waitFor()
+  assert.equal(await page.getByRole('table', { name: 'Folgas por colaborador' }).locator('tbody tr').count(), 12)
+  await page.getByLabel('Folgas por semana').selectOption('3')
+  await page.getByText(/pessoa\(s\) com folgas pendentes/).waitFor()
+  assert.match(await closing.textContent(), /pendências de fechamento/)
+  if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'equipe-folgas.png'), fullPage: true })
+  step('equipe e folgas: quadro mínimo × recomendado e pendências de fechamento')
+  await page.getByRole('tab', { name: 'Quadro de turnos' }).click()
+
   // v3.8: tela de colaboradores — importação (com relatório de erros), alocação automática
   // às turmas do cenário e matriz mensal com os nomes reais
   const scenUrl = page.url()

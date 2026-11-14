@@ -454,6 +454,15 @@ Identidade usada nos testes: para modelo exato, `K*_modelo ≥ K_legal` ⇔ `h/s
 - **e. Fairness**: (b) com objetivo secundário de equilibrar domingos de folga e noites entre as turmas.
 - Regras do regime como **restrições duras opcionais** (toggle): modelo não conforme → status `inviavel_regime`.
 
+### 6.1.5 Calculadora de quadro, folgas por colaborador e fechamento (v3.9, FR-51–53)
+
+Demanda de cobertura, disponibilidade líquida do colaborador e restrições legais são variáveis separadas.
+
+- **FR-51 Calculadora de quadro:** `horas-posto/semana` = soma da curva 168 h (dentro da janela de operação); `taxa de indisponibilidade` = férias (dias/365) + feriados não trabalhados (dias × jornada ÷ horas contratadas/ano) + absenteísmo + treinamento (h ÷ horas contratadas/ano) + passagem de turno (min ÷ jornada), rejeitada se ≥ 60 %; `equipe mínima = ceil(horas-posto/semana ÷ horas semanais por pessoa)`; `equipe recomendada = ceil(equipe mínima ÷ (1 − taxa))`; `fator de cobertura = horas anuais do posto ÷ horas úteis anuais por pessoa`. Horas semanais por pessoa: padrão = média do modelo do cenário (informável). Compara com o quadro atual: `suficiente` / `sem_reserva` / `insuficiente`. Aceite: 2 postos 24/7, 42 h, 16 % → 8 e 10; 1 posto com 1.728 h úteis → fator 5,07 → 6. A indisponibilidade entra uma única vez (na recomendada).
+- **FR-52 Folgas e indicadores por colaborador (mês):** `folgas mínimas = floor(dias do mês × folgas por semana ÷ 7)` (padrão: folgas do regime do cenário; informável — 2/semana ⇒ 8 em qualquer mês); `folgas pendentes = max(0, mínimas − concedidas)`; maior sequência de dias trabalhados (contando a que vem do mês anterior; limite padrão 6, informável); horas, domingos, feriados e noites trabalhados, fins de semana livres; **índice de equidade** `1 − desvio-padrão ÷ média` por indicador; **índice de cobertura** `pessoas ÷ necessário` por dia e turno (pior e média). Reserva (`R`) é presença, não folga.
+- **FR-53 Fechamento:** a escala do mês só está "pronta para fechar" sem `FOL_FOLGAS_PENDENTES`, `FOL_DIAS_CONSECUTIVOS` e `FOL_COBERTURA_ABAIXO_MINIMA`. É um indicador: não altera o status do cenário.
+- **Fora desta versão:** afastamentos por pessoa (férias/licenças datadas), folgas compensatórias e custo/hora extra projetados.
+
 ### 6.1.4 Colaboradores, 6x1 corrigido e 5x1 (v3.8, FR-50)
 
 - **FR-50 Cadastro de colaboradores:** matrícula (única na operação), nome, cargo, habilidades/certificações, subsetor de lotação, posição padrão, turma, admissão, jornada contratual (h/sem), restrições (`nao_noturno`, `nao_fim_de_semana`, `nao_12h`, `nao_hora_extra`), pools que pode cobrir, status ativo/inativo; busca e filtros; importação CSV/XLSX com relatório de erros por linha (tudo-ou-nada) e exportação; alocação automática às turmas respeitando cargo e restrições; a matriz mensal usa as pessoas reais e cai para fictícias só nas turmas sem cadastro. A alocação do otimizador de pools (FR-49) pode ser aplicada ao cenário.
@@ -543,6 +552,9 @@ Resolvida: **Q7** (persistência) → PostgreSQL 16 (decisão do `02-TRD.md` / `
 | `COB_EXCESSO` | INFO | FR-09 |
 | `COB_PASSAGEM_PLANEJADA` | INFO | FR-45 (v3.6) — excesso explicado por passagem de turno / reforço de pico |
 | `COB_REMANEJAMENTO_SUBSETOR` | INFO | FR-48 (v3.7) — horas-pessoa remanejadas entre subsetores do pool; mensagem traz déficit sem pool → com pool |
+| `FOL_FOLGAS_PENDENTES` | bloqueio de fechamento | FR-52/53 (v3.9) — pessoas com menos folgas no mês que o mínimo |
+| `FOL_DIAS_CONSECUTIVOS` | bloqueio de fechamento | FR-52/53 (v3.9) — pessoas acima do máximo de dias consecutivos de trabalho |
+| `FOL_COBERTURA_ABAIXO_MINIMA` | bloqueio de fechamento | FR-53 (v3.9) — horas do mês com cobertura abaixo da mínima |
 | `COB_DEFICIT_SUBSETOR` | ALERTA | FR-48 (v3.7) — déficit em um subsetor depois do remanejamento |
 | `COB_FURO_INTERVALO` | ALERTA | FR-10 |
 | `COB_DEFICIT_ESPERADO_SHRINKAGE` | ALERTA | FR-11 |

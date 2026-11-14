@@ -31,11 +31,13 @@ import { presenceAtSlot, presenceByHour } from '../api/schedule'
 import { ScheduleViews } from '../components/ScheduleViews'
 import { OptimizePanel } from '../components/OptimizePanel'
 import { SubsectorPanel } from '../components/SubsectorPanel'
+import { RestReport, StaffingCalculator } from '../components/StaffPanel'
 import type { StructureOut } from '../api/client'
 
 const TABS = [
   ['cobertura', 'Cobertura'],
   ['quadro', 'Quadro de turnos'],
+  ['equipe', 'Equipe e folgas'],
   ['escala', 'Escala'],
   ['viabilidade', 'Viabilidade'],
   ['transicao', 'Simular transição'],
@@ -283,6 +285,12 @@ export default function ResultPage() {
               <ScheduleViews scenarioId={id} assignments={aQ.data ?? []} teams={sc.teams} shifts={sc.shifts} start={sc.horizon_start} weeks={sc.horizon_weeks} roles={(rolesQ.data?.data ?? []).map((r) => ({ code: r.code, name: r.name }))} />
             )}
           </div>
+        )}
+        {calculated && tab === 'equipe' && (
+          <>
+            <StaffingCalculator scenarioId={id} />
+            <RestReport scenarioId={id} start={sc.horizon_start} />
+          </>
         )}
         {calculated && tab === 'escala' && (
           <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_380px]">

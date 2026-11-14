@@ -34,6 +34,19 @@ Este é um **simulador operacional**. A pergunta central é: **"minha operação
 
 ## Registro de revisão
 
+### Revisão v3.9 — calculadora de quadro, folgas por colaborador e fechamento
+
+**Pedido:** incorporar a teoria de cálculo de folgas e cobertura (dimensionamento por horas, indisponibilidade prevista, folgas como restrição de agenda, indicadores de saída).
+
+| Item | Entrega |
+|---|---|
+| Calculadora de quadro (FR-51) | `engine/quadro.py` + `POST /scenarios/{id}/staffing`: indisponibilidade decomposta, equipe mínima × recomendada, fator de cobertura, comparação com o quadro atual. |
+| Folgas e indicadores (FR-52) | `engine/folgas.py` + `GET /scenarios/{id}/rest-report`: folgas mínimas/pendentes, dias consecutivos, domingos/feriados/noites, equidade e índice de cobertura por dia/turno. |
+| Fechamento (FR-53) | "Pronta para fechar" só sem folgas pendentes, sem excesso de dias consecutivos e sem déficit; indicador, não bloqueia o cenário. |
+| Tela | T4 aba **Equipe e folgas** (`components/StaffPanel.tsx`). |
+| Já coberto antes | Cobertura/déficit/sobra hora a hora, K\*, regime legal (carga, folgas/7 d, 6x1, 12x36), interjornada, DSR, matriz mensal. |
+| Em aberto | Afastamentos datados por pessoa, folga compensatória, HE e custo projetados. O material do pedido dá a EC como promulgada (2 folgas/semana na média mensal); os regimes seguem `status: premissa` até a confirmação do texto (Q14) — o relatório de folgas já aceita 2/semana como parâmetro. |
+
 ### Revisão v3.8 — pasta própria, colaboradores, 6x1 corrigido, 5x1 e versão portable
 
 **Pedido:** "Mova o aplicativo para uma pasta própria dentro do repo. Faça a tela de colaboradores, corrija a 6x1, inclua 5x1 e prepare uma versão portable."
