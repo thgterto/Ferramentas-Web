@@ -42,37 +42,47 @@ def test_staffing_padrao_e_horas_informadas(ctx: Ctx) -> None:
     assert alto.status_code == 422
 
 
-def test_rest_report_6x2(ctx: Ctx) -> None:
+def test_rest_report_6x2_abaixo_do_minimo_de_2_folgas(ctx: Ctx) -> None:
     sid = _sim(ctx)
     r = ctx.get(f"/scenarios/{sid}/rest-report?month=2027-02")
     assert r.status_code == 200, r.text
     d = r.json()["data"]
-    assert d["rule"] == {"weekly_rest_days": "1.000000", "max_consecutive_days": 6,
-                         "min_rest_days_month": 4, "source": "regime",
+    # piso do produto: 2 folgas semanais (8 no mês), mesmo com o regime de 44 h no cenário
+    assert d["rule"] == {"weekly_rest_days": "2.000000", "max_consecutive_days": 6,
+                         "min_rest_days_month": 8, "source": "minimo",
                          "legal_regime": "CLT_44H_ATUAL@1"}
-    assert len(d["people"]) == 12 and d["can_close"] is True and d["blockers"] == []
+    assert len(d["people"]) == 12
     for pe in d["people"]:
         assert pe["worked_days"] + pe["rest_days"] == 28 and pe["rest_days"] in (6, 7, 8)
-        assert pe["pending_rest_days"] == 0 and pe["max_consecutive_days"] == 6
-        assert pe["alerts"] == []
+        assert pe["max_consecutive_days"] == 6
+    assert sum(pe["rest_days"] for pe in d["people"]) == 12 * 7      # 2 folgas a cada 8 dias
+    assert d["can_close"] is False
+    assert [b["code"] for b in d["blockers"]] == ["FOL_FOLGAS_PENDENTES"]
+    assert {pe["pending_rest_days"] for pe in d["people"]} == {0, 2}
+    assert d["blockers"][0]["count"] == sum(1 for pe in d["people"] if pe["rest_days"] < 8)
     assert d["coverage"]["deficit_hours"] == 0
     assert d["coverage"]["coverage_index_min"] == "1.000000"
     eq = {e["metric"]: e for e in d["equity"]}
     assert set(eq) == {"rest_days", "sundays_worked", "holidays_worked", "nights", "hours"}
     assert eq["rest_days"]["mean"] == "7.000000" and 0.8 < float(eq["rest_days"]["index"]) < 1
-    assert sum(pe["rest_days"] for pe in d["people"]) == 12 * 7      # 2 folgas a cada 8 dias
-    # exigindo 2 folgas/semana na média mensal (8 no mês): turmas com 6 folgas ficam pendentes
-    r2 = ctx.get(f"/scenarios/{sid}/rest-report",
-                 params={"month": "2027-02", "weekly_rest_days": 2})
-    d2 = r2.json()["data"]
-    assert d2["rule"]["source"] == "informado" and d2["rule"]["min_rest_days_month"] == 8
-    assert d2["can_close"] is False
-    assert [b["code"] for b in d2["blockers"]] == ["FOL_FOLGAS_PENDENTES"]
-    assert {pe["pending_rest_days"] for pe in d2["people"]} == {0, 2}
-    assert d2["blockers"][0]["count"] == sum(1 for pe in d2["people"] if pe["rest_days"] < 8)
     r3 = ctx.get(f"/scenarios/{sid}/rest-report",
                  params={"month": "2027-02", "max_consecutive_days": 5}).json()["data"]
-    assert [b["code"] for b in r3["blockers"]] == ["FOL_DIAS_CONSECUTIVOS"]
+    assert "FOL_DIAS_CONSECUTIVOS" in [b["code"] for b in r3["blockers"]]
+    # o parâmetro só aumenta a exigência: abaixo de 2 é rejeitado
+    assert ctx.get(f"/scenarios/{sid}/rest-report",
+                   params={"month": "2027-02", "weekly_rest_days": 1}).status_code == 422
+
+
+def test_rest_report_modelo_com_mais_folgas_fecha(ctx: Ctx) -> None:
+    sid = _sim(ctx, model="4X2", teams=5)        # 2 folgas a cada 6 dias = 2,33/semana
+    d = ctx.get(f"/scenarios/{sid}/rest-report?month=2027-02").json()["data"]
+    assert d["rule"]["min_rest_days_month"] == 8 and d["blockers"] == []
+    assert d["can_close"] is True
+    assert all(pe["rest_days"] >= 8 and pe["pending_rest_days"] == 0 for pe in d["people"])
+    d3 = ctx.get(f"/scenarios/{sid}/rest-report",
+                 params={"month": "2027-02", "weekly_rest_days": 3}).json()["data"]
+    assert d3["rule"]["source"] == "informado" and d3["rule"]["min_rest_days_month"] == 12
+    assert [b["code"] for b in d3["blockers"]] == ["FOL_FOLGAS_PENDENTES"]
 
 
 def test_rest_report_deficit_bloqueia(ctx: Ctx) -> None:

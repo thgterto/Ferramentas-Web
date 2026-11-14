@@ -782,8 +782,9 @@ export interface paths {
          * Rest Report
          * @description v3.9 — folgas e indicadores por colaborador no mês e pendências de fechamento.
          *
-         *     Folgas mínimas = ``floor(dias × folgas/semana ÷ 7)`` (padrão: folgas do regime do
-         *     cenário), dias consecutivos (com a sequência que vem do mês anterior), domingos,
+         *     Folgas mínimas = ``floor(dias × folgas/semana ÷ 7)`` (piso de 2 folgas semanais;
+         *     ``weekly_rest_days`` só aumenta a exigência), dias consecutivos (com a sequência
+         *     que vem do mês anterior), domingos,
          *     feriados e noites trabalhados, equidade e índice de cobertura por dia/turno.
          */
         get: operations["rest_report_api_v1_escalas_scenarios__scenario_id__rest_report_get"];
@@ -3265,9 +3266,10 @@ export interface components {
             min_rest_days_month: number;
             /**
              * Source
+             * @description minimo = piso de 2 folgas semanais (ou o do regime, se maior)
              * @enum {string}
              */
-            source: "informado" | "regime";
+            source: "informado" | "minimo";
             /**
              * Weekly Rest Days
              * @default 0.000000

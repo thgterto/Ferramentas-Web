@@ -172,13 +172,14 @@ def staffing(scenario_id: uuid.UUID, p: Current, db: DB,
 
 @router.get("/scenarios/{scenario_id}/rest-report", response_model=Envelope[ss.RestReportOut])
 def rest_report(scenario_id: uuid.UUID, p: Current, db: DB, month: MonthQ,
-                weekly_rest_days: Annotated[float | None, Query(ge=0, le=7)] = None,
+                weekly_rest_days: Annotated[float | None, Query(ge=2, le=6)] = None,
                 max_consecutive_days: Annotated[int | None, Query(ge=1, le=31)] = None
                 ) -> object:
     """v3.9 — folgas e indicadores por colaborador no mês e pendências de fechamento.
 
-    Folgas mínimas = ``floor(dias × folgas/semana ÷ 7)`` (padrão: folgas do regime do
-    cenário), dias consecutivos (com a sequência que vem do mês anterior), domingos,
+    Folgas mínimas = ``floor(dias × folgas/semana ÷ 7)`` (piso de 2 folgas semanais;
+    ``weekly_rest_days`` só aumenta a exigência), dias consecutivos (com a sequência
+    que vem do mês anterior), domingos,
     feriados e noites trabalhados, equidade e índice de cobertura por dia/turno.
     """
     from escalas.services.escalas import quadro_service

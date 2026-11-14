@@ -160,7 +160,7 @@ def test_catalogo_e_regras(ctx: Ctx) -> None:
 
 
 def test_transicao_gt_reg_05(ctx: Ctx) -> None:
-    """10 postos 24/7, 6x2 4T → 40/40/45 (05 §5.5, GT-REG-05)."""
+    """10 postos 24/7, 6x2 4T → 40/45/45 (05 §5.5, GT-REG-05; v3.9: 2 folgas já no 42 h)."""
     ids = setup_operation(ctx, postos=10)
     r = ctx.post(f"/scenarios/{ids['scenario']}/transition",
                  json={"regimes": ["CLT_44H_ATUAL", "TRANSICAO_42H", "PEC_40H"],
@@ -171,7 +171,10 @@ def test_transicao_gt_reg_05(ctx: Ctx) -> None:
     assert [p["k_legal"] for p in ph] == ["4.000000", "4.000000", "5.000000"]
     assert ph[2]["k_legal_half_teams"] == "4.500000"
     assert [p["scenario_model"]["headcount"] for p in ph] == [40, 40, 40]
-    assert [p["scenario_model"]["compliant"] for p in ph] == [True, True, False]
+    assert [p["scenario_model"]["compliant"] for p in ph] == [True, False, False]
+    assert "CLT_FOLGAS_SEMANAIS_INSUFICIENTES" in {
+        f["rule_code"] for f in ph[1]["scenario_model"]["findings"]}
+    assert ph[1]["recommended"]["code"] == "4X2"
     pec = {f["rule_code"] for f in ph[2]["scenario_model"]["findings"]}
     assert {"CLT_CARGA_SEMANAL_EXCEDIDA", "CLT_FOLGAS_SEMANAIS_INSUFICIENTES"} <= pec
     rec = ph[2]["recommended"]

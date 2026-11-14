@@ -24,13 +24,13 @@ regimes:
 
   - codigo: TRANSICAO_42H
     versao: 1
-    nome: "Transição — 42 h semanais (premissa PL3)"
+    nome: "Transição — 42 h semanais e 2 folgas (premissa PL3)"
     status: premissa
     valid_from: {d0: {dias: 60}}
     valid_to: {d0: {meses: 14, menos_um_dia: true}}
     carga_semanal_max_min: 2520
     jornada_diaria_max_min: 480
-    folgas_semanais_min: "1"
+    folgas_semanais_min: "2"
     criterio_folgas: media_ciclo
     permite_6x1: false
     compensacao_act: true

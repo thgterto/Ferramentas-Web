@@ -20,7 +20,7 @@ def _ciclo(seq: str, n: int) -> list[bool]:
 
 def test_folgas_minimas_media_mensal() -> None:
     assert [FG.folgas_minimas_mes(d, F(2)) for d in (28, 29, 30, 31)] == [8, 8, 8, 8]
-    assert FG.folgas_minimas_mes(31, F(1)) == 4 and FG.folgas_minimas_mes(30, F(3)) == 12
+    assert FG.folgas_minimas_mes(30, F(3)) == 12 and FG.RegraFolgas().folgas_semana == 2
 
 
 def test_5x2_cumpre_duas_folgas() -> None:
@@ -34,9 +34,16 @@ def test_5x2_cumpre_duas_folgas() -> None:
 def test_6x1_fica_com_folgas_pendentes() -> None:
     ind = FG.indicadores(_ciclo("XXXXXXF", 28), [False] * 28, _mes(), set(), FG.RegraFolgas())
     assert (ind.folgas, ind.folgas_pendentes, ind.max_consecutivos) == (4, 4, 6)
-    um = FG.indicadores(_ciclo("XXXXXXF", 28), [False] * 28, _mes(), set(),
-                        FG.RegraFolgas(F(1)))
-    assert um.folgas_pendentes == 0
+
+
+def test_modelo_com_mais_folgas_e_valido_e_pode_ser_exigido() -> None:
+    quatro_tres = _ciclo("XXXXFFF", 28)
+    assert FG.indicadores(quatro_tres, [False] * 28, _mes(), set(),
+                          FG.RegraFolgas()).folgas_pendentes == 0
+    assert FG.indicadores(quatro_tres, [False] * 28, _mes(), set(),
+                          FG.RegraFolgas(F(3))).folgas_pendentes == 0
+    assert FG.indicadores(_ciclo("XXXXXFF", 28), [False] * 28, _mes(), set(),
+                          FG.RegraFolgas(F(3))).folgas_pendentes == 4
 
 
 def test_consecutivos_atravessam_o_mes() -> None:
@@ -79,6 +86,8 @@ def test_bloqueios_de_fechamento() -> None:
 def test_indice_cobertura_e_validacao() -> None:
     assert FG.indice_cobertura(2, 3) == F(2, 3) and FG.indice_cobertura(3, 0) is None
     with pytest.raises(ValueError):
-        FG.RegraFolgas(F(8))
+        FG.RegraFolgas(F(1))            # abaixo do piso de 2 folgas semanais
+    with pytest.raises(ValueError):
+        FG.RegraFolgas(F(7))
     with pytest.raises(ValueError):
         FG.indicadores([True], [False, False], _mes(1), set(), FG.RegraFolgas())

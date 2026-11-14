@@ -120,7 +120,7 @@ def rest_report(db: Session, p: Principal, sid: uuid.UUID, month: str,
     regime = svc._regime(db, svc._get(db, p, sid))
     regra = FG.RegraFolgas(
         Fraction(str(weekly_rest_days)) if weekly_rest_days is not None
-        else regime.folgas_semanais_min,
+        else max(FG.FOLGAS_SEMANA_MINIMO, regime.folgas_semanais_min),
         max_consecutive_days or FG.RegraFolgas().max_consecutivos)
     antes: dict[str, int] = {}
     try:
@@ -171,7 +171,7 @@ def rest_report(db: Session, p: Principal, sid: uuid.UUID, month: str,
             weekly_rest_days=svc.D(regra.folgas_semana),
             max_consecutive_days=regra.max_consecutivos,
             min_rest_days_month=FG.folgas_minimas_mes(len(dias), regra.folgas_semana),
-            source="informado" if weekly_rest_days is not None else "regime",
+            source="informado" if weekly_rest_days is not None else "minimo",
             legal_regime=regime.ref),
         people=people, equity=equity,
         coverage=ss.RestCoverage(

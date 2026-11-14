@@ -51,7 +51,7 @@ const person = (id: string, over: Record<string, unknown> = {}) => ({
 const REST = {
   month: '2027-02',
   generated_people: true,
-  rule: { weekly_rest_days: '2.000000', max_consecutive_days: 6, min_rest_days_month: 8, source: 'informado', legal_regime: 'CLT_44H_ATUAL@1' },
+  rule: { weekly_rest_days: '2.000000', max_consecutive_days: 6, min_rest_days_month: 8, source: 'minimo', legal_regime: 'CLT_44H_ATUAL@1' },
   people: [person('A-01'), person('B-01', { rest_days: 8, pending_rest_days: 0, alerts: [] })],
   equity: [{ metric: 'rest_days', min: '7.000000', max: '8.000000', mean: '7.500000', index: '0.933333' }],
   coverage: { deficit_hours: 0, days_with_deficit: 0, coverage_index_min: '1.000000', coverage_index_mean: '1.000000' },
@@ -87,8 +87,8 @@ describe('Equipe e folgas (v3.9)', () => {
     expect(within(t).getByText('A-01').closest('tr')).toHaveTextContent('✕ 1')
     expect(within(t).getByText('B-01').closest('tr')).not.toHaveTextContent('✕')
     expect(calls[0].url).toBe('/scenarios/sc1/rest-report?month=2027-02')
-    fireEvent.change(screen.getByLabelText('Folgas por semana'), { target: { value: '2' } })
-    await waitFor(() => expect(calls.at(-1)!.url).toContain('weekly_rest_days=2'))
+    fireEvent.change(screen.getByLabelText('Folgas por semana'), { target: { value: '3' } })
+    await waitFor(() => expect(calls.at(-1)!.url).toContain('weekly_rest_days=3'))
     expect(await axeViolations(container)).toEqual([])
   })
 })

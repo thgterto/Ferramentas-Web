@@ -108,7 +108,7 @@ modelos:
       - {nome: "4 turmas", turmas: 4}
     esperado: {k_estrela: "4", exato: true, turmas_inteiras: 4, horas_semanais: ["42"],
                folgas_7d: "7/4", ciclo_calendario: 56}
-    regime_compliance: {"480": {CLT_44H_ATUAL: conforme, TRANSICAO_42H: conforme, PEC_40H: nao_conforme}}   # PRD §6.2 (FR-42)
+    regime_compliance: {"480": {CLT_44H_ATUAL: conforme, TRANSICAO_42H: nao_conforme, PEC_40H: nao_conforme}}   # PRD §6.2 (FR-42)
 
   - codigo: 4X2
     nome: "4x2"
@@ -204,7 +204,7 @@ modelos:
     esperado: {k_estrela: "18/5", exato: false, exato_meias: false, turmas_inteiras: 6,
                excesso: "2/3", horas_semanais: ["140/3", "385/9", "42"], folgas_7d: "7/6",
                ciclo_calendario: 42, divisor_exato: 5, n_fracoes: 18}
-    regime_compliance: {"480": {CLT_44H_ATUAL: nao_conforme, TRANSICAO_42H: nao_conforme, PEC_40H: nao_conforme}, "440": {CLT_44H_ATUAL: conforme, TRANSICAO_42H: nao_conforme, PEC_40H: nao_conforme}, "432": {CLT_44H_ATUAL: conforme, TRANSICAO_42H: conforme, PEC_40H: nao_conforme}}   # calculado (FR-42) e conferido por pytest -k regime
+    regime_compliance: {"480": {CLT_44H_ATUAL: nao_conforme, TRANSICAO_42H: nao_conforme, PEC_40H: nao_conforme}, "440": {CLT_44H_ATUAL: conforme, TRANSICAO_42H: nao_conforme, PEC_40H: nao_conforme}, "432": {CLT_44H_ATUAL: conforme, TRANSICAO_42H: nao_conforme, PEC_40H: nao_conforme}}   # calculado (FR-42) e conferido por pytest -k regime
 
   - codigo: 5X1_DIURNO
     nome: "5x1 rotativo diurno (7h12)"
@@ -225,7 +225,7 @@ modelos:
     esperado: {k_estrela: "6/5", exato: false, exato_meias: false, turmas_inteiras: 2,
                excesso: "2/3", horas_semanais: ["42"], folgas_7d: "7/6",
                ciclo_calendario: 42, divisor_exato: 5, n_fracoes: 6}
-    regime_compliance: {"432": {CLT_44H_ATUAL: conforme, TRANSICAO_42H: conforme, PEC_40H: nao_conforme}}   # calculado (FR-42) e conferido por pytest -k regime
+    regime_compliance: {"432": {CLT_44H_ATUAL: conforme, TRANSICAO_42H: nao_conforme, PEC_40H: nao_conforme}}   # calculado (FR-42) e conferido por pytest -k regime
 
   - codigo: 6X3
     nome: "6x3"
@@ -253,7 +253,7 @@ modelos:
       - {nome: "4 turmas", turmas: 4}
     esperado: {k_estrela: "4", exato: true, turmas_inteiras: 4, horas_semanais: ["42"],
                folgas_7d: "7/4", ciclo_calendario: 28}
-    regime_compliance: {"480": {CLT_44H_ATUAL: conforme, TRANSICAO_42H: conforme, PEC_40H: nao_conforme}}   # calculado (FR-42) e conferido por pytest -k regime
+    regime_compliance: {"480": {CLT_44H_ATUAL: conforme, TRANSICAO_42H: nao_conforme, PEC_40H: nao_conforme}}   # calculado (FR-42) e conferido por pytest -k regime
 
   - codigo: 3X2
     nome: "3x2"
@@ -347,7 +347,7 @@ modelos:
       - {nome: "4 turmas", turmas: 4}
     esperado: {k_estrela: "4", exato: true, turmas_inteiras: 4, horas_semanais: ["42"],
                folgas_7d: "7/4", ciclo_calendario: 28}
-    regime_compliance: {"480": {CLT_44H_ATUAL: conforme, TRANSICAO_42H: conforme, PEC_40H: nao_conforme}}   # calculado (FR-42) e conferido por pytest -k regime
+    regime_compliance: {"480": {CLT_44H_ATUAL: conforme, TRANSICAO_42H: nao_conforme, PEC_40H: nao_conforme}}   # calculado (FR-42) e conferido por pytest -k regime
 
   - codigo: 12X60
     nome: "12x60"
@@ -450,7 +450,7 @@ modelos:
       - {nome: "4 turmas", turmas: 4}
     esperado: {k_estrela: "4", exato: true, turmas_inteiras: 4, horas_semanais: ["42"],
                folgas_7d: "7/4", ciclo_calendario: 56}
-    regime_compliance: {"480": {CLT_44H_ATUAL: conforme, TRANSICAO_42H: conforme, PEC_40H: nao_conforme}}   # calculado (FR-42) e conferido por pytest -k regime
+    regime_compliance: {"480": {CLT_44H_ATUAL: conforme, TRANSICAO_42H: nao_conforme, PEC_40H: nao_conforme}}   # calculado (FR-42) e conferido por pytest -k regime
 
   - codigo: ROT_TRAS
     nome: "Rotação para trás (N→T→M)"
@@ -465,7 +465,7 @@ modelos:
                folgas_7d: "7/4", ciclo_calendario: 56}
 
   # ---- não contínuos / complementares / variações (janela de operação) ------------------
-    regime_compliance: {"480": {CLT_44H_ATUAL: conforme, TRANSICAO_42H: conforme, PEC_40H: nao_conforme}}   # calculado (FR-42) e conferido por pytest -k regime
+    regime_compliance: {"480": {CLT_44H_ATUAL: conforme, TRANSICAO_42H: nao_conforme, PEC_40H: nao_conforme}}   # calculado (FR-42) e conferido por pytest -k regime
 
   - codigo: 5X2_COM
     nome: "5x2 comercial (seg–sex)"

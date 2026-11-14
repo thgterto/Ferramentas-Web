@@ -41,8 +41,11 @@ def test_gt_reg_01_6x2_pec_40h() -> None:
     assert a.contexto["excesso_h"] == "2.000000" and a.contexto["regime"] == "PEC_40H@1"
 
 
-def test_gt_reg_02_6x2_transicao_sem_achados() -> None:
-    assert _cods("6X2", "TRANSICAO_42H") == {}
+def test_gt_reg_02_6x2_transicao_folgas_insuficientes() -> None:
+    """v3.9: mínimo de 2 folgas semanais já no 42 h — 6x2 tem 1,75 folga/7 d."""
+    assert _cods("6X2", "TRANSICAO_42H") == {"CLT_FOLGAS_SEMANAIS_INSUFICIENTES": "ERRO"}
+    assert _cods("6X2", "CLT_44H_ATUAL") == {}
+    assert _cods("4X2", "TRANSICAO_42H") == {}          # 2,33 folgas/7 d: mais que o mínimo
 
 
 def test_gt_reg_03_6x1_7h20() -> None:
@@ -68,7 +71,7 @@ def test_v38_6x1_turno_fixo_repouso_35h_e_vedado_fora_do_44h(dur: int) -> None:
 @pytest.mark.parametrize(("dur", "h", "selos"), [
     (480, "140/3", ("nao_conforme", "nao_conforme", "nao_conforme")),
     (440, "385/9", ("conforme", "nao_conforme", "nao_conforme")),
-    (432, "42", ("conforme", "conforme", "nao_conforme")),
+    (432, "42", ("conforme", "nao_conforme", "nao_conforme")),
 ])
 def test_v38_5x1_carga_por_duracao(dur: int, h: str, selos: tuple[str, ...]) -> None:
     """5×8 h × 7/6 = 46,7 h (> 44 h); 7h20 → 42,8 h; 7h12 → 42 h."""
@@ -80,7 +83,8 @@ def test_v38_5x1_carga_por_duracao(dur: int, h: str, selos: tuple[str, ...]) -> 
 
 def test_v38_5x1_diurno_7h12_42h() -> None:
     assert CAT["5X1_DIURNO"].horas_semanais() == 42
-    assert _cods("5X1_DIURNO", "TRANSICAO_42H") == {}
+    assert _cods("5X1_DIURNO", "CLT_44H_ATUAL") == {}
+    assert "CLT_FOLGAS_SEMANAIS_INSUFICIENTES" in _cods("5X1_DIURNO", "TRANSICAO_42H")
     assert "CLT_FOLGAS_SEMANAIS_INSUFICIENTES" in _cods("5X1_DIURNO", "PEC_40H")
 
 
@@ -98,8 +102,8 @@ def test_gt_reg_04_5t_pec_40h_conforme() -> None:
 def test_gt_reg_05_transicao_10_postos() -> None:
     fases = simular_transicao(10, CAT, REG, modelo_cenario="6X2")
     assert [f.regime for f in fases] == ["CLT_44H_ATUAL", "TRANSICAO_42H", "PEC_40H"]
-    assert [f.recomendado.pessoas for f in fases if f.recomendado] == [40, 40, 45]
-    assert [f.recomendado.modelo for f in fases if f.recomendado] == ["6X2", "6X2", "4X2"]
+    assert [f.recomendado.pessoas for f in fases if f.recomendado] == [40, 45, 45]
+    assert [f.recomendado.modelo for f in fases if f.recomendado] == ["6X2", "4X2", "4X2"]
     assert fases[2].recomendado is not None and fases[2].recomendado.turmas == Fraction(9, 2)
     assert fases[2].limite_inferior_pessoas == 42
     cen = fases[2].cenario
@@ -160,7 +164,7 @@ def test_2x2_12h_jornada_diaria() -> None:
 
 def test_media_semanal_contratual() -> None:
     c = _cods("6X2", "TRANSICAO_42H", ctx=ContextoRegime(carga_contratual_min=2400))
-    assert c == {"CLT_MEDIA_SEMANAL": "ALERTA"}
+    assert c == {"CLT_MEDIA_SEMANAL": "ALERTA", "CLT_FOLGAS_SEMANAIS_INSUFICIENTES": "ERRO"}
 
 
 def test_base_computada_mostra_noturno() -> None:

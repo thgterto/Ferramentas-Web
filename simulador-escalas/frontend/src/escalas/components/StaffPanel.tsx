@@ -195,7 +195,7 @@ export function RestReport({ scenarioId, start }: { scenarioId: string; start: s
         <h2 id="folgas-titulo" className="text-h2 font-semibold">
           Folgas e fechamento do mês
         </h2>
-        <p className="text-caption text-ink-muted">Folgas mínimas do mês = dias × folgas por semana ÷ 7. A escala só fecha sem folgas pendentes, sem excesso de dias consecutivos e sem déficit de cobertura.</p>
+        <p className="text-caption text-ink-muted">Toda escala tem no mínimo 2 folgas semanais na média do mês (dias × folgas por semana ÷ 7); modelos com mais folgas são válidos. A escala só fecha sem folgas pendentes, sem excesso de dias consecutivos e sem déficit de cobertura.</p>
       </div>
       <div className="flex flex-wrap items-end gap-3">
         <div className="flex items-end gap-2" role="group" aria-label="Mês do relatório">
@@ -213,10 +213,9 @@ export function RestReport({ scenarioId, start }: { scenarioId: string; start: s
         <label className="flex flex-col text-caption text-ink-muted">
           Folgas por semana
           <select className={inputCls} value={weekly} onChange={(e) => setWeekly(e.target.value)}>
-            <option value="">Do regime do cenário</option>
-            <option value="1">1 por semana</option>
-            <option value="2">2 por semana</option>
+            <option value="">2 por semana (mínimo)</option>
             <option value="3">3 por semana</option>
+            <option value="4">4 por semana</option>
           </select>
         </label>
         <label className="flex flex-col text-caption text-ink-muted">
@@ -232,7 +231,7 @@ export function RestReport({ scenarioId, start }: { scenarioId: string; start: s
         </label>
         <span className="pb-2 text-caption text-ink-muted" aria-live="polite">
           {monthLabel(month)}
-          {d ? ` · mínimo de ${d.rule.min_rest_days_month} folgas (${fmt(d.rule.weekly_rest_days, 1)}/semana, ${d.rule.source === 'regime' ? `regime ${d.rule.legal_regime}` : 'informado'})` : ''}
+          {d ? ` · mínimo de ${d.rule.min_rest_days_month} folgas (${fmt(d.rule.weekly_rest_days, 1)}/semana, ${d.rule.source === 'minimo' ? 'mínimo das escalas' : 'exigência informada'})` : ''}
         </span>
       </div>
       <ErrorBox error={q.error} />

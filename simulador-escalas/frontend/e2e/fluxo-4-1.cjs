@@ -207,8 +207,9 @@ async function main() {
   const closing = page.getByTestId('closing-status')
   await closing.waitFor()
   assert.equal(await page.getByRole('table', { name: 'Folgas por colaborador' }).locator('tbody tr').count(), 12)
-  await page.getByLabel('Folgas por semana').selectOption('3')
+  // 6x2 = 1,75 folga/semana: abaixo do mínimo de 2 folgas semanais → pendência por padrão
   await page.getByText(/pessoa\(s\) com folgas pendentes/).waitFor()
+  assert.match(await page.getByText(/mínimo de 8 folgas/).textContent(), /mínimo das escalas/)
   assert.match(await closing.textContent(), /pendências de fechamento/)
   if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'equipe-folgas.png'), fullPage: true })
   step('equipe e folgas: quadro mínimo × recomendado e pendências de fechamento')

@@ -5986,9 +5986,10 @@
             "type": "integer"
           },
           "source": {
+            "description": "minimo = piso de 2 folgas semanais (ou o do regime, se maior)",
             "enum": [
               "informado",
-              "regime"
+              "minimo"
             ],
             "title": "Source",
             "type": "string"
@@ -16070,7 +16071,7 @@
     },
     "/api/v1/escalas/scenarios/{scenario_id}/rest-report": {
       "get": {
-        "description": "v3.9 — folgas e indicadores por colaborador no mês e pendências de fechamento.\n\nFolgas mínimas = ``floor(dias × folgas/semana ÷ 7)`` (padrão: folgas do regime do\ncenário), dias consecutivos (com a sequência que vem do mês anterior), domingos,\nferiados e noites trabalhados, equidade e índice de cobertura por dia/turno.",
+        "description": "v3.9 — folgas e indicadores por colaborador no mês e pendências de fechamento.\n\nFolgas mínimas = ``floor(dias × folgas/semana ÷ 7)`` (piso de 2 folgas semanais;\n``weekly_rest_days`` só aumenta a exigência), dias consecutivos (com a sequência\nque vem do mês anterior), domingos,\nferiados e noites trabalhados, equidade e índice de cobertura por dia/turno.",
         "operationId": "rest_report_api_v1_escalas_scenarios__scenario_id__rest_report_get",
         "parameters": [
           {
@@ -16103,8 +16104,8 @@
             "schema": {
               "anyOf": [
                 {
-                  "maximum": 7.0,
-                  "minimum": 0.0,
+                  "maximum": 6.0,
+                  "minimum": 2.0,
                   "type": "number"
                 },
                 {

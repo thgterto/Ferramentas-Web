@@ -25,15 +25,19 @@ FOL_FOLGAS_PENDENTES = "FOL_FOLGAS_PENDENTES"
 FOL_DIAS_CONSECUTIVOS = "FOL_DIAS_CONSECUTIVOS"
 FOL_COBERTURA_ABAIXO_MINIMA = "FOL_COBERTURA_ABAIXO_MINIMA"
 
+FOLGAS_SEMANA_MINIMO = Fraction(2)
+"""Piso do produto: toda escala tem pelo menos 2 folgas semanais na média mensal; modelos
+com mais folgas (4x3, 12x36, 5 turmas…) são válidos e podem ser exigidos como regra."""
+
 
 @dataclass(frozen=True, slots=True)
 class RegraFolgas:
-    folgas_semana: Fraction = Fraction(2)
+    folgas_semana: Fraction = FOLGAS_SEMANA_MINIMO
     max_consecutivos: int = 6
 
     def __post_init__(self) -> None:
-        if not 0 <= self.folgas_semana <= 7:
-            raise ValueError("folgas por semana fora de 0–7")
+        if not FOLGAS_SEMANA_MINIMO <= self.folgas_semana <= 6:
+            raise ValueError("folgas por semana fora de 2–6 (mínimo de 2 folgas semanais)")
         if not 1 <= self.max_consecutivos <= 31:
             raise ValueError("máximo de dias consecutivos fora de 1–31")
 

@@ -502,7 +502,8 @@ class RestRule(BaseModel):
     weekly_rest_days: Dec6
     max_consecutive_days: int
     min_rest_days_month: int
-    source: Literal["informado", "regime"]
+    source: Literal["informado", "minimo"] = Field(
+        description="minimo = piso de 2 folgas semanais (ou o do regime, se maior)")
     legal_regime: str
 
 

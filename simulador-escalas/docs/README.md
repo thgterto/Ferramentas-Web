@@ -45,7 +45,8 @@ Este é um **simulador operacional**. A pergunta central é: **"minha operação
 | Fechamento (FR-53) | "Pronta para fechar" só sem folgas pendentes, sem excesso de dias consecutivos e sem déficit; indicador, não bloqueia o cenário. |
 | Tela | T4 aba **Equipe e folgas** (`components/StaffPanel.tsx`). |
 | Já coberto antes | Cobertura/déficit/sobra hora a hora, K\*, regime legal (carga, folgas/7 d, 6x1, 12x36), interjornada, DSR, matriz mensal. |
-| Em aberto | Afastamentos datados por pessoa, folga compensatória, HE e custo projetados. O material do pedido dá a EC como promulgada (2 folgas/semana na média mensal); os regimes seguem `status: premissa` até a confirmação do texto (Q14) — o relatório de folgas já aceita 2/semana como parâmetro. |
+| Mínimo de 2 folgas semanais | Decisão do usuário: toda escala tem ≥ 2 folgas semanais; modelos com mais folgas são válidos. `TRANSICAO_42H` passa a exigir 2 (como `PEC_40H`); `6X2`, `5X1` 7h12, `5X1_DIURNO`, `3X1`, `CONTINENTAL_8H`, `ROT_FRENTE` e `ROT_TRAS` ficam não conformes no 42 h; GT-REG-02 e GT-REG-05 (40/45/45) atualizados; migração de dados `0007`. Relatório de folgas com piso 2 em qualquer regime. `CLT_44H_ATUAL` segue com 1 só como regime anterior (comparação da 6x1). |
+| Em aberto | Afastamentos datados por pessoa, folga compensatória, HE e custo projetados. Regimes seguem `status: premissa` até a confirmação do texto promulgado (Q14). |
 
 ### Revisão v3.8 — pasta própria, colaboradores, 6x1 corrigido, 5x1 e versão portable
 
